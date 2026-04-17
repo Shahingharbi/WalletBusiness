@@ -1,0 +1,74 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("business_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.business_id) {
+      return NextResponse.json(
+        { error: "Commerce introuvable" },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+
+    // Validation simple
+    if (!body.name || !body.name.trim()) {
+      return NextResponse.json(
+        { error: "Le nom de la carte est requis" },
+        { status: 422 }
+      );
+    }
+
+    const design = { ...DEFAULT_CARD_DESIGN, ...body.design };
+
+    const { data: card, error: insertError } = await supabase
+      .from("cards")
+      .insert({
+        business_id: profile.business_id,
+        card_type: body.type || "stamp",
+        name: body.name.trim(),
+        stamp_count: body.max_stamps || 8,
+        reward_text: body.reward_text || "Un repas offert !",
+        barcode_type: body.barcode_type || "qr",
+        expiration_type: body.expiration_type || "unlimited",
+        expiration_date: body.expiration_date || null,
+        expiration_days: body.expiration_days || null,
+        design,
+        status: "draft",
+      })
+      .select("id, name, status, stamp_count, card_type")
+      .single();
+
+    if (insertError) {
+      console.error("Card insert error:", insertError);
+      return NextResponse.json(
+        { error: "Erreur lors de la creation: " + insertError.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ card }, { status: 201 });
+  } catch (err) {
+    console.error("POST /api/cards error:", err);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+}
