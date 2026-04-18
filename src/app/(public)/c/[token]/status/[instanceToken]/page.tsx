@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
 import { StampDisplay } from "@/components/cards/stamp-display";
 import { formatRelative } from "@/lib/utils";
+import { isGoogleWalletConfigured } from "@/lib/google-wallet";
 import QRCode from "qrcode";
 
 export default async function CardStatusPage({
@@ -69,6 +70,8 @@ export default async function CardStatusPage({
       light: "#ffffff",
     },
   });
+
+  const googleWalletAvailable = isGoogleWalletConfigured();
 
   return (
     <div className="min-h-[80vh] flex flex-col">
@@ -165,6 +168,24 @@ export default async function CardStatusPage({
             Presentez ce code lors de votre prochain passage
           </p>
         </div>
+
+        {/* Wallet buttons */}
+        {googleWalletAvailable && (
+          <div className="flex flex-col gap-2 items-center">
+            <a
+              href={`/api/google-wallet/${instance.token}`}
+              className="inline-flex items-center gap-2 bg-black text-white text-sm font-medium px-5 h-12 rounded-full hover:bg-gray-900 transition-colors"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5l-3.5-3.5L9 11.5l2 2 4-4 1.5 1.5-5.5 5.5z"/>
+              </svg>
+              Ajouter a Google Wallet
+            </a>
+            <p className="text-[10px] text-gray-400 text-center">
+              Disponible sur Android. Sur iPhone, ajoutez cette page a votre ecran d&apos;accueil.
+            </p>
+          </div>
+        )}
 
         {/* Last scan */}
         {instance.last_scanned_at && (

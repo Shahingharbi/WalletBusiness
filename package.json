@@ -11,9 +11,12 @@
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.2",
+    "@types/jsonwebtoken": "^9.0.10",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "google-auth-library": "^10.6.2",
     "html5-qrcode": "^2.3.8",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.8.0",
     "next": "16.2.4",
     "qrcode": "^1.5.4",

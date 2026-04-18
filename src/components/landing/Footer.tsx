@@ -43,9 +43,12 @@ export function Footer() {
 
           <div>
             <h4 className="text-base font-semibold mb-4" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
-              Contact
+              Contact & legal
             </h4>
             <ul className="space-y-2">
+              <li><Link href="/contact" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>Contact</Link></li>
+              <li><Link href="/privacy" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>Confidentialite</Link></li>
+              <li><Link href="/terms" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>CGU</Link></li>
               <li>
                 <a href="mailto:contact@fidpass.fr" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>
                   contact@fidpass.fr
@@ -56,11 +59,11 @@ export function Footer() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
-          <p className="text-xs text-white/40">&copy; 2026 FidPass. Tous droits reserves.</p>
+          <p className="text-xs text-white/40">&copy; 2026 FidPass &middot; SIRET 903 950 210 00026 &middot; Edite par Shahin Gharbi</p>
           <div className="flex flex-wrap gap-4">
-            <a href="#" className="text-xs text-white/40 hover:text-white/70 transition-colors">Mentions legales</a>
-            <a href="#" className="text-xs text-white/40 hover:text-white/70 transition-colors">CGV</a>
-            <a href="#" className="text-xs text-white/40 hover:text-white/70 transition-colors">Confidentialite</a>
+            <Link href="/contact" className="text-xs text-white/40 hover:text-white/70 transition-colors">Contact</Link>
+            <Link href="/terms" className="text-xs text-white/40 hover:text-white/70 transition-colors">CGU</Link>
+            <Link href="/privacy" className="text-xs text-white/40 hover:text-white/70 transition-colors">Confidentialite</Link>
           </div>
         </div>
       </div>

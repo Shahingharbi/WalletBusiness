@@ -1,0 +1,81 @@
+import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
+import {
+  generateGoogleWalletPassUrl,
+  isGoogleWalletConfigured,
+} from "@/lib/google-wallet";
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ instanceToken: string }> }
+) {
+  try {
+    if (!isGoogleWalletConfigured()) {
+      return NextResponse.json(
+        { error: "Google Wallet n'est pas encore configure" },
+        { status: 503 }
+      );
+    }
+
+    const { instanceToken } = await params;
+    const supabase = createAdminClient();
+
+    const { data: instance, error } = await supabase
+      .from("card_instances")
+      .select(`
+        id, token, stamps_collected, rewards_available, status,
+        cards(id, name, stamp_count, reward_text, design, businesses(name, logo_url)),
+        clients(first_name, last_name)
+      `)
+      .eq("token", instanceToken)
+      .single();
+
+    if (error || !instance) {
+      return NextResponse.json({ error: "Carte introuvable" }, { status: 404 });
+    }
+
+    const card = instance.cards as unknown as {
+      id: string;
+      name: string;
+      stamp_count: number;
+      reward_text: string;
+      design: Record<string, unknown>;
+      businesses: { name: string; logo_url: string | null } | null;
+    };
+    const client = instance.clients as unknown as {
+      first_name: string | null;
+      last_name: string | null;
+    } | null;
+    const design = { ...DEFAULT_CARD_DESIGN, ...(card.design ?? {}) };
+
+    const businessName = card.businesses?.name ?? "Commerce";
+    const customerName =
+      `${client?.first_name ?? ""} ${client?.last_name ?? ""}`.trim() || "Client";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://wallet-business-blond.vercel.app";
+
+    const url = generateGoogleWalletPassUrl({
+      cardId: card.id,
+      cardName: card.name,
+      businessName,
+      customerName,
+      customerInstanceToken: instance.token,
+      stampsCollected: instance.stamps_collected,
+      stampsTotal: card.stamp_count,
+      rewardsAvailable: instance.rewards_available,
+      rewardText: card.reward_text,
+      bgColor: (design.accent_color as string) || "#10b981",
+      logoUrl: (design.logo_url as string | null) ?? card.businesses?.logo_url ?? null,
+      bannerUrl: (design.banner_url as string | null) ?? null,
+      appUrl,
+    });
+
+    return NextResponse.redirect(url);
+  } catch (err) {
+    console.error("GET /api/google-wallet error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Erreur" },
+      { status: 500 }
+    );
+  }
+}
