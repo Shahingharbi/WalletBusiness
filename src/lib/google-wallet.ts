@@ -14,6 +14,7 @@ interface PassParams {
   logoUrl?: string | null;
   bannerUrl?: string | null;
   appUrl: string;
+  barcodeType?: "qr" | "pdf417";
 }
 
 const ISSUER_ID = process.env.GOOGLE_WALLET_ISSUER_ID!;
@@ -82,7 +83,7 @@ function buildLoyaltyObject(p: PassParams) {
       label: "Recompenses",
     },
     barcode: {
-      type: "QR_CODE",
+      type: p.barcodeType === "pdf417" ? "PDF_417" : "QR_CODE",
       value: p.customerInstanceToken,
       alternateText: p.customerInstanceToken.slice(0, 8),
     },

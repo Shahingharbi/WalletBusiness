@@ -258,7 +258,7 @@ export default function NewCardPage() {
         </div>
 
         {/* Preview area */}
-        <div className="hidden lg:block lg:w-[40%]">
+        <div className="lg:w-[40%]">
           <div className="sticky top-6">
             <p className="text-sm font-medium text-gray-500 text-center mb-4">
               Apercu en direct
@@ -269,6 +269,7 @@ export default function NewCardPage() {
               rewardText={form.settings.rewardText || "Votre recompense"}
               design={form.design}
               cardType={form.type}
+              barcodeType={form.settings.barcodeType}
             />
           </div>
         </div>

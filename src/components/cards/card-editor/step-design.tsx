@@ -3,6 +3,8 @@
 import { Input } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
+import { STAMP_ICONS, type StampIconKey } from "@/lib/stamp-icons";
+import { cn } from "@/lib/utils";
 
 export type CardDesign = typeof DEFAULT_CARD_DESIGN;
 
@@ -43,10 +45,39 @@ function ColorField({
   );
 }
 
+const SHAPES: Array<{
+  key: CardDesign["stamp_shape"];
+  label: string;
+  cls: string;
+  style?: React.CSSProperties;
+}> = [
+  { key: "circle", label: "Rond", cls: "rounded-full" },
+  { key: "squircle", label: "Squircle", cls: "rounded-[35%]" },
+  { key: "shield", label: "Ecusson", cls: "rounded-t-full rounded-b-md" },
+  {
+    key: "star",
+    label: "Etoile",
+    cls: "",
+    style: {
+      clipPath:
+        "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)",
+    },
+  },
+  {
+    key: "hex",
+    label: "Hexagone",
+    cls: "",
+    style: { clipPath: "polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0% 50%)" },
+  },
+];
+
 export function StepDesign({ values, onChange }: StepDesignProps) {
   const update = <K extends keyof CardDesign>(key: K, val: CardDesign[K]) => {
     onChange({ ...values, [key]: val });
   };
+
+  const accent = values.accent_color || "#e53e3e";
+  const selectedIconKey = (values.stamp_icon || "check") as StampIconKey;
 
   return (
     <div className="space-y-6">
@@ -59,21 +90,9 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
 
       {/* Colors */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <ColorField
-          label="Couleur de fond"
-          value={values.background_color}
-          onChange={(v) => update("background_color", v)}
-        />
-        <ColorField
-          label="Couleur du texte"
-          value={values.text_color}
-          onChange={(v) => update("text_color", v)}
-        />
-        <ColorField
-          label="Couleur d'accent"
-          value={values.accent_color}
-          onChange={(v) => update("accent_color", v)}
-        />
+        <ColorField label="Couleur de fond" value={values.background_color} onChange={(v) => update("background_color", v)} />
+        <ColorField label="Couleur du texte" value={values.text_color} onChange={(v) => update("text_color", v)} />
+        <ColorField label="Couleur d'accent" value={values.accent_color} onChange={(v) => update("accent_color", v)} />
       </div>
 
       {/* Labels */}
@@ -100,13 +119,99 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
           onChange={(url) => update("logo_url", url)}
           folder="logos"
           aspect="square"
+          hint="Carre, fond transparent recommande"
         />
         <ImageUpload
-          label="Banniere"
+          label="Banniere / image de fond"
           value={values.banner_url}
           onChange={(url) => update("banner_url", url)}
           folder="banners"
           aspect="wide"
+          hint="Un voile sombre sera ajoute pour lisibilite"
+        />
+      </div>
+
+      {/* Stamp icon */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          Style de tampon
+        </label>
+        <div className="grid grid-cols-7 gap-2">
+          {(Object.entries(STAMP_ICONS) as Array<[StampIconKey, { label: string; Icon: React.FC<{ className?: string }> }]>).map(
+            ([key, { Icon, label }]) => {
+              const isSel = selectedIconKey === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => update("stamp_icon", key)}
+                  title={label}
+                  className={cn(
+                    "aspect-square rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer",
+                    isSel
+                      ? "border-black shadow-sm scale-105"
+                      : "border-gray-200 hover:border-gray-400 bg-white"
+                  )}
+                  style={isSel ? { backgroundColor: `${accent}12` } : undefined}
+                >
+                  <Icon className="h-5 w-5" />
+                </button>
+              );
+            }
+          )}
+        </div>
+      </div>
+
+      {/* Stamp shape */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          Forme du tampon
+        </label>
+        <div className="grid grid-cols-5 gap-2">
+          {SHAPES.map((s) => {
+            const isSel = values.stamp_shape === s.key;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => update("stamp_shape", s.key)}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 py-3 rounded-lg border-2 transition-all cursor-pointer",
+                  isSel
+                    ? "border-black shadow-sm"
+                    : "border-gray-200 hover:border-gray-400 bg-white"
+                )}
+              >
+                <div
+                  className={cn("h-7 w-7", s.cls)}
+                  style={{
+                    backgroundColor: accent,
+                    ...(s.style ?? {}),
+                  }}
+                />
+                <span className="text-[10px] text-gray-600">{s.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Custom stamp images (optional) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <ImageUpload
+          label="Tampon actif (image, optionnel)"
+          value={values.stamp_active_url}
+          onChange={(url) => update("stamp_active_url", url)}
+          folder="stamps"
+          aspect="square"
+          hint="Remplace le style ci-dessus"
+        />
+        <ImageUpload
+          label="Tampon vide (image, optionnel)"
+          value={values.stamp_inactive_url}
+          onChange={(url) => update("stamp_inactive_url", url)}
+          folder="stamps"
+          aspect="square"
         />
       </div>
     </div>

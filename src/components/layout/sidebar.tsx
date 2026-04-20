@@ -9,6 +9,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ScanLine,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ interface SidebarProps {
 const navItems = [
   { label: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
   { label: "Cartes", href: "/cards", icon: CreditCard },
+  { label: "Scanner", href: "/scanner", icon: ScanLine, highlight: true },
   { label: "Clients", href: "/clients", icon: Users },
   { label: "Parametres", href: "/settings", icon: Settings },
 ];
@@ -92,7 +94,9 @@ export function Sidebar({ user }: SidebarProps) {
                 "flex items-center gap-3 px-3 py-2.5 rounded-full text-sm transition-all duration-150",
                 isActive
                   ? "bg-yellow text-foreground font-semibold shadow-sm"
-                  : "text-foreground/70 hover:bg-beige-dark hover:text-foreground"
+                  : item.highlight
+                    ? "bg-foreground text-white hover:bg-foreground/90 font-semibold shadow-sm"
+                    : "text-foreground/70 hover:bg-beige-dark hover:text-foreground"
               )}
               style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               title={collapsed ? item.label : undefined}

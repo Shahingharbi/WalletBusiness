@@ -48,6 +48,8 @@ export const DEFAULT_CARD_DESIGN = {
   background_color: "#ffffff",
   text_color: "#1a1a1a",
   accent_color: "#e53e3e",
+  stamp_icon: "check" as string,
+  stamp_shape: "circle" as "circle" | "squircle" | "shield" | "star" | "hex",
   stamp_active_icon: "check",
   stamp_inactive_icon: "circle",
   stamp_active_url: null as string | null,

@@ -40,11 +40,19 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { token } = body;
+    const { token, stamps } = body;
 
     if (!token || typeof token !== "string") {
       return NextResponse.json(
         { error: "Token requis" },
+        { status: 422 }
+      );
+    }
+
+    const stampValue = Number.isInteger(stamps) ? stamps : 1;
+    if (stampValue < 1 || stampValue > 20) {
+      return NextResponse.json(
+        { error: "Nombre de tampons invalide (1 à 20)" },
         { status: 422 }
       );
     }
@@ -122,6 +130,7 @@ export async function POST(request: Request) {
       {
         p_card_instance_id: instance.id,
         p_scanned_by: user.id,
+        p_value: stampValue,
       }
     );
 

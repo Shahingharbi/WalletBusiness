@@ -14,6 +14,7 @@ import {
   type CardDesign,
 } from "@/components/cards/card-editor/step-design";
 import type { CardType } from "@/lib/constants";
+import { useToast } from "@/components/ui/toast";
 
 interface EditCardFormProps {
   cardId: string;
@@ -31,17 +32,14 @@ export function EditCardForm({
   status,
 }: EditCardFormProps) {
   const router = useRouter();
+  const toast = useToast();
   const [settings, setSettings] = useState<CardSettings>(initialSettings);
   const [design, setDesign] = useState<CardDesign>(initialDesign);
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   const save = async () => {
     setSaving(true);
-    setError("");
-    setSuccess("");
     try {
       const res = await fetch(`/api/cards/${cardId}`, {
         method: "PATCH",
@@ -59,10 +57,10 @@ export function EditCardForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur");
-      setSuccess("Carte mise a jour");
+      toast.success("Modifications enregistrees");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
       setSaving(false);
     }
@@ -74,9 +72,10 @@ export function EditCardForm({
     try {
       const res = await fetch(`/api/cards/${cardId}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
+      toast.success("Carte archivee");
       router.push("/cards");
     } catch {
-      setError("Erreur lors de l'archivage");
+      toast.error("Erreur lors de l'archivage");
     } finally {
       setArchiving(false);
     }
@@ -99,17 +98,6 @@ export function EditCardForm({
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
           Cette carte est active. Les modifications seront visibles immediatement
           pour les clients qui ont deja installe la carte.
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700">
-          {success}
         </div>
       )}
 
@@ -154,6 +142,7 @@ export function EditCardForm({
               rewardText={settings.rewardText || "Votre recompense"}
               design={design}
               cardType={cardType}
+              barcodeType={settings.barcodeType}
             />
           </div>
         </div>

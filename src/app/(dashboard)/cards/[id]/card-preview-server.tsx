@@ -9,11 +9,13 @@ interface CardPreviewServerProps {
     stamp_count: number;
     reward_text: string;
     card_type?: CardType;
+    barcode_type?: "qr" | "pdf417";
   };
   design: Record<string, unknown>;
+  businessName?: string;
 }
 
-export function CardPreviewServer({ card, design }: CardPreviewServerProps) {
+export function CardPreviewServer({ card, design, businessName }: CardPreviewServerProps) {
   const mergedDesign = {
     ...DEFAULT_CARD_DESIGN,
     ...design,
@@ -28,6 +30,8 @@ export function CardPreviewServer({ card, design }: CardPreviewServerProps) {
         collectedStamps={0}
         design={mergedDesign}
         cardType={card.card_type ?? "stamp"}
+        barcodeType={card.barcode_type ?? "qr"}
+        businessName={businessName}
       />
     </div>
   );

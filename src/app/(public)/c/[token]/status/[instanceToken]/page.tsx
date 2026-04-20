@@ -17,7 +17,7 @@ export default async function CardStatusPage({
     .from("card_instances")
     .select(`
       id, token, stamps_collected, rewards_available, status, last_scanned_at,
-      cards(id, name, stamp_count, reward_text, design, business_id, businesses(id, name, logo_url)),
+      cards(id, name, stamp_count, reward_text, design, barcode_type, business_id, businesses(id, name, logo_url)),
       clients(id, first_name, phone)
     `)
     .eq("token", instanceToken)
@@ -49,6 +49,7 @@ export default async function CardStatusPage({
     stamp_count: number;
     reward_text: string;
     design: Record<string, unknown>;
+    barcode_type: "qr" | "pdf417" | null;
     business_id: string;
     businesses: { id: string; name: string; logo_url: string | null } | null;
   };
@@ -75,28 +76,43 @@ export default async function CardStatusPage({
 
   return (
     <div className="min-h-[80vh] flex flex-col">
-      {/* Header */}
+      {/* Header with optional banner + overlay */}
       <div
-        className="px-6 py-5"
-        style={{ backgroundColor: design.accent_color as string }}
+        className="relative px-6 py-6 overflow-hidden"
+        style={{
+          backgroundColor: design.accent_color as string,
+          backgroundImage: (design.banner_url as string | null)
+            ? `url(${design.banner_url})`
+            : undefined,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
       >
-        <div className="flex items-center gap-3">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: (design.banner_url as string | null)
+              ? `linear-gradient(135deg, ${design.accent_color}cc 0%, rgba(0,0,0,0.35) 100%)`
+              : `linear-gradient(135deg, transparent 0%, rgba(0,0,0,0.18) 100%)`,
+          }}
+        />
+        <div className="relative flex items-center gap-3">
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={businessName}
-              className="h-10 w-10 rounded-xl object-cover bg-white shadow-sm"
+              className="h-12 w-12 rounded-xl object-cover bg-white shadow-md ring-2 ring-white/30"
             />
           ) : (
-            <div className="h-10 w-10 rounded-xl bg-white/90 shadow-sm flex items-center justify-center">
+            <div className="h-12 w-12 rounded-xl bg-white/90 shadow-md flex items-center justify-center ring-2 ring-white/30">
               <span className="text-lg font-bold text-gray-700">
                 {businessName.charAt(0)}
               </span>
             </div>
           )}
           <div>
-            <p className="text-white/80 text-xs font-medium">{businessName}</p>
-            <h1 className="text-white text-lg font-bold">{card.name}</h1>
+            <p className="text-white/85 text-xs font-medium drop-shadow-sm">{businessName}</p>
+            <h1 className="text-white text-lg font-bold drop-shadow-sm">{card.name}</h1>
           </div>
         </div>
       </div>
@@ -133,6 +149,10 @@ export default async function CardStatusPage({
             collected={instance.stamps_collected}
             accentColor={design.accent_color as string}
             size="lg"
+            iconKey={design.stamp_icon as string | undefined}
+            activeImageUrl={design.stamp_active_url as string | null}
+            inactiveImageUrl={design.stamp_inactive_url as string | null}
+            shape={(design.stamp_shape as "circle" | "squircle" | "shield" | "star" | "hex") ?? "circle"}
           />
           {stampsRemaining > 0 && !hasReward && (
             <p className="text-center text-sm text-gray-500 mt-4">

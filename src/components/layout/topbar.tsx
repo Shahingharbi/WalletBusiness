@@ -1,6 +1,7 @@
 "use client";
 
-import { Menu, Bell } from "lucide-react";
+import Link from "next/link";
+import { Menu, Bell, ScanLine } from "lucide-react";
 import { UserMenu } from "./user-menu";
 
 interface TopbarUser {
@@ -36,6 +37,15 @@ export function Topbar({ user, businessName, onMenuClick }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
+        <Link
+          href="/scanner"
+          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-foreground text-white text-sm font-semibold shadow-sm hover:bg-foreground/90 transition-colors"
+          aria-label="Scanner une carte client"
+        >
+          <ScanLine className="h-4 w-4" />
+          <span className="hidden sm:inline">Scanner</span>
+        </Link>
+
         <button
           className="relative p-2 rounded-full text-muted-foreground hover:bg-beige hover:text-foreground transition-colors cursor-pointer"
           aria-label="Notifications"

@@ -1,15 +1,17 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Pencil, ExternalLink, BarChart3, Users, Info } from "lucide-react";
+import { Pencil, BarChart3, Users, Info } from "lucide-react";
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CARD_STATUSES } from "@/lib/constants";
+import { CARD_STATUSES, CARD_TYPES } from "@/lib/constants";
 
 import { CardPreviewServer } from "./card-preview-server";
+import { ShareCard } from "./share-card";
+import { ActivateButton } from "./activate-button";
 
 export default async function CardDetailPage({
   params,
@@ -41,6 +43,13 @@ export default async function CardDetailPage({
     .single();
 
   if (!card) notFound();
+
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("name")
+    .eq("id", profile.business_id)
+    .single();
+  const businessName = business?.name ?? "";
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const cardPublicUrl = `${appUrl}/c/${card.id}`;
@@ -78,13 +87,7 @@ export default async function CardDetailPage({
           <Badge variant={statusVariant}>{status.label}</Badge>
         </div>
         <div className="flex items-center gap-2">
-          {card.status === "draft" && (
-            <form action={`/api/cards/${card.id}/activate`} method="POST">
-              <Button variant="default" type="submit">
-                Activer
-              </Button>
-            </form>
-          )}
+          {card.status === "draft" && <ActivateButton cardId={card.id} />}
           <Link href={`/cards/${card.id}/edit`}>
             <Button variant="secondary">
               <Pencil className="h-4 w-4 mr-2" />
@@ -98,42 +101,16 @@ export default async function CardDetailPage({
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Card preview */}
         <div className="lg:w-[45%]">
-          <CardPreviewServer card={card} design={design} />
+          <CardPreviewServer card={card} design={design} businessName={businessName} />
         </div>
 
         {/* QR + info */}
-        <div className="lg:w-[55%] space-y-6">
-          {/* QR Code card */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex flex-col sm:flex-row items-center gap-6">
-                {qrDataUrl && (
-                  <div className="shrink-0">
-                    <img
-                      src={qrDataUrl}
-                      alt="QR Code"
-                      width={160}
-                      height={160}
-                      className="rounded-lg border border-gray-200"
-                    />
-                  </div>
-                )}
-                <div className="space-y-3 text-center sm:text-left">
-                  <h3 className="font-semibold text-gray-900">
-                    QR Code de la carte
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    Partagez ce QR code pour que vos clients puissent installer
-                    la carte sur leur telephone.
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-                    <ExternalLink className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{cardPublicUrl}</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="lg:w-[55%] space-y-6 min-w-0">
+          <ShareCard
+            qrDataUrl={qrDataUrl}
+            cardPublicUrl={cardPublicUrl}
+            cardName={card.name}
+          />
 
           {/* Tabs */}
           <Tabs defaultValue="info">
@@ -161,7 +138,7 @@ export default async function CardDetailPage({
                         Type
                       </p>
                       <p className="text-sm font-medium text-gray-900 mt-1">
-                        Tampon
+                        {CARD_TYPES[card.card_type as keyof typeof CARD_TYPES]?.label ?? "Tampon"}
                       </p>
                     </div>
                     <div>
