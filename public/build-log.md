@@ -5,6 +5,80 @@
 
 ---
 
+## 2026-04-20 — Refonte UX/UI carte wallet + QR/PDF417 + scanner raccourci
+
+### Preview mockup (`card-preview.tsx`) refait de zéro
+- Rendu type **Apple Wallet / Google Wallet** (au lieu d'un faux iPhone générique) avec toggle iOS/Android
+- **Vrai QR code** généré côté client via `qrcode` npm + `useEffect` (avant : fausses barres `Math.random()` à chaque render)
+- **PDF417 en SVG** propre : grille 6×56 cellules, guard-bars symétriques, centré à 85 % du conteneur, `shapeRendering="crispEdges"`. Déterministe (seed depuis la valeur) donc stable au render.
+- Overlay gradient automatique sur la bannière pour garantir la lisibilité du texte quelle que soit la photo uploadée
+- Calcul `luminance(bg)` pour auto-choisir la couleur de texte (contraste WCAG) sur les accents
+- Accepte `barcodeType` en prop, propagé depuis `StepSettings.barcodeType` → la preview change vraiment (bug #1 corrigé)
+
+### Bibliothèque de tampons stylisés
+- `lib/stamp-icons.tsx` : 14 icônes SVG inline (check, star, heart, coffee, pizza, flower, scissors, crown, leaf, gift, baguette, kebab, diamond, sparkle)
+- `stamp-display.tsx` refait : supporte `iconKey`, `shape` (circle / squircle / shield / star / hex via `clip-path`), `activeImageUrl` / `inactiveImageUrl` pour images custom
+- Animation `animate-stamp-pop` appliquée sur les tampons collectés (avant : classe définie mais jamais utilisée)
+- `constants.ts` : `DEFAULT_CARD_DESIGN` étendu avec `stamp_icon` et `stamp_shape`
+
+### Images réelles dans les templates
+- `lib/card-templates.ts` : **11 templates avec photo Unsplash** (kebab, boulangerie, pizzeria, café, restaurant, institut, pressing, fleuriste, épicerie, vip, remise) — toutes vérifiées 200 OK, **contrainte : aucun visage, aucune awra** (commerce halal-friendly)
+- Coiffeur / barbier / scratch laissés sans photo par défaut pour que le commerçant choisisse lui-même (éviter l'écueil du visage)
+- La photo est câblée dans `design.banner_url` du template → quand on sélectionne le modèle à l'étape 1, l'aperçu à droite affiche **automatiquement** la photo en bannière avec overlay
+- `step-template.tsx` : mini-mockup wallet par template (strip coloré + tampons actifs + code-barres) sur fond photo
+
+### Design step enrichi
+- Picker d'icône de tampon (grille 7×2) et de forme (grille 5 : rond / squircle / écusson / étoile / hexagone)
+- Uploads "Tampon actif" / "Tampon vide" optionnels (remplacent l'icône si présents)
+- Hints explicites : "Un voile sombre sera ajouté pour lisibilité" sur l'upload bannière
+
+### Page détail carte `/cards/[id]`
+- **`share-card.tsx`** (nouveau) : remplace le bloc URL qui débordait de l'écran
+  - URL tronquée intelligemment via `shortenUrl()` (host + dernier segment compacté : `localhost:3000/c/6e2e…d0e9c`)
+  - Bouton **Copier** (navigator.clipboard) avec feedback ✓ + toast
+  - Bouton **Partager** (navigator.share sur mobile, fallback copie)
+  - Bouton **Ouvrir** (target=_blank)
+- **`activate-button.tsx`** (nouveau) : bouton client-side avec `fetch` + toast + `router.refresh`. Avant : `<form method="POST">` HTML → le navigateur redirigeait vers la réponse JSON brute "carte activée" (bug #7 corrigé)
+- L'Info tab affiche maintenant dynamiquement `CARD_TYPES[card_type].label` (avant codé en dur "Tampon")
+- Le preview reçoit `businessName` (lu depuis `businesses.name`) et `barcode_type`
+
+### Google Wallet respecte `barcode_type`
+- `google-wallet.ts` : nouveau param `barcodeType` → `type: "PDF_417"` si `pdf417`, sinon `"QR_CODE"` (avant codé en dur QR_CODE → bug #1 étendu)
+- Route `/api/google-wallet/[instanceToken]` lit `cards.barcode_type` et le passe
+
+### Status page public `/c/[token]/status/[instanceToken]`
+- Header avec bannière + double overlay (accent gradient + dark) pour garantir contraste sur photo
+- Ring blanc sur le logo (`ring-2 ring-white/30`) pour un rendu plus premium
+- `StampDisplay` reçoit `iconKey`, `shape`, `activeImageUrl`, `inactiveImageUrl` du design
+
+### Edit form
+- Migration des messages inline rouge/vert vers `useToast()`
+- Passe `barcodeType` au preview
+
+### Scanner accessible en 1 clic
+- **CTA noir "Scanner" dans le topbar** (visible sur toutes les pages dashboard, icône `ScanLine`)
+- Entrée dédiée dans la sidebar desktop (highlight noir, position entre Cartes et Clients)
+- Entrée identique dans la mobile-nav
+
+### Validation
+- Dev server compile à chaque édition ✓
+- Toutes les routes répondent 200
+- Push `662ae2c` → `origin/main` → Vercel auto-deploy ✓
+
+### Bugs corrigés
+- Preview affichait toujours de fausses barres aléatoires, peu importe le type de code choisi → vrai QR / vraie PDF417
+- Banner image sans overlay → texte illisible sur image sombre
+- URL de partage dépassait l'écran, pas cliquable → bloc avec copy/share/open
+- Activation redirigeait vers page JSON brute → bouton client + toast
+- Google Wallet ignorait `barcode_type` → respecte le choix utilisateur
+- `StampDisplay` props `style={color}` passé à `Icon` qui n'accepte que `className` → `style` remonté sur le wrapper
+
+### À faire (manuellement)
+- Quand le domaine perso est prêt : ajouter dans l'`origins` du JWT Google Wallet + notifier `google-wallet-passes-support@google.com`
+- Scanner via caméra ne supporte que QR pour l'instant (html5-qrcode) — si besoin PDF417 : évaluer `@zxing/browser` ou `quagga2`
+
+---
+
 ## 2026-04-17 — Landing + 3 nouveaux types + dashboard complet + segments
 
 ### Landing page (`/`)
