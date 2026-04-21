@@ -89,7 +89,7 @@ export function MobileNav({ isOpen, onClose, user }: MobileNavProps) {
             className="text-2xl font-bold tracking-tight text-foreground"
             style={{ fontFamily: "var(--font-ginto-nord)" }}
           >
-            FidPass
+            aswallet
           </span>
 
           <button

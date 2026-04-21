@@ -3,7 +3,7 @@ import { Mail, MapPin, Building2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Contactez l'equipe FidPass pour toute question.",
+  description: "Contactez l'equipe aswallet pour toute question.",
 };
 
 export default function ContactPage() {
@@ -21,7 +21,7 @@ export default function ContactPage() {
 
       <div className="space-y-4">
         <a
-          href="mailto:contact@fidpass.fr"
+          href="mailto:contact@aswallet.fr"
           className="flex items-center gap-4 p-5 rounded-2xl border border-beige-dark hover:border-foreground transition-colors group"
         >
           <div className="h-12 w-12 rounded-full bg-yellow flex items-center justify-center shrink-0">
@@ -35,7 +35,7 @@ export default function ContactPage() {
               Email
             </p>
             <p className="text-muted-foreground text-sm group-hover:text-foreground transition-colors">
-              contact@fidpass.fr
+              contact@aswallet.fr
             </p>
           </div>
         </a>
@@ -88,7 +88,7 @@ export default function ContactPage() {
           Vous etes commercant ?
         </p>
         <p className="text-sm text-muted-foreground mb-4">
-          Decouvrez comment FidPass peut fideliser vos clients en 5 minutes.
+          Decouvrez comment aswallet peut fideliser vos clients en 5 minutes.
         </p>
         <a
           href="/register"

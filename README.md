@@ -1,6 +1,8 @@
-# FidPass
+# aswallet
 
 Carte de fidelite digitale pour commerces de proximite. Next.js 16 + Supabase.
+
+> Anciennement FidPass — le dossier racine `fidpass/` est volontairement conservé pour ne pas casser les chemins relatifs (docs, scripts, `.vercel`, CLAUDE.md). Seul le nom de l'appli/domaine change.
 
 ## Demarrer en local
 

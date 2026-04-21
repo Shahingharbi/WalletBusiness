@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { registerSchema, type RegisterInput } from "@/lib/validations";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 
 export default function RegisterPage() {
   return (
@@ -192,6 +193,14 @@ function RegisterForm() {
           Creer mon compte
         </Button>
       </form>
+
+      <div className="my-6 flex items-center gap-3">
+        <span className="h-px flex-1 bg-gray-200" />
+        <span className="text-xs uppercase tracking-wide text-gray-500">ou</span>
+        <span className="h-px flex-1 bg-gray-200" />
+      </div>
+
+      <GoogleAuthButton next="/dashboard" label="S'inscrire avec Google" />
 
       <p className="mt-6 text-center text-sm text-gray-600">
         Deja un compte ?{" "}

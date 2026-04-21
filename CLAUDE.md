@@ -1,6 +1,8 @@
 @AGENTS.md
 
-# FidPass — contexte projet
+# aswallet — contexte projet
+
+> Anciennement FidPass — renommé le 2026-04-21 avec le domaine `aswallet.fr`.
 
 Carte de fidélité digitale (Apple/Google Wallet) pour commerces de proximité.
 Stack : Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 + Supabase.
@@ -16,7 +18,7 @@ Stack : Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 + Supabase.
 ## Conventions non dérivables du code
 
 - **Commerce halal-friendly** : quand on ajoute des images par défaut (templates, landing, etc.), **aucun visage, aucune femme, aucune awra**. Privilégier les objets / plats / produits. Les URLs Unsplash utilisées dans `lib/card-templates.ts` ont été vérifiées 200 OK et choisies selon cette contrainte.
-- **Déploiement** : `git push origin main` déclenche un Vercel deploy auto (GitHub → Vercel). Live sur `https://wallet-business-blond.vercel.app`. Pas de vercel CLI nécessaire localement.
+- **Déploiement** : `git push origin main` déclenche un Vercel deploy auto (GitHub → Vercel). Live sur `https://aswallet.fr` (domaine custom IONOS) + fallback `https://wallet-business-blond.vercel.app`. Pas de vercel CLI nécessaire localement.
 - **Port local** : `npm run dev` écoute sur `3000` sauf si occupé (fallback `3001`). Le port 3000 est souvent pris par d'autres projets du user.
 - **Toasts** : `useToast()` depuis `@/components/ui/toast`. Remplacer toutes les nouvelles erreurs inline rouge/vert par des toasts.
 - **Icônes tampons** : `lib/stamp-icons.tsx` → 14 SVG inline. Chaque template a son `stamp_icon` par défaut (kebab → kebab, café → coffee, etc).

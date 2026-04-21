@@ -1,4 +1,4 @@
-# STRUCTURE DU PROJET - FidPass MVP
+# STRUCTURE DU PROJET - aswallet MVP (ex-FidPass)
 
 > Next.js 14+ (App Router) + TypeScript + Supabase + Tailwind CSS
 
@@ -17,7 +17,7 @@ fidpass/
 │
 ├── public/
 │   ├── favicon.ico
-│   ├── logo.svg                        # Logo FidPass
+│   ├── logo.svg                        # Logo aswallet
 │   ├── logo-dark.svg                   # Logo variante sombre
 │   ├── iphone-mockup.png              # Frame iPhone pour la preview live
 │   └── images/
@@ -197,7 +197,7 @@ fidpass/
 ## Description des groupes de routes
 
 ### `(auth)` - Pages d'authentification
-- **Sans sidebar**, layout minimal avec logo FidPass centre
+- **Sans sidebar**, layout minimal avec logo aswallet centre
 - Accessible uniquement si NON connecte (sinon redirect vers /dashboard)
 - Pages: login, register, forgot-password, invitation
 

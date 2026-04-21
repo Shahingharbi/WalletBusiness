@@ -17,7 +17,7 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
           className="flex-shrink-0 text-2xl font-bold text-foreground tracking-tight"
           style={{ fontFamily: "var(--font-ginto-nord)" }}
         >
-          FidPass
+          aswallet
         </Link>
 
         <div className="hidden lg:flex items-center gap-8">

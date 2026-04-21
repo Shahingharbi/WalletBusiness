@@ -35,8 +35,8 @@ const maisonNeue = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "FidPass - Carte de fidelite digitale pour commerces de proximite",
-    template: "%s | FidPass",
+    default: "aswallet - Carte de fidelite digitale pour commerces de proximite",
+    template: "%s | aswallet",
   },
   description:
     "Creez votre carte de fidelite digitale dans Apple Wallet et Google Wallet. Notifications push gratuites et illimitees. Sans app a telecharger. Essai gratuit 14 jours.",

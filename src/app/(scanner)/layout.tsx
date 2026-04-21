@@ -79,10 +79,10 @@ export default function ScannerLayout({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center">
-              <span className="text-sm font-bold text-gray-900">F</span>
+              <span className="text-sm font-bold text-gray-900">a</span>
             </div>
             <div>
-              <p className="text-white text-sm font-semibold">FidPass</p>
+              <p className="text-white text-sm font-semibold">aswallet</p>
               <p className="text-gray-400 text-xs">{user?.businessName}</p>
             </div>
           </div>

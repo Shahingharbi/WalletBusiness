@@ -8,7 +8,7 @@ interface CameraScannerProps {
   paused?: boolean;
 }
 
-const REGION_ID = "fidpass-qr-region";
+const REGION_ID = "aswallet-qr-region";
 
 function extractToken(raw: string): string {
   const trimmed = raw.trim();

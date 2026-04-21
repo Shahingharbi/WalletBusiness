@@ -61,14 +61,14 @@ Pour notifier les clients par SMS quand leur récompense est débloquée :
 
 ## 6. Domaine custom + déploiement Vercel
 
-1. Acheter un domaine (ex: `fidpass.fr` chez OVH ou Gandi)
-2. Pousser le repo `fidpass/` sur GitHub
-3. Connecter le repo à Vercel : https://vercel.com/new
+1. ~~Acheter un domaine~~ **Fait : `aswallet.fr` acheté chez IONOS le 2026-04-21**
+2. ~~Pousser le repo~~ **Fait : déployé sur Vercel depuis GitHub**
+3. ~~Connecter le repo à Vercel~~ **Fait : `wallet-business-blond.vercel.app`**
 4. Configurer les variables d'env Vercel :
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
-   - `NEXT_PUBLIC_APP_URL` = `https://fidpass.fr`
+   - `NEXT_PUBLIC_APP_URL` = `https://aswallet.fr`
 5. Pointer le DNS du domaine vers Vercel
 6. Vérifier que la caméra QR scanner marche (HTTPS requis, ne fonctionne PAS en HTTP non-localhost)
 
@@ -82,3 +82,44 @@ Si tu veux distribuer une app scanner native (au lieu de la webapp `/scanner`) :
 - Apple Developer Program (99 USD/an)
 - Google Play Console (25 USD une fois)
 - Réécrire le scanner en React Native ou utiliser Capacitor pour wrapper la webapp
+
+## 9. Google OAuth ("Continuer avec Google")
+
+**Pourquoi** : le code a un bouton "Continuer avec Google" sur `/login` et `/register` (flow PKCE via `@supabase/ssr`, callback sur `/auth/callback`). Pour qu'il fonctionne il faut activer le provider Google côté Supabase et créer les credentials OAuth côté Google Cloud.
+
+**Étapes** :
+
+1. **Google Cloud Console** — créer les credentials OAuth :
+   - Aller sur https://console.cloud.google.com/apis/credentials
+   - Créer (ou réutiliser) un projet.
+   - `OAuth consent screen` → External → renseigner nom d'app `aswallet`, support email, domaine autorisé `aswallet.fr`.
+   - `Credentials` → `Create Credentials` → `OAuth client ID` → `Web application`.
+   - **Authorized JavaScript origins** :
+     - `https://aswallet.fr`
+     - `https://wallet-business-blond.vercel.app`
+     - `http://localhost:3000`
+   - **Authorized redirect URI** (obligatoire, pointe sur Supabase, pas sur aswallet) :
+     - `https://<TON-PROJECT-REF>.supabase.co/auth/v1/callback`
+     - (Le `<TON-PROJECT-REF>` est la partie avant `.supabase.co` dans `NEXT_PUBLIC_SUPABASE_URL`.)
+   - Copier le `Client ID` et le `Client Secret`.
+
+2. **Supabase Dashboard** — activer Google :
+   - `Authentication` → `Providers` → `Google` → toggle **Enabled**.
+   - Coller le `Client ID` et le `Client Secret`.
+   - Sauvegarder.
+
+3. **Supabase Dashboard** — URL config :
+   - `Authentication` → `URL Configuration`.
+   - **Site URL** : `https://aswallet.fr`
+   - **Redirect URLs** (ajouter toutes les valeurs, une par ligne) :
+     - `https://aswallet.fr/auth/callback`
+     - `https://wallet-business-blond.vercel.app/auth/callback`
+     - `http://localhost:3000/auth/callback`
+
+4. **Rien à faire côté env** : aucun env var supplémentaire. Le PKCE flow passe par les cookies Supabase existants.
+
+5. **Profile + business auto** : le trigger SQL `handle_new_user` (dans `supabase/migrations/001c_functions.sql`) crée déjà les rows `profiles` + `businesses` au premier sign-in. Pour les users Google, `raw_user_meta_data.business_name` est absent → le business est nommé "Mon Commerce" par défaut. Le user peut le renommer ensuite dans `/settings`.
+
+6. **Test** :
+   - Local : `npm run dev`, aller sur `http://localhost:3000/login`, cliquer "Continuer avec Google", vérifier redirect sur `/dashboard` et que `businesses` + `profiles` ont bien une row.
+   - Prod : idem sur `https://aswallet.fr/login`.

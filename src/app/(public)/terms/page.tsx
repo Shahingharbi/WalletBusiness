@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Conditions generales d'utilisation",
   description:
-    "Conditions generales d'utilisation du service FidPass.",
+    "Conditions generales d'utilisation du service aswallet.",
 };
 
 export default function TermsPage() {
@@ -21,13 +21,13 @@ export default function TermsPage() {
 
       <h2 className="text-xl font-semibold mt-8 mb-3">1. Editeur</h2>
       <p>
-        FidPass est un service edite par Shahin Gharbi (entreprise individuelle,
+        aswallet est un service edite par Shahin Gharbi (entreprise individuelle,
         SIRET 903 950 210 00026), 443 Rue des Combes, 73000 Chambery, France.
       </p>
 
       <h2 className="text-xl font-semibold mt-8 mb-3">2. Objet</h2>
       <p>
-        FidPass permet aux commercants de creer et gerer des cartes de fidelite
+        aswallet permet aux commercants de creer et gerer des cartes de fidelite
         digitales pour leurs clients. Les clients finals utilisent ces cartes via
         un navigateur web, Google Wallet ou Apple Wallet.
       </p>
@@ -68,15 +68,15 @@ export default function TermsPage() {
 
       <h2 className="text-xl font-semibold mt-8 mb-3">8. Propriete intellectuelle</h2>
       <p>
-        Le design, le code, les marques et logos de FidPass sont proteges par le
+        Le design, le code, les marques et logos de aswallet sont proteges par le
         droit d&apos;auteur. Toute reproduction non autorisee est interdite.
       </p>
 
       <h2 className="text-xl font-semibold mt-8 mb-3">9. Responsabilite</h2>
       <p>
-        FidPass agit en qualite d&apos;hebergeur technique. Le contenu des cartes
+        aswallet agit en qualite d&apos;hebergeur technique. Le contenu des cartes
         de fidelite (nom, design, recompense) est sous la responsabilite exclusive
-        du commercant emetteur. FidPass ne peut etre tenu responsable des
+        du commercant emetteur. aswallet ne peut etre tenu responsable des
         engagements pris par les commercants envers leurs clients.
       </p>
 
@@ -89,7 +89,7 @@ export default function TermsPage() {
       <h2 className="text-xl font-semibold mt-8 mb-3">11. Contact</h2>
       <p>
         Pour toute question :{" "}
-        <a href="mailto:contact@fidpass.fr" className="underline">contact@fidpass.fr</a>
+        <a href="mailto:contact@aswallet.fr" className="underline">contact@aswallet.fr</a>
       </p>
     </div>
   );

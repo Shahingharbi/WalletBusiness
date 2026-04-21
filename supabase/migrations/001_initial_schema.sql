@@ -1,5 +1,5 @@
 -- ============================================
--- FIDPASS - SCHEMA INITIAL
+-- ASWALLET (ex-FIDPASS) - SCHEMA INITIAL
 -- A executer dans le SQL Editor de Supabase
 -- ============================================
 

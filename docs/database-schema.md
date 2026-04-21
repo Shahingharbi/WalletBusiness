@@ -1,4 +1,4 @@
-# SCHEMA DE BASE DE DONNEES - FidPass MVP
+# SCHEMA DE BASE DE DONNEES - aswallet MVP (ex-FidPass)
 
 > Architecture multi-tenant stricte avec Row Level Security (RLS) Supabase
 > Seul le type de carte TAMPON est implemente au MVP

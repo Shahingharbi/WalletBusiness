@@ -1,7 +1,37 @@
-# Journal de build FidPass
+# Journal de build aswallet (ex-FidPass)
 
 > Trace de ce qui est livré chaque jour. Pour ta mémoire et la mienne.
 > Le plus récent en premier.
+
+---
+
+## 2026-04-21 — Rebrand FidPass → aswallet + domaine aswallet.fr
+
+### Rebrand complet (sans casser le code)
+- Nom affiché partout : **aswallet** (minuscule)
+- `package.json` + `package-lock.json` : `name` → `aswallet`
+- Manifest PWA (`src/app/manifest.ts`) : `name` + `short_name` → `aswallet`
+- Layouts (`app/layout.tsx`, `(public)/layout.tsx`, `(auth)/layout.tsx`, `(scanner)/layout.tsx`) : titres, templates et logos textuels
+- Composants UI (`sidebar.tsx`, `mobile-nav.tsx`) : brand name
+- Landing (`Navbar.tsx`, `Footer.tsx`, `FeaturesSection.tsx`, `HowItWorksSection.tsx`) : brand, email, mockup URL
+- Pages legal (`terms`, `privacy`, `contact`) : toutes les mentions + `contact@fidpass.fr` → `contact@aswallet.fr`
+- Camera scanner : `REGION_ID` renommé en `aswallet-qr-region`
+- Scripts demo (`scripts/create-demo-class.mjs`) : `issuerName` + `programName`
+- SQL (`supabase/migrations/001_initial_schema.sql`) : commentaire d'en-tête
+- Docs (`CLAUDE.md`, `README.md`, `docs/*`) : titres + mentions mises à jour
+
+### Dossier repo laissé intact
+- Le dossier racine s'appelle toujours `fidpass/` → éviter de casser les chemins absolus (CLAUDE path, `.vercel` link, scripts, etc.). Le rebrand est purement cosmétique côté code.
+
+### Domaine & DNS
+- Domaine acheté : `aswallet.fr` (IONOS)
+- Côté Vercel : ajouter `aswallet.fr` + `www.aswallet.fr` comme custom domains sur le projet `wallet-business`
+- Côté IONOS DNS : `A @ → 76.76.21.21`, `CNAME www → cname.vercel-dns.com`. Supprimer `AAAA @` + `TXT _dep_ws_mutex` (résidus IONOS Default Site). **Garder** tous les records MX/SPF/DMARC/DKIM (mail).
+- Env Vercel à mettre à jour : `NEXT_PUBLIC_APP_URL=https://aswallet.fr`
+
+### Validation
+- `npx tsc --noEmit` à relancer après ce rebrand
+- `npm run build` à relancer — aucune logique métier touchée, juste des strings
 
 ---
 

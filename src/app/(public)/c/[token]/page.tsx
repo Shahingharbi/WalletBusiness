@@ -17,7 +17,7 @@ export async function generateMetadata({
     .maybeSingle();
 
   if (!card) {
-    return { title: "Carte introuvable - FidPass" };
+    return { title: "Carte introuvable - aswallet" };
   }
 
   const business = card.businesses as unknown as {

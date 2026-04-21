@@ -7,7 +7,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           <div>
             <Link href="/" className="text-2xl font-bold text-white tracking-tight" style={{ fontFamily: "var(--font-ginto-nord)" }}>
-              FidPass
+              aswallet
             </Link>
             <p className="mt-4 text-sm text-white/60 leading-relaxed" style={{ fontFamily: "var(--font-maison-neue)" }}>
               La carte de fidelite digitale pour les commerces de proximite.
@@ -50,8 +50,8 @@ export function Footer() {
               <li><Link href="/privacy" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>Confidentialite</Link></li>
               <li><Link href="/terms" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>CGU</Link></li>
               <li>
-                <a href="mailto:contact@fidpass.fr" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>
-                  contact@fidpass.fr
+                <a href="mailto:contact@aswallet.fr" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>
+                  contact@aswallet.fr
                 </a>
               </li>
             </ul>
@@ -59,7 +59,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
-          <p className="text-xs text-white/40">&copy; 2026 FidPass &middot; SIRET 903 950 210 00026 &middot; Edite par Shahin Gharbi</p>
+          <p className="text-xs text-white/40">&copy; 2026 aswallet &middot; SIRET 903 950 210 00026 &middot; Edite par Shahin Gharbi</p>
           <div className="flex flex-wrap gap-4">
             <Link href="/contact" className="text-xs text-white/40 hover:text-white/70 transition-colors">Contact</Link>
             <Link href="/terms" className="text-xs text-white/40 hover:text-white/70 transition-colors">CGU</Link>

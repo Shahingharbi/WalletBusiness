@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "FidPass",
+    title: "aswallet",
   },
   other: {
     "mobile-web-app-capable": "yes",
@@ -30,7 +30,7 @@ export default function PublicLayout({
       <footer className="py-4 text-center">
         <p className="text-xs text-gray-400">
           Propulse par{" "}
-          <span className="font-semibold text-gray-500">FidPass</span>
+          <span className="font-semibold text-gray-500">aswallet</span>
         </p>
       </footer>
     </div>

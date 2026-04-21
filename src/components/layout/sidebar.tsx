@@ -55,7 +55,7 @@ export function Sidebar({ user }: SidebarProps) {
             )}
             style={{ fontFamily: "var(--font-ginto-nord)" }}
           >
-            FidPass
+            aswallet
           </span>
           {collapsed && (
             <span

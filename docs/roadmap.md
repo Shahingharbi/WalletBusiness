@@ -1,4 +1,4 @@
-# ROADMAP DE DEVELOPPEMENT - FidPass MVP
+# ROADMAP DE DEVELOPPEMENT - aswallet MVP (ex-FidPass)
 
 > Objectif : produit fonctionnel presentable aux premiers commercants en 6-8 semaines
 > Stack : Next.js + Supabase + Tailwind + Vercel
@@ -230,7 +230,7 @@
 - Test scanner dans des conditions reelles (luminosite, angle)
 
 ### 6.5 Deploiement production
-- Domaine custom (fidpass.fr ou similaire)
+- Domaine custom (aswallet.fr)
 - Variables d'env production Supabase
 - Vercel production deploy
 - Monitoring basique (Vercel Analytics)

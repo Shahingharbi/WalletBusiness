@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "FidPass - Carte de fidelite",
-    short_name: "FidPass",
+    name: "aswallet - Carte de fidelite",
+    short_name: "aswallet",
     description:
       "Votre carte de fidelite digitale. Gagnez des recompenses chez vos commercants prefires.",
     start_url: "/",

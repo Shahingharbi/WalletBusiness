@@ -205,7 +205,7 @@ export function FeaturesSection() {
                 Compatible avec toutes les caisses
               </h3>
               <p className="mt-3 text-sm text-muted-foreground leading-relaxed flex-1" style={{ fontFamily: "var(--font-maison-neue)" }}>
-                FidPass fonctionne a cote de votre caisse existante. Aucune integration requise,
+                aswallet fonctionne a cote de votre caisse existante. Aucune integration requise,
                 aucun materiel a acheter, aucune formation necessaire.
               </p>
             </div>

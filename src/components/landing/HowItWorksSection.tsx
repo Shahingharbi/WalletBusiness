@@ -32,7 +32,7 @@ export function HowItWorksSection() {
                   <div className="w-2.5 h-2.5 rounded-full bg-yellow" />
                   <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
                 </div>
-                <span className="text-white/60 text-[10px] ml-2">app.fidpass.fr</span>
+                <span className="text-white/60 text-[10px] ml-2">aswallet.fr</span>
               </div>
               <div className="p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-3">

@@ -2,7 +2,7 @@ import { GoogleAuth } from "google-auth-library";
 
 const KEY_FILE = "./google-wallet-key.json";
 const ISSUER_ID = "3388000000023104053";
-const CLASS_SUFFIX = "fidpass-demo";
+const CLASS_SUFFIX = "fidpass-demo"; // on garde l'ID Google Wallet existant pour ne pas casser la class deja creee
 const CLASS_ID = `${ISSUER_ID}.${CLASS_SUFFIX}`;
 
 const auth = new GoogleAuth({
@@ -15,30 +15,30 @@ const baseUrl = "https://walletobjects.googleapis.com/walletobjects/v1";
 
 const classBody = {
   id: CLASS_ID,
-  issuerName: "FidPass",
-  programName: "FidPass Demo Loyalty",
+  issuerName: "aswallet",
+  programName: "aswallet Demo Loyalty",
   reviewStatus: "DRAFT",
   hexBackgroundColor: "#10b981",
   countryCode: "FR",
   localizedIssuerName: {
-    defaultValue: { language: "fr", value: "FidPass" },
+    defaultValue: { language: "fr", value: "aswallet" },
   },
   localizedProgramName: {
-    defaultValue: { language: "fr", value: "FidPass Demo" },
+    defaultValue: { language: "fr", value: "aswallet Demo" },
   },
   programLogo: {
     sourceUri: {
       uri: "https://wallet-business-blond.vercel.app/icon.svg",
     },
     contentDescription: {
-      defaultValue: { language: "fr", value: "FidPass" },
+      defaultValue: { language: "fr", value: "aswallet" },
     },
   },
   rewardsTier: "Standard",
   rewardsTierLabel: "Programme",
   accountIdLabel: "Client ID",
   accountNameLabel: "Nom",
-  programDetails: "Carte de fidelite digitale FidPass.",
+  programDetails: "Carte de fidelite digitale aswallet.",
 };
 
 // Try GET first to check if exists

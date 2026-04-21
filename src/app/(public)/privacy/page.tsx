@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Politique de confidentialite",
   description:
-    "Politique de confidentialite de FidPass : quelles donnees nous collectons et comment nous les protegeons.",
+    "Politique de confidentialite de aswallet : quelles donnees nous collectons et comment nous les protegeons.",
 };
 
 export default function PrivacyPage() {
@@ -21,10 +21,10 @@ export default function PrivacyPage() {
 
       <h2 className="text-xl font-semibold mt-8 mb-3">1. Qui sommes-nous</h2>
       <p>
-        FidPass est un service de cartes de fidelite digitales edite par
+        aswallet est un service de cartes de fidelite digitales edite par
         Shahin Gharbi (entreprise individuelle, SIRET 903 950 210 00026),
         443 Rue des Combes, 73000 Chambery, France. Contact :{" "}
-        <a href="mailto:contact@fidpass.fr" className="underline">contact@fidpass.fr</a>.
+        <a href="mailto:contact@aswallet.fr" className="underline">contact@aswallet.fr</a>.
       </p>
 
       <h2 className="text-xl font-semibold mt-8 mb-3">2. Donnees collectees</h2>
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
         <li>L&apos;historique de vos passages chez le commercant</li>
       </ul>
       <p>
-        Pour les commercants utilisant FidPass, nous collectons egalement leur nom,
+        Pour les commercants utilisant aswallet, nous collectons egalement leur nom,
         email professionnel, nom du commerce, adresse et numero SIRET.
       </p>
 
@@ -62,14 +62,14 @@ export default function PrivacyPage() {
       <p>
         Vos donnees sont conservees tant que votre carte de fidelite est active.
         Vous pouvez demander leur suppression a tout moment en envoyant un email
-        a <a href="mailto:contact@fidpass.fr" className="underline">contact@fidpass.fr</a>.
+        a <a href="mailto:contact@aswallet.fr" className="underline">contact@aswallet.fr</a>.
       </p>
 
       <h2 className="text-xl font-semibold mt-8 mb-3">5. Vos droits (RGPD)</h2>
       <p>
         Conformement au RGPD, vous disposez des droits suivants : acces, rectification,
         effacement, opposition, portabilite, limitation. Pour les exercer, ecrivez
-        a <a href="mailto:contact@fidpass.fr" className="underline">contact@fidpass.fr</a>.
+        a <a href="mailto:contact@aswallet.fr" className="underline">contact@aswallet.fr</a>.
       </p>
       <p>
         Vous pouvez aussi introduire une reclamation aupres de la CNIL :
@@ -95,14 +95,14 @@ export default function PrivacyPage() {
 
       <h2 className="text-xl font-semibold mt-8 mb-3">8. Cookies</h2>
       <p>
-        FidPass utilise uniquement des cookies techniques necessaires au
+        aswallet utilise uniquement des cookies techniques necessaires au
         fonctionnement du site (session d&apos;authentification). Aucun cookie de
         tracking publicitaire.
       </p>
 
       <h2 className="text-xl font-semibold mt-8 mb-3">9. Contact</h2>
       <p>
-        Pour toute question : <a href="mailto:contact@fidpass.fr" className="underline">contact@fidpass.fr</a>
+        Pour toute question : <a href="mailto:contact@aswallet.fr" className="underline">contact@aswallet.fr</a>
       </p>
     </div>
   );
