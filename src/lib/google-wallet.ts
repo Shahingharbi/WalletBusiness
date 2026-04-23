@@ -21,6 +21,10 @@ const ISSUER_ID = process.env.GOOGLE_WALLET_ISSUER_ID!;
 const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL!;
 const PRIVATE_KEY = (process.env.GOOGLE_WALLET_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
 
+// Google Wallet refuses a LoyaltyClass without a programLogo.
+// Fallback to the aswallet icon when a merchant has not uploaded one.
+const FALLBACK_LOGO_URL = "https://aswallet.fr/icon.svg";
+
 export function isGoogleWalletConfigured(): boolean {
   return Boolean(ISSUER_ID && SERVICE_ACCOUNT_EMAIL && PRIVATE_KEY);
 }
@@ -34,18 +38,17 @@ function objectId(instanceToken: string): string {
 }
 
 function buildLoyaltyClass(p: PassParams) {
+  const logoUri = p.logoUrl ?? FALLBACK_LOGO_URL;
   return {
     id: classId(p.cardId),
     issuerName: p.businessName,
     programName: p.cardName,
-    programLogo: p.logoUrl
-      ? {
-          sourceUri: { uri: p.logoUrl },
-          contentDescription: {
-            defaultValue: { language: "fr", value: p.businessName },
-          },
-        }
-      : undefined,
+    programLogo: {
+      sourceUri: { uri: logoUri },
+      contentDescription: {
+        defaultValue: { language: "fr", value: p.businessName },
+      },
+    },
     heroImage: p.bannerUrl
       ? {
           sourceUri: { uri: p.bannerUrl },
