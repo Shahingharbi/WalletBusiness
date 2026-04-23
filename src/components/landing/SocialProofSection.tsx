@@ -43,11 +43,11 @@ export function SocialProofSection() {
                 aria-hidden={i >= BRANDS.length ? true : undefined}
               >
                 <img
-                  src={`https://cdn.simpleicons.org/${brand.slug}/666666`}
+                  src={`https://cdn.simpleicons.org/${brand.slug}`}
                   alt={i < BRANDS.length ? brand.name : ""}
                   loading="lazy"
                   decoding="async"
-                  className="h-8 lg:h-10 w-auto opacity-50 hover:opacity-90 transition-opacity duration-300"
+                  className="h-9 lg:h-11 w-auto opacity-90 hover:opacity-100 transition-opacity duration-300"
                 />
               </div>
             ))}

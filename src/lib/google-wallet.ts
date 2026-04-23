@@ -69,6 +69,10 @@ function buildLoyaltyClass(p: PassParams) {
   };
 }
 
+function bannerUri(appUrl: string, token: string, stamps: number): string {
+  return `${appUrl}/api/wallet/banner/${token}/${stamps}`;
+}
+
 function buildLoyaltyObject(p: PassParams) {
   const homepageUri = `${p.appUrl}/c/${p.cardId}/status/${p.customerInstanceToken}`;
 
@@ -78,6 +82,21 @@ function buildLoyaltyObject(p: PassParams) {
     state: "ACTIVE",
     accountId: p.customerInstanceToken,
     accountName: p.customerName,
+    // Per-user heroImage: dynamic PNG with the visual stamp grid.
+    // URL includes the stamp count for cache-busting so Google re-fetches
+    // when the count changes. Overrides any class-level heroImage.
+    heroImage: {
+      sourceUri: {
+        uri: bannerUri(
+          p.appUrl,
+          p.customerInstanceToken,
+          p.stampsCollected,
+        ),
+      },
+      contentDescription: {
+        defaultValue: { language: "fr", value: "Progression" },
+      },
+    },
     loyaltyPoints: {
       balance: { int: p.stampsCollected },
       label: "Tampons",
@@ -137,7 +156,8 @@ export function generateGoogleWalletPassUrl(p: PassParams): string {
 export async function syncLoyaltyObject(
   instanceToken: string,
   stampsCollected: number,
-  rewardsAvailable: number
+  rewardsAvailable: number,
+  appUrl: string
 ): Promise<void> {
   if (!isGoogleWalletConfigured()) return;
 
@@ -148,6 +168,15 @@ export async function syncLoyaltyObject(
     secondaryLoyaltyPoints: {
       balance: { int: rewardsAvailable },
       label: "Recompenses",
+    },
+    // New stamp count in the URL path → Google re-fetches the image.
+    heroImage: {
+      sourceUri: {
+        uri: bannerUri(appUrl, instanceToken, stampsCollected),
+      },
+      contentDescription: {
+        defaultValue: { language: "fr", value: "Progression" },
+      },
     },
   };
 
