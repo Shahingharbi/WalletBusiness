@@ -146,36 +146,36 @@ export default async function ClientDetailPage({
         </Card>
 
         <div className="lg:col-span-2 space-y-6">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-gray-500 text-xs">
-                  <StampIcon className="h-3.5 w-3.5" />
-                  Tampons total
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-1.5 text-gray-500 text-[11px] sm:text-xs">
+                  <StampIcon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Tampons</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
                   {totalStamps}
                 </p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-gray-500 text-xs">
-                  <Gift className="h-3.5 w-3.5" />
-                  Recompenses
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-1.5 text-gray-500 text-[11px] sm:text-xs">
+                  <Gift className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Recompenses</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
                   {totalRewards}
                 </p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-gray-500 text-xs">
-                  <History className="h-3.5 w-3.5" />
-                  Cartes
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-1.5 text-gray-500 text-[11px] sm:text-xs">
+                  <History className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Cartes</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
                   {(instances ?? []).length}
                 </p>
               </CardContent>

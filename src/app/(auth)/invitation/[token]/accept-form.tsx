@@ -66,7 +66,7 @@ export function AcceptInvitationForm({
 
       <Input label="Email" value={email} disabled />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
           label="Prenom"
           value={firstName}

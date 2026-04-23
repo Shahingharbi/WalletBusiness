@@ -82,11 +82,11 @@ export default async function CardDetailPage({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">{card.name}</h1>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">{card.name}</h1>
           <Badge variant={statusVariant}>{status.label}</Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {card.status === "draft" && <ActivateButton cardId={card.id} />}
           <Link href={`/cards/${card.id}/edit`}>
             <Button variant="secondary">
@@ -98,9 +98,9 @@ export default async function CardDetailPage({
       </div>
 
       {/* Main content */}
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
         {/* Card preview */}
-        <div className="lg:w-[45%]">
+        <div className="lg:w-[45%] flex justify-center lg:block">
           <CardPreviewServer card={card} design={design} businessName={businessName} />
         </div>
 
@@ -114,7 +114,7 @@ export default async function CardDetailPage({
 
           {/* Tabs */}
           <Tabs defaultValue="info">
-            <TabsList>
+            <TabsList className="w-full sm:w-auto overflow-x-auto max-w-full">
               <TabsTrigger value="info">
                 <Info className="h-4 w-4 mr-1.5" />
                 Info
@@ -131,8 +131,8 @@ export default async function CardDetailPage({
 
             <TabsContent value="info">
               <Card>
-                <CardContent className="p-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="p-4 sm:p-6 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-wider">
                         Type

@@ -28,7 +28,7 @@ export default async function InvitationPage({
           Invitation indisponible
         </h1>
         <p className="text-gray-500">
-          Cette invitation a deja ete utilisee ou revoquee.
+          Cette invitation a déjà été utilisée ou révoquée.
         </p>
       </div>
     );
@@ -37,9 +37,9 @@ export default async function InvitationPage({
   if (new Date(invitation.expires_at) < new Date()) {
     return (
       <div className="text-center space-y-3">
-        <h1 className="text-2xl font-bold text-gray-900">Invitation expiree</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Invitation expirée</h1>
         <p className="text-gray-500">
-          Demandez au proprietaire de vous renvoyer une invitation.
+          Demandez au propriétaire de vous renvoyer une invitation.
         </p>
       </div>
     );
@@ -52,7 +52,7 @@ export default async function InvitationPage({
           Rejoindre {businessName}
         </h1>
         <p className="text-sm text-gray-500">
-          Creez votre compte employe pour scanner les cartes des clients.
+          Créez votre compte employé pour scanner les cartes des clients.
         </p>
       </div>
 

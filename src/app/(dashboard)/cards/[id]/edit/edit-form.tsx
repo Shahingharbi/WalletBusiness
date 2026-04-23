@@ -101,20 +101,20 @@ export function EditCardForm({
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        <div className="flex-1 lg:w-[60%] space-y-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+        <div className="flex-1 lg:w-[60%] min-w-0 space-y-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <StepSettings
               values={settings}
               onChange={setSettings}
               cardType={cardType}
             />
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <StepDesign values={design} onChange={setDesign} />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between gap-3">
             <Button
               variant="ghost"
               onClick={archive}

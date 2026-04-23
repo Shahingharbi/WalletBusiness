@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
 
       setSuccess(true);
     } catch {
-      setGeneralError("Une erreur inattendue est survenue. Veuillez reessayer.");
+      setGeneralError("Une erreur inattendue est survenue. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }
@@ -58,17 +58,17 @@ export default function ForgotPasswordPage() {
           </svg>
         </div>
         <h2 className="text-xl font-bold text-gray-900 mb-2">
-          Email envoye
+          Email envoyé
         </h2>
         <p className="text-sm text-gray-600 mb-6">
-          Un email vous a ete envoye avec un lien pour reinitialiser votre mot
+          Un email vous a été envoyé avec un lien pour réinitialiser votre mot
           de passe.
         </p>
         <Link
           href="/login"
           className="text-sm font-medium text-black hover:underline"
         >
-          Retour a la connexion
+          Retour à la connexion
         </Link>
       </div>
     );
@@ -77,11 +77,11 @@ export default function ForgotPasswordPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
-        Mot de passe oublie
+        Mot de passe oublié
       </h1>
       <p className="text-center text-sm text-gray-600 mb-6">
         Entrez votre adresse email et nous vous enverrons un lien pour
-        reinitialiser votre mot de passe.
+        réinitialiser votre mot de passe.
       </p>
 
       {generalError && (
@@ -107,7 +107,7 @@ export default function ForgotPasswordPage() {
         />
 
         <Button type="submit" loading={loading} className="w-full" size="lg">
-          Envoyer le lien de reinitialisation
+          Envoyer le lien de réinitialisation
         </Button>
       </form>
 
@@ -116,7 +116,7 @@ export default function ForgotPasswordPage() {
           href="/login"
           className="font-medium text-black hover:underline"
         >
-          Retour a la connexion
+          Retour à la connexion
         </Link>
       </p>
     </div>

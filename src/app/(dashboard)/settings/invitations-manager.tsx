@@ -96,8 +96,8 @@ export function InvitationsManager({
       </CardHeader>
       <CardContent className="space-y-6">
         <form onSubmit={handleInvite} className="space-y-3">
-          <div className="flex gap-2 items-end">
-            <div className="flex-1">
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+            <div className="flex-1 min-w-0">
               <Input
                 label="Inviter un employe"
                 type="email"
@@ -107,7 +107,7 @@ export function InvitationsManager({
                 required
               />
             </div>
-            <Button type="submit" loading={loading}>
+            <Button type="submit" loading={loading} className="w-full sm:w-auto">
               <Mail className="h-4 w-4 mr-1.5" />
               Inviter
             </Button>
@@ -127,9 +127,9 @@ export function InvitationsManager({
               {pending.map((inv) => (
                 <div
                   key={inv.id}
-                  className="flex items-center justify-between p-3 gap-2"
+                  className="flex flex-wrap items-center justify-between p-3 gap-2"
                 >
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 basis-full sm:basis-auto">
                     <p className="text-sm font-medium text-gray-900 truncate">
                       {inv.email}
                     </p>
@@ -157,7 +157,7 @@ export function InvitationsManager({
                   <button
                     type="button"
                     onClick={() => handleRevoke(inv.id)}
-                    className="text-gray-400 hover:text-red-600 p-1.5 rounded transition-colors cursor-pointer"
+                    className="text-gray-400 hover:text-red-600 p-2 rounded transition-colors cursor-pointer"
                     aria-label="Revoquer"
                   >
                     <Trash2 className="h-4 w-4" />

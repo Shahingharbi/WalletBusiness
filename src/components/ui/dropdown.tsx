@@ -42,7 +42,7 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(
             id={selectId}
             ref={ref}
             className={cn(
-              "flex h-10 w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-sm transition-colors duration-150",
+              "flex h-11 w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-base sm:text-sm transition-colors duration-150",
               "focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent",
               "disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-50",
               error && "border-red-500 focus:ring-red-500",

@@ -3,20 +3,20 @@ import { Mail, MapPin, Building2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Contactez l'equipe aswallet pour toute question.",
+  description: "Contactez l'équipe aswallet pour toute question.",
 };
 
 export default function ContactPage() {
   return (
-    <div className="max-w-2xl mx-auto px-6 py-16">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
       <h1
-        className="text-4xl font-bold mb-3 text-center"
+        className="text-3xl sm:text-4xl font-bold mb-3 text-center"
         style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}
       >
         Contact
       </h1>
-      <p className="text-center text-muted-foreground mb-12">
-        Une question, un probleme avec votre carte de fidelite ? Nous vous repondons sous 48h.
+      <p className="text-center text-muted-foreground mb-8 sm:mb-12">
+        Une question, un problème avec votre carte de fidélité ? Nous vous répondons sous 48h.
       </p>
 
       <div className="space-y-4">
@@ -80,7 +80,7 @@ export default function ContactPage() {
         </div>
       </div>
 
-      <div className="mt-12 p-6 rounded-2xl bg-beige border border-beige-dark text-center">
+      <div className="mt-10 sm:mt-12 p-5 sm:p-6 rounded-2xl bg-beige border border-beige-dark text-center">
         <p
           className="font-semibold text-foreground mb-1"
           style={{ fontFamily: "var(--font-maison-neue-extended)" }}

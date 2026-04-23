@@ -23,16 +23,16 @@ export default function Error({
           Une erreur est survenue
         </h1>
         <p className="text-sm text-gray-500">
-          Nous avons rencontre un probleme inattendu. Nos equipes ont ete
-          averties. Vous pouvez revenir a l&apos;accueil ou reessayer dans un
+          Nous avons rencontré un problème inattendu. Nos équipes ont été
+          averties. Vous pouvez revenir à l&apos;accueil ou réessayer dans un
           instant.
         </p>
         {error.digest ? (
-          <p className="text-xs text-gray-400">Reference : {error.digest}</p>
+          <p className="text-xs text-gray-400">Référence : {error.digest}</p>
         ) : null}
         <div className="pt-2">
           <Link href="/">
-            <Button>Retour a l&apos;accueil</Button>
+            <Button>Retour à l&apos;accueil</Button>
           </Link>
         </div>
       </div>

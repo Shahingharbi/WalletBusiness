@@ -200,7 +200,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1
-            className="text-3xl text-foreground"
+            className="text-2xl sm:text-3xl text-foreground"
             style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}
           >
             Tableau de bord
@@ -226,21 +226,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 border-beige-dark">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div>
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <div className="min-w-0">
                 <h2
                   className="font-semibold text-foreground"
                   style={{ fontFamily: "var(--font-maison-neue-extended)" }}
                 >
                   Scans
                 </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   {start.toLocaleDateString("fr-FR")} &mdash;{" "}
                   {end.toLocaleDateString("fr-FR")}
                 </p>
               </div>
-              <Badge variant="success">
+              <Badge variant="success" className="shrink-0">
                 {(scansPeriod.count ?? 0).toLocaleString("fr-FR")} total
               </Badge>
             </div>
@@ -249,7 +249,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </Card>
 
         <Card className="border-beige-dark">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-5">
               <h2
                 className="font-semibold text-foreground"
@@ -298,7 +298,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </div>
 
       <Card className="border-beige-dark">
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <h2
             className="font-semibold text-foreground mb-5"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}

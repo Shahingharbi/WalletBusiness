@@ -154,13 +154,13 @@ export default function NewCardPage() {
       </div>
 
       {/* Step indicator */}
-      <div className="flex items-center justify-center gap-0">
+      <div className="flex items-center justify-center gap-0 overflow-x-auto">
         {STEPS.map((s, i) => (
           <div key={s.id} className="flex items-center">
             <div className="flex flex-col items-center">
               <div
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-semibold transition-all duration-200",
+                  "flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 text-sm font-semibold transition-all duration-200",
                   step > s.id
                     ? "border-black bg-black text-white"
                     : step === s.id
@@ -172,7 +172,7 @@ export default function NewCardPage() {
               </div>
               <span
                 className={cn(
-                  "mt-1.5 text-xs font-medium",
+                  "mt-1.5 text-[11px] sm:text-xs font-medium",
                   step >= s.id ? "text-gray-900" : "text-gray-400"
                 )}
               >
@@ -182,7 +182,7 @@ export default function NewCardPage() {
             {i < STEPS.length - 1 && (
               <div
                 className={cn(
-                  "h-0.5 w-16 sm:w-24 mx-2 mb-5 transition-colors duration-200",
+                  "h-0.5 w-8 sm:w-16 lg:w-24 mx-1.5 sm:mx-2 mb-5 transition-colors duration-200",
                   step > s.id ? "bg-black" : "bg-gray-200"
                 )}
               />
@@ -198,10 +198,10 @@ export default function NewCardPage() {
       )}
 
       {/* Content: form + preview */}
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
         {/* Form area */}
-        <div className="flex-1 lg:w-[60%]">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex-1 lg:w-[60%] min-w-0">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             {step === 1 && (
               <StepTemplate
                 selectedId={form.templateId}
@@ -258,8 +258,8 @@ export default function NewCardPage() {
         </div>
 
         {/* Preview area */}
-        <div className="lg:w-[40%]">
-          <div className="sticky top-6">
+        <div className="lg:w-[40%] flex justify-center">
+          <div className="lg:sticky lg:top-6 w-full max-w-sm">
             <p className="text-sm font-medium text-gray-500 text-center mb-4">
               Apercu en direct
             </p>

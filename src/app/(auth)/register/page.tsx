@@ -86,7 +86,7 @@ function RegisterForm() {
         setSuccess(true);
       }
     } catch {
-      setGeneralError("Une erreur inattendue est survenue. Veuillez reessayer.");
+      setGeneralError("Une erreur inattendue est survenue. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }
@@ -107,17 +107,17 @@ function RegisterForm() {
           </svg>
         </div>
         <h2 className="text-xl font-bold text-gray-900 mb-2">
-          Verifiez votre email
+          Vérifiez votre email
         </h2>
         <p className="text-sm text-gray-600 mb-6">
-          Verifiez votre email pour confirmer votre compte. Un lien de
-          confirmation vous a ete envoye.
+          Vérifiez votre email pour confirmer votre compte. Un lien de
+          confirmation vous a été envoyé.
         </p>
         <Link
           href="/login"
           className="text-sm font-medium text-black hover:underline"
         >
-          Retour a la connexion
+          Retour à la connexion
         </Link>
       </div>
     );
@@ -126,7 +126,7 @@ function RegisterForm() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-center text-gray-900 mb-6">
-        Creer votre compte
+        Créer votre compte
       </h1>
 
       {generalError && (
@@ -136,9 +136,9 @@ function RegisterForm() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="Prenom"
+            label="Prénom"
             name="firstName"
             placeholder="Jean"
             value={formData.firstName}
@@ -173,7 +173,7 @@ function RegisterForm() {
           label="Mot de passe"
           type="password"
           name="password"
-          placeholder="Minimum 6 caracteres"
+          placeholder="Minimum 6 caractères"
           value={formData.password}
           onChange={handleChange}
           error={errors.password}
@@ -190,7 +190,7 @@ function RegisterForm() {
         />
 
         <Button type="submit" loading={loading} className="w-full" size="lg">
-          Creer mon compte
+          Créer mon compte
         </Button>
       </form>
 
@@ -203,7 +203,7 @@ function RegisterForm() {
       <GoogleAuthButton next="/dashboard" label="S'inscrire avec Google" />
 
       <p className="mt-6 text-center text-sm text-gray-600">
-        Deja un compte ?{" "}
+        Déjà un compte ?{" "}
         <Link
           href="/login"
           className="font-medium text-black hover:underline"

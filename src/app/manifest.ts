@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "aswallet - Carte de fidelite",
+    name: "aswallet - Carte de fidélité",
     short_name: "aswallet",
     description:
-      "Votre carte de fidelite digitale. Gagnez des recompenses chez vos commercants prefires.",
+      "Votre carte de fidélité digitale. Gagnez des récompenses chez vos commerçants préférés.",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",

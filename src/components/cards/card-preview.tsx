@@ -176,7 +176,7 @@ export function CardPreview({
       </div>
 
       {/* Phone frame */}
-      <div className="relative w-[290px]">
+      <div className="relative w-full max-w-[290px]">
         <div
           className={cn(
             "relative p-3 shadow-2xl",

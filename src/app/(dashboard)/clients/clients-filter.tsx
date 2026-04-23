@@ -51,7 +51,7 @@ export function ClientsFilter({
           placeholder="Rechercher par nom, telephone..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full h-10 pl-9 pr-9 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+          className="w-full h-11 pl-9 pr-9 rounded-lg border border-gray-200 bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
         />
         {query && (
           <button

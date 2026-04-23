@@ -78,7 +78,7 @@ export default async function CardStatusPage({
     <div className="min-h-[80vh] flex flex-col">
       {/* Header with optional banner + overlay */}
       <div
-        className="relative px-6 py-6 overflow-hidden"
+        className="relative px-4 sm:px-6 py-6 overflow-hidden"
         style={{
           backgroundColor: design.accent_color as string,
           backgroundImage: (design.banner_url as string | null)
@@ -101,23 +101,23 @@ export default async function CardStatusPage({
             <img
               src={logoUrl}
               alt={businessName}
-              className="h-12 w-12 rounded-xl object-cover bg-white shadow-md ring-2 ring-white/30"
+              className="h-12 w-12 rounded-xl object-cover bg-white shadow-md ring-2 ring-white/30 shrink-0"
             />
           ) : (
-            <div className="h-12 w-12 rounded-xl bg-white/90 shadow-md flex items-center justify-center ring-2 ring-white/30">
+            <div className="h-12 w-12 rounded-xl bg-white/90 shadow-md flex items-center justify-center ring-2 ring-white/30 shrink-0">
               <span className="text-lg font-bold text-gray-700">
                 {businessName.charAt(0)}
               </span>
             </div>
           )}
-          <div>
-            <p className="text-white/85 text-xs font-medium drop-shadow-sm">{businessName}</p>
-            <h1 className="text-white text-lg font-bold drop-shadow-sm">{card.name}</h1>
+          <div className="min-w-0">
+            <p className="text-white/85 text-xs font-medium drop-shadow-sm truncate">{businessName}</p>
+            <h1 className="text-white text-lg font-bold drop-shadow-sm break-words">{card.name}</h1>
           </div>
         </div>
       </div>
 
-      <div className="px-6 py-6 flex-1 space-y-6">
+      <div className="px-4 sm:px-6 py-6 flex-1 space-y-6 max-w-lg w-full mx-auto">
         {/* Welcome */}
         <p className="text-gray-600 text-sm">
           Bonjour <span className="font-semibold text-gray-900">{client.first_name}</span> !
@@ -181,7 +181,7 @@ export default async function CardStatusPage({
             <img
               src={qrDataUrl}
               alt="QR Code de fidelite"
-              className="w-56 h-56"
+              className="w-48 h-48 sm:w-56 sm:h-56"
             />
           </div>
           <p className="text-xs text-gray-400 mt-3">

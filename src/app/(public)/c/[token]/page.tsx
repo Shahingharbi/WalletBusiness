@@ -91,7 +91,7 @@ export default async function CardInstallPage({
     <div className="min-h-[80vh] flex flex-col">
       {/* Banner / Header */}
       <div
-        className="relative h-48 flex items-end"
+        className="relative h-40 sm:h-48 flex items-end"
         style={{
           backgroundColor: design.accent_color as string,
           backgroundImage: design.banner_url ? `url(${design.banner_url})` : undefined,
@@ -100,31 +100,31 @@ export default async function CardInstallPage({
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-        <div className="relative z-10 px-6 pb-5 w-full">
+        <div className="relative z-10 px-4 sm:px-6 pb-5 w-full">
           <div className="flex items-center gap-3">
             {logoUrl ? (
               <img
                 src={logoUrl}
                 alt={businessName}
-                className="h-12 w-12 rounded-xl object-cover bg-white shadow-md"
+                className="h-12 w-12 rounded-xl object-cover bg-white shadow-md shrink-0"
               />
             ) : (
-              <div className="h-12 w-12 rounded-xl bg-white/90 shadow-md flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-white/90 shadow-md flex items-center justify-center shrink-0">
                 <span className="text-lg font-bold text-gray-700">
                   {businessName.charAt(0)}
                 </span>
               </div>
             )}
-            <div>
-              <p className="text-white/80 text-sm font-medium">{businessName}</p>
-              <h1 className="text-white text-xl font-bold">{card.name}</h1>
+            <div className="min-w-0">
+              <p className="text-white/80 text-sm font-medium truncate">{businessName}</p>
+              <h1 className="text-white text-lg sm:text-xl font-bold break-words">{card.name}</h1>
             </div>
           </div>
         </div>
       </div>
 
       {/* Card details */}
-      <div className="px-6 py-6 flex-1">
+      <div className="px-4 sm:px-6 py-6 flex-1 max-w-lg w-full mx-auto">
         {/* Reward info */}
         <div className="bg-gray-50 rounded-2xl p-5 mb-6">
           <div className="flex items-center gap-2 mb-2">

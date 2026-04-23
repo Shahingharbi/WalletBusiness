@@ -194,7 +194,7 @@ export function SettingsForms({
                   setBusiness({ ...business, category: e.target.value })
                 }
                 disabled={!canEditBusiness}
-                className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-50"
+                className="flex h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-50"
               >
                 <option value="">Selectionnez une categorie</option>
                 {BUSINESS_CATEGORIES.map((c) => (

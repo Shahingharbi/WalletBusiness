@@ -8,10 +8,10 @@ export default function NotFound() {
         <p className="text-6xl font-bold text-gray-300">404</p>
         <h1 className="text-2xl font-bold text-gray-900">Page introuvable</h1>
         <p className="text-sm text-gray-500">
-          La page que vous cherchez n&apos;existe pas ou a ete deplacee.
+          La page que vous cherchez n&apos;existe pas ou a été déplacée.
         </p>
         <Link href="/">
-          <Button>Retour a l&apos;accueil</Button>
+          <Button>Retour à l&apos;accueil</Button>
         </Link>
       </div>
     </div>

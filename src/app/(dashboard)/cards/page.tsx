@@ -52,10 +52,10 @@ export default async function CardsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">Mes cartes</h1>
-        <Link href="/cards/new">
-          <Button>
+        <Link href="/cards/new" className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Nouvelle carte
           </Button>

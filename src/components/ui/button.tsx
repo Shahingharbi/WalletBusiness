@@ -14,8 +14,8 @@ const buttonVariants = {
     link: "bg-transparent text-black underline-offset-4 hover:underline p-0 h-auto",
   },
   size: {
-    sm: "h-8 px-3 text-sm rounded-md",
-    default: "h-10 px-4 text-sm rounded-lg",
+    sm: "h-9 px-3 text-sm rounded-md",
+    default: "h-11 px-4 text-sm rounded-lg",
     lg: "h-12 px-6 text-base rounded-lg",
   },
 } as const;

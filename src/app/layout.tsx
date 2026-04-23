@@ -35,11 +35,11 @@ const maisonNeue = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "aswallet - Carte de fidelite digitale pour commerces de proximite",
+    default: "aswallet - Carte de fidélité digitale pour commerces de proximité",
     template: "%s | aswallet",
   },
   description:
-    "Creez votre carte de fidelite digitale dans Apple Wallet et Google Wallet. Notifications push gratuites et illimitees. Sans app a telecharger. Essai gratuit 14 jours.",
+    "Créez votre carte de fidélité digitale dans Apple Wallet et Google Wallet. Notifications push gratuites et illimitées. Sans app à télécharger. Essai gratuit 14 jours.",
 };
 
 export default function RootLayout({
