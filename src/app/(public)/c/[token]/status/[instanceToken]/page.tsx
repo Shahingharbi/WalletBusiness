@@ -36,7 +36,7 @@ export default async function CardStatusPage({
             Carte introuvable
           </h1>
           <p className="text-gray-500 text-sm">
-            Cette carte n&apos;existe pas ou a ete supprimee.
+            Cette carte n&apos;existe pas ou a été supprimée.
           </p>
         </div>
       </div>
@@ -128,10 +128,10 @@ export default async function CardStatusPage({
           <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 p-5 text-center">
             <div className="text-3xl mb-2">&#127881;</div>
             <p className="font-bold text-amber-800 text-lg">
-              Vous avez {instance.rewards_available} recompense{instance.rewards_available > 1 ? "s" : ""} disponible{instance.rewards_available > 1 ? "s" : ""} !
+              Vous avez {instance.rewards_available} récompense{instance.rewards_available > 1 ? "s" : ""} disponible{instance.rewards_available > 1 ? "s" : ""} !
             </p>
             <p className="text-amber-700 text-sm mt-1">
-              Presentez ce QR code en magasin pour en profiter.
+              Présentez ce QR code en magasin pour en profiter.
             </p>
           </div>
         )}
@@ -156,7 +156,7 @@ export default async function CardStatusPage({
           />
           {stampsRemaining > 0 && !hasReward && (
             <p className="text-center text-sm text-gray-500 mt-4">
-              Plus que <span className="font-semibold text-gray-700">{stampsRemaining} tampon{stampsRemaining > 1 ? "s" : ""}</span> avant votre recompense
+              Plus que <span className="font-semibold text-gray-700">{stampsRemaining} tampon{stampsRemaining > 1 ? "s" : ""}</span> avant votre récompense
             </p>
           )}
         </div>
@@ -167,7 +167,7 @@ export default async function CardStatusPage({
             <svg className="h-4 w-4 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Recompense</span>
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Récompense</span>
           </div>
           <p className="font-semibold text-gray-900">{card.reward_text}</p>
         </div>
@@ -175,17 +175,17 @@ export default async function CardStatusPage({
         {/* QR Code */}
         <div className="text-center">
           <p className="text-xs text-gray-400 mb-3 uppercase tracking-wide font-medium">
-            Votre QR code de fidelite
+            Votre QR code de fidélité
           </p>
           <div className="inline-block bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <img
               src={qrDataUrl}
-              alt="QR Code de fidelite"
+              alt="QR Code de fidélité"
               className="w-48 h-48 sm:w-56 sm:h-56"
             />
           </div>
           <p className="text-xs text-gray-400 mt-3">
-            Presentez ce code lors de votre prochain passage
+            Présentez ce code lors de votre prochain passage
           </p>
         </div>
 
@@ -199,10 +199,10 @@ export default async function CardStatusPage({
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5l-3.5-3.5L9 11.5l2 2 4-4 1.5 1.5-5.5 5.5z"/>
               </svg>
-              Ajouter a Google Wallet
+              Ajouter à Google Wallet
             </a>
             <p className="text-[10px] text-gray-400 text-center">
-              Disponible sur Android. Sur iPhone, ajoutez cette page a votre ecran d&apos;accueil.
+              Disponible sur Android. Sur iPhone, ajoutez cette page à votre écran d&apos;accueil.
             </p>
           </div>
         )}
@@ -217,7 +217,7 @@ export default async function CardStatusPage({
         {/* Add to home screen hint */}
         <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-center">
           <p className="text-xs text-blue-700">
-            Ajoutez cette page a votre ecran d&apos;accueil pour y acceder facilement.
+            Ajoutez cette page à votre écran d&apos;accueil pour y accéder facilement.
           </p>
         </div>
       </div>

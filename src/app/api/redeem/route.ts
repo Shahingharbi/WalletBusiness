@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: "Non authentifie" },
+        { error: "Non authentifié" },
         { status: 401 }
       );
     }
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
     if (profile.role !== "employee" && profile.role !== "business_owner") {
       return NextResponse.json(
-        { error: "Acces non autorise" },
+        { error: "Accès non autorisé" },
         { status: 403 }
       );
     }
@@ -75,14 +75,14 @@ export async function POST(request: Request) {
 
     if (instance.business_id !== profile.business_id) {
       return NextResponse.json(
-        { error: "Cette carte n'appartient pas a votre commerce" },
+        { error: "Cette carte n'appartient pas à votre commerce" },
         { status: 403 }
       );
     }
 
     if (instance.rewards_available <= 0) {
       return NextResponse.json(
-        { error: "Aucune recompense disponible" },
+        { error: "Aucune récompense disponible" },
         { status: 400 }
       );
     }
@@ -99,14 +99,14 @@ export async function POST(request: Request) {
     if (redeemError) {
       console.error("redeem_reward error:", redeemError);
       return NextResponse.json(
-        { error: redeemError.message || "Erreur lors de l'utilisation de la recompense" },
+        { error: redeemError.message || "Erreur lors de l'utilisation de la récompense" },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: "Recompense utilisee avec succes",
+      message: "Récompense utilisée avec succès",
     });
   } catch (err) {
     console.error("POST /api/redeem error:", err);

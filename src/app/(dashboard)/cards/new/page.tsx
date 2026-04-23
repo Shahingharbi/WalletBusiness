@@ -24,9 +24,9 @@ import {
 import type { CardTemplate } from "@/lib/card-templates";
 
 const STEPS = [
-  { id: 1, label: "Modele" },
+  { id: 1, label: "Modèle" },
   { id: 2, label: "Type" },
-  { id: 3, label: "Parametres" },
+  { id: 3, label: "Paramètres" },
   { id: 4, label: "Design" },
 ] as const;
 
@@ -85,7 +85,7 @@ export default function NewCardPage() {
   const validateStep3 = (): Record<string, string> => {
     const errs: Record<string, string> = {};
     if (!form.settings.name.trim()) errs.name = "Le nom de la carte est requis";
-    if (!form.settings.rewardText.trim()) errs.rewardText = "La recompense est requise";
+    if (!form.settings.rewardText.trim()) errs.rewardText = "La récompense est requise";
     return errs;
   };
 
@@ -128,7 +128,7 @@ export default function NewCardPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Erreur lors de la creation");
+        throw new Error(data.error || "Erreur lors de la création");
       }
 
       router.push(`/cards/${data.card.id}`);
@@ -250,7 +250,7 @@ export default function NewCardPage() {
                   {submitting && (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   )}
-                  Creer la carte
+                  Créer la carte
                 </Button>
               )}
             </div>
@@ -261,12 +261,12 @@ export default function NewCardPage() {
         <div className="lg:w-[40%] flex justify-center">
           <div className="lg:sticky lg:top-6 w-full max-w-sm">
             <p className="text-sm font-medium text-gray-500 text-center mb-4">
-              Apercu en direct
+              Aperçu en direct
             </p>
             <CardPreview
               cardName={form.settings.name || "Ma carte"}
               stampCount={form.settings.stampCount}
-              rewardText={form.settings.rewardText || "Votre recompense"}
+              rewardText={form.settings.rewardText || "Votre récompense"}
               design={form.design}
               cardType={form.type}
               barcodeType={form.settings.barcodeType}

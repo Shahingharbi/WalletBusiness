@@ -33,7 +33,7 @@ const navItems = [
   { label: "Cartes", href: "/cards", icon: CreditCard },
   { label: "Scanner", href: "/scanner", icon: ScanLine, highlight: true },
   { label: "Clients", href: "/clients", icon: Users },
-  { label: "Parametres", href: "/settings", icon: Settings },
+  { label: "Paramètres", href: "/settings", icon: Settings },
 ];
 
 export function MobileNav({ isOpen, onClose, user }: MobileNavProps) {
@@ -148,7 +148,7 @@ export function MobileNav({ isOpen, onClose, user }: MobileNavProps) {
             className="flex items-center gap-3 w-full px-3 py-2.5 rounded-full text-sm text-red-600 hover:bg-red-50 transition-colors duration-150 cursor-pointer"
           >
             <LogOut className="h-4 w-4 shrink-0" />
-            <span>Deconnexion</span>
+            <span>Déconnexion</span>
           </button>
         </div>
       </div>

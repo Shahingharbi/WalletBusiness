@@ -31,7 +31,7 @@ const navItems = [
   { label: "Cartes", href: "/cards", icon: CreditCard },
   { label: "Scanner", href: "/scanner", icon: ScanLine, highlight: true },
   { label: "Clients", href: "/clients", icon: Users },
-  { label: "Parametres", href: "/settings", icon: Settings },
+  { label: "Paramètres", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar({ user }: SidebarProps) {
@@ -70,7 +70,7 @@ export function Sidebar({ user }: SidebarProps) {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-beige-dark transition-colors cursor-pointer"
-          aria-label={collapsed ? "Agrandir le menu" : "Reduire le menu"}
+          aria-label={collapsed ? "Agrandir le menu" : "Réduire le menu"}
         >
           {collapsed ? (
             <ChevronRight className="h-4 w-4" />

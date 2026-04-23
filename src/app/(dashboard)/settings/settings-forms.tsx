@@ -68,7 +68,7 @@ export function SettingsForms({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setProfileMessage({ type: "success", text: "Profil mis a jour" });
+      setProfileMessage({ type: "success", text: "Profil mis à jour" });
       router.refresh();
     } catch (err) {
       setProfileMessage({
@@ -92,7 +92,7 @@ export function SettingsForms({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setBizMessage({ type: "success", text: "Commerce mis a jour" });
+      setBizMessage({ type: "success", text: "Commerce mis à jour" });
       router.refresh();
     } catch (err) {
       setBizMessage({
@@ -114,7 +114,7 @@ export function SettingsForms({
           <form onSubmit={saveProfile} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Prenom"
+                label="Prénom"
                 value={profile.first_name}
                 onChange={(e) =>
                   setProfile({ ...profile, first_name: e.target.value })
@@ -130,7 +130,7 @@ export function SettingsForms({
             </div>
             <Input label="Email" value={profile.email} disabled />
             <Input
-              label="Telephone"
+              label="Téléphone"
               value={profile.phone}
               onChange={(e) =>
                 setProfile({ ...profile, phone: e.target.value })
@@ -186,7 +186,7 @@ export function SettingsForms({
 
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-gray-700">
-                Categorie
+                Catégorie
               </label>
               <select
                 value={business.category}
@@ -196,7 +196,7 @@ export function SettingsForms({
                 disabled={!canEditBusiness}
                 className="flex h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-gray-50"
               >
-                <option value="">Selectionnez une categorie</option>
+                <option value="">Sélectionnez une catégorie</option>
                 {BUSINESS_CATEGORIES.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -232,7 +232,7 @@ export function SettingsForms({
               />
             </div>
             <Input
-              label="Telephone"
+              label="Téléphone"
               value={business.phone}
               onChange={(e) =>
                 setBusiness({ ...business, phone: e.target.value })

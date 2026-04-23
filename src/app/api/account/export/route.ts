@@ -17,7 +17,7 @@ export async function GET() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
     const admin = createAdminClient();
@@ -73,7 +73,7 @@ export async function GET() {
           email: user.email,
         },
         notice:
-          "Export RGPD (art. 15 et 20). Ce fichier contient vos donnees personnelles et celles de votre commerce au moment de l'export.",
+          "Export RGPD (art. 15 et 20). Ce fichier contient vos données personnelles et celles de votre commerce au moment de l'export.",
       },
       auth_user: {
         id: user.id,

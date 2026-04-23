@@ -330,13 +330,13 @@ export function CardPreview({
                         />
                         <div className="min-w-0">
                           <p className="text-[8px] uppercase tracking-wider font-semibold opacity-55">
-                            {design.label_rewards || "Recompense"}
+                            {design.label_rewards || "Récompense"}
                           </p>
                           <p
                             className="text-[11px] font-bold truncate"
                             style={{ color: accentColor }}
                           >
-                            {rewardText || "A definir"}
+                            {rewardText || "À définir"}
                           </p>
                         </div>
                       </div>
@@ -356,7 +356,7 @@ export function CardPreview({
                           Avantage
                         </p>
                         <p className="text-[13px] font-bold truncate" style={{ color: accentColor }}>
-                          {rewardText || "A definir"}
+                          {rewardText || "À définir"}
                         </p>
                       </div>
                     </div>
@@ -390,7 +390,7 @@ export function CardPreview({
                         <CircleDollarSign className="h-7 w-7" style={{ color: accentColor }} />
                       </div>
                       <p className="text-[13px] font-bold truncate" style={{ color: accentColor }}>
-                        {rewardText || "A definir"}
+                        {rewardText || "À définir"}
                       </p>
                     </div>
                   )}

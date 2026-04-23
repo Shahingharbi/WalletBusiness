@@ -98,8 +98,8 @@ export default async function CardStatsPage({
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard title="Installations" value={installs} icon={Users} />
-        <KpiCard title="Tampons distribues" value={totalStamps} icon={Stamp} />
-        <KpiCard title="Recompenses utilisees" value={totalRewards} icon={Gift} />
+        <KpiCard title="Tampons distribués" value={totalStamps} icon={Stamp} />
+        <KpiCard title="Récompenses utilisées" value={totalRewards} icon={Gift} />
       </div>
 
       <Card>

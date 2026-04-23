@@ -151,7 +151,7 @@ export default async function CardDetailPage({
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-wider">
-                        Recompense
+                        Récompense
                       </p>
                       <p className="text-sm font-medium text-gray-900 mt-1">
                         {card.reward_text}
@@ -171,7 +171,7 @@ export default async function CardDetailPage({
                       </p>
                       <p className="text-sm font-medium text-gray-900 mt-1">
                         {card.expiration_type === "unlimited"
-                          ? "Illimitee"
+                          ? "Illimitée"
                           : card.expiration_type === "fixed_date"
                             ? card.expiration_date
                             : `${card.expiration_days} jours`}
@@ -187,7 +187,7 @@ export default async function CardDetailPage({
                 <CardContent className="p-6 text-center py-10 space-y-3">
                   <Users className="h-8 w-8 text-gray-300 mx-auto" />
                   <p className="text-sm text-gray-500">
-                    Voir tous les clients qui ont installe cette carte.
+                    Voir tous les clients qui ont installé cette carte.
                   </p>
                   <Link href={`/cards/${card.id}/clients`}>
                     <Button variant="secondary">Ouvrir la liste</Button>
@@ -201,7 +201,7 @@ export default async function CardDetailPage({
                 <CardContent className="p-6 text-center py-10 space-y-3">
                   <BarChart3 className="h-8 w-8 text-gray-300 mx-auto" />
                   <p className="text-sm text-gray-500">
-                    Installations, scans et recompenses des 30 derniers jours.
+                    Installations, scans et récompenses des 30 derniers jours.
                   </p>
                   <Link href={`/cards/${card.id}/stats`}>
                     <Button variant="secondary">Voir les stats</Button>

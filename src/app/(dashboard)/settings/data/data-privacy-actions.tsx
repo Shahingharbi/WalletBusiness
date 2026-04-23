@@ -35,7 +35,7 @@ export function DataPrivacyActions() {
       a.remove();
       URL.revokeObjectURL(url);
 
-      toast.success("Export telecharge");
+      toast.success("Export téléchargé");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
@@ -58,7 +58,7 @@ export function DataPrivacyActions() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Erreur");
 
-      toast.success("Compte supprime. Au revoir.");
+      toast.success("Compte supprimé. Au revoir.");
       router.push("/");
       router.refresh();
     } catch (err) {
@@ -71,16 +71,16 @@ export function DataPrivacyActions() {
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
         <Button onClick={handleExport} loading={exporting}>
-          Telecharger mes donnees (JSON)
+          Télécharger mes données (JSON)
         </Button>
       </div>
 
       <div className="border-t pt-6">
         <h3 className="text-sm font-semibold text-red-700 mb-1">Zone dangereuse</h3>
         <p className="text-sm text-gray-600 mb-3">
-          La suppression de votre compte est definitive. Toutes vos donnees
-          (commerce, cartes, clients, transactions) seront effacees
-          immediatement et ne pourront pas etre recuperees.
+          La suppression de votre compte est définitive. Toutes vos données
+          (commerce, cartes, clients, transactions) seront effacées
+          immédiatement et ne pourront pas être récupérées.
         </p>
 
         {!deleteOpen ? (
@@ -107,7 +107,7 @@ export function DataPrivacyActions() {
                 loading={deleting}
                 disabled={confirm !== "SUPPRIMER"}
               >
-                Confirmer la suppression definitive
+                Confirmer la suppression définitive
               </Button>
               <Button
                 variant="secondary"

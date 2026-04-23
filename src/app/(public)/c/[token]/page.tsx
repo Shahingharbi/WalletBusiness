@@ -27,7 +27,7 @@ export async function generateMetadata({
   const design = (card.design || {}) as { banner_url?: string | null };
   const businessName = business?.name ?? "";
   const title = `${card.name} - ${businessName}`;
-  const description = `Recevez ${card.reward_text} grace a votre carte de fidelite.`;
+  const description = `Recevez ${card.reward_text} grâce à votre carte de fidélité.`;
   const image = design.banner_url ?? business?.logo_url ?? undefined;
 
   return {
@@ -131,7 +131,7 @@ export default async function CardInstallPage({
             <svg className="h-5 w-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
-            <h2 className="font-semibold text-gray-900">Recompense</h2>
+            <h2 className="font-semibold text-gray-900">Récompense</h2>
           </div>
           <p className="text-sm text-gray-600 mb-1">
             Collectez <span className="font-bold text-gray-900">{card.max_stamps} tampons</span> et gagnez :

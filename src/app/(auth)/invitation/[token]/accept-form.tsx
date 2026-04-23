@@ -68,7 +68,7 @@ export function AcceptInvitationForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
-          label="Prenom"
+          label="Prénom"
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
           required
@@ -85,13 +85,13 @@ export function AcceptInvitationForm({
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        hint="Au moins 6 caracteres"
+        hint="Au moins 6 caractères"
         required
         minLength={6}
       />
 
       <Button type="submit" loading={loading} className="w-full" size="lg">
-        Creer mon compte
+        Créer mon compte
       </Button>
     </form>
   );

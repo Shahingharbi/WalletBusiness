@@ -21,12 +21,12 @@ interface DashboardPageProps {
 }
 
 const TX_LABELS: Record<string, string> = {
-  stamp_add: "Tampon ajoute",
-  reward_earned: "Recompense gagnee",
-  reward_redeemed: "Recompense utilisee",
-  card_installed: "Carte installee",
-  card_expired: "Carte expiree",
-  card_revoked: "Carte revoquee",
+  stamp_add: "Tampon ajouté",
+  reward_earned: "Récompense gagnée",
+  reward_redeemed: "Récompense utilisée",
+  card_installed: "Carte installée",
+  card_expired: "Carte expirée",
+  card_revoked: "Carte révoquée",
 };
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
@@ -137,13 +137,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       icon: CreditCard,
     },
     {
-      title: "Scans (periode)",
+      title: "Scans (période)",
       value: scansPeriod.count ?? 0,
       previous: scansPrev.count ?? undefined,
       icon: ScanLine,
     },
     {
-      title: "Recompenses",
+      title: "Récompenses",
       value: rewardsPeriod.count ?? 0,
       previous: rewardsPrev.count ?? undefined,
       icon: Gift,
@@ -303,17 +303,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             className="font-semibold text-foreground mb-5"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Activite recente
+            Activité récente
           </h2>
           {transactions.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground text-sm">
-                Aucune activite pour le moment.{" "}
+                Aucune activité pour le moment.{" "}
                 <Link
                   href="/cards/new"
                   className="text-foreground font-semibold hover:underline"
                 >
-                  Creez votre premiere carte !
+                  Créez votre première carte !
                 </Link>
               </p>
             </div>

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataPrivacyActions } from "./data-privacy-actions";
 
 export const metadata: Metadata = {
-  title: "Donnees et confidentialite",
+  title: "Données et confidentialité",
 };
 
 export default function SettingsDataPage() {
@@ -12,26 +12,26 @@ export default function SettingsDataPage() {
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          Donnees et confidentialite
+          Données et confidentialité
         </h1>
         <p className="text-sm text-gray-500 mt-1">
           Exercez vos droits RGPD : exportez ou supprimez l&apos;ensemble de
-          vos donnees.
+          vos données.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Exporter mes donnees</CardTitle>
+          <CardTitle>Exporter mes données</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-gray-600">
-            Telechargez un fichier JSON contenant l&apos;integralite de vos
-            donnees : profil, commerce, cartes, clients, transactions,
+            Téléchargez un fichier JSON contenant l&apos;intégralité de vos
+            données : profil, commerce, cartes, clients, transactions,
             invitations.
           </p>
           <p className="text-xs text-gray-500">
-            Droit a la portabilite — article 20 du RGPD.
+            Droit à la portabilité — article 20 du RGPD.
           </p>
           <DataPrivacyActions />
         </CardContent>
@@ -45,17 +45,17 @@ export default function SettingsDataPage() {
           <ul className="space-y-2 text-sm">
             <li>
               <Link href="/mentions-legales" className="text-black underline">
-                Mentions legales
+                Mentions légales
               </Link>
             </li>
             <li>
               <Link href="/privacy" className="text-black underline">
-                Politique de confidentialite
+                Politique de confidentialité
               </Link>
             </li>
             <li>
               <Link href="/terms" className="text-black underline">
-                Conditions generales d&apos;utilisation
+                Conditions générales d&apos;utilisation
               </Link>
             </li>
             <li>

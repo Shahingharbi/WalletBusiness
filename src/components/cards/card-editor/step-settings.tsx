@@ -36,7 +36,7 @@ const TYPE_COPY: Record<CardType, {
 }> = {
   stamp: {
     namePlaceholder: "Ex: Carte Tampon Kebab",
-    rewardLabel: "Recompense",
+    rewardLabel: "Récompense",
     rewardPlaceholder: "Ex: Un kebab offert !",
     countLabel: "Nombre de tampons",
     showCount: true,
@@ -55,9 +55,9 @@ const TYPE_COPY: Record<CardType, {
     showCount: false,
   },
   membership: {
-    namePlaceholder: "Ex: Adhesion Premium 2026",
+    namePlaceholder: "Ex: Adhésion Premium 2026",
     rewardLabel: "Avantages membre",
-    rewardPlaceholder: "Ex: Acces illimite + reductions partenaires",
+    rewardPlaceholder: "Ex: Accès illimité + réductions partenaires",
     showCount: false,
   },
   reward: { namePlaceholder: "", rewardLabel: "", rewardPlaceholder: "", showCount: false },
@@ -78,9 +78,9 @@ export function StepSettings({ values, onChange, errors, cardType = "stamp" }: S
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Parametres</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Paramètres</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Configurez les details de votre carte
+          Configurez les détails de votre carte
         </p>
       </div>
 
@@ -198,7 +198,7 @@ export function StepSettings({ values, onChange, errors, cardType = "stamp" }: S
         {values.expirationType === "days_after_install" && (
           <Input
             type="number"
-            label="Nombre de jours apres installation"
+            label="Nombre de jours après installation"
             value={String(values.expirationDays)}
             onChange={(e) =>
               update("expirationDays", parseInt(e.target.value) || 1)

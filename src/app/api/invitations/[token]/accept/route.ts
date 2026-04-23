@@ -33,7 +33,7 @@ export async function POST(
     }
     if (password.length < 6) {
       return NextResponse.json(
-        { error: "Le mot de passe doit contenir au moins 6 caracteres" },
+        { error: "Le mot de passe doit contenir au moins 6 caractères" },
         { status: 422 }
       );
     }
@@ -49,16 +49,16 @@ export async function POST(
     }
     if (invitation.status !== "pending") {
       return NextResponse.json(
-        { error: "Cette invitation a deja ete utilisee ou revoquee" },
+        { error: "Cette invitation a déjà été utilisée ou révoquée" },
         { status: 400 }
       );
     }
     if (new Date(invitation.expires_at) < new Date()) {
-      return NextResponse.json({ error: "Invitation expiree" }, { status: 400 });
+      return NextResponse.json({ error: "Invitation expirée" }, { status: 400 });
     }
     if (invitation.email !== email) {
       return NextResponse.json(
-        { error: "L'email doit correspondre a celui de l'invitation" },
+        { error: "L'email doit correspondre à celui de l'invitation" },
         { status: 400 }
       );
     }
@@ -79,8 +79,8 @@ export async function POST(
         {
           error:
             createErr?.message?.includes("already")
-              ? "Un compte existe deja avec cet email"
-              : createErr?.message || "Erreur lors de la creation du compte",
+              ? "Un compte existe déjà avec cet email"
+              : createErr?.message || "Erreur lors de la création du compte",
         },
         { status: 400 }
       );

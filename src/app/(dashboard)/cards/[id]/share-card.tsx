@@ -40,7 +40,7 @@ export function ShareCard({ qrDataUrl, cardPublicUrl, cardName }: ShareCardProps
     try {
       await navigator.clipboard.writeText(cardPublicUrl);
       setCopied(true);
-      toast.success("Lien copie dans le presse-papier");
+      toast.success("Lien copié dans le presse-papier");
       setTimeout(() => setCopied(false), 1800);
     } catch {
       toast.error("Impossible de copier");
@@ -50,7 +50,7 @@ export function ShareCard({ qrDataUrl, cardPublicUrl, cardName }: ShareCardProps
   const handleShare = async () => {
     const data = {
       title: cardName,
-      text: `Ajoutez ${cardName} a votre wallet`,
+      text: `Ajoutez ${cardName} à votre wallet`,
       url: cardPublicUrl,
     };
     if (typeof navigator !== "undefined" && navigator.share) {
@@ -117,7 +117,7 @@ export function ShareCard({ qrDataUrl, cardPublicUrl, cardName }: ShareCardProps
                 {copied ? (
                   <>
                     <Check className="h-3.5 w-3.5 text-emerald-600" />
-                    <span className="hidden sm:inline text-emerald-700">Copie</span>
+                    <span className="hidden sm:inline text-emerald-700">Copié</span>
                   </>
                 ) : (
                   <>

@@ -92,7 +92,7 @@ export default function ScannerLayout({
             onClick={handleLogout}
             className="text-gray-400 hover:text-white hover:bg-gray-800"
           >
-            Deconnexion
+            Déconnexion
           </Button>
         </div>
       </header>

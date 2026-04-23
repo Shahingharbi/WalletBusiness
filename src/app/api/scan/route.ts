@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: "Non authentifie" },
+        { error: "Non authentifié" },
         { status: 401 }
       );
     }
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
     if (profile.role !== "employee" && profile.role !== "business_owner") {
       return NextResponse.json(
-        { error: "Acces non autorise" },
+        { error: "Accès non autorisé" },
         { status: 403 }
       );
     }
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
     if (instanceError || !instance) {
       return NextResponse.json(
-        { error: "Carte client introuvable. Verifiez le code." },
+        { error: "Carte client introuvable. Vérifiez le code." },
         { status: 404 }
       );
     }
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     // Verify same business
     if (instance.business_id !== profile.business_id) {
       return NextResponse.json(
-        { error: "Cette carte n'appartient pas a votre commerce" },
+        { error: "Cette carte n'appartient pas à votre commerce" },
         { status: 403 }
       );
     }
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Un tampon vient deja d'etre ajoute pour ce client. Patientez 1 minute.",
+            "Un tampon vient déjà d'être ajouté pour ce client. Patientez 1 minute.",
         },
         { status: 429 }
       );

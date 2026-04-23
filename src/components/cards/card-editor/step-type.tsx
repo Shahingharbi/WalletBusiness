@@ -27,12 +27,12 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 const descriptions: Record<CardType, string> = {
-  stamp: "Carte a tampons classique",
-  reward: "Recompenses par paliers",
+  stamp: "Carte à tampons classique",
+  reward: "Récompenses par paliers",
   membership: "Carte de membre",
   discount: "Remise progressive",
   cashback: "Retour en argent",
-  coupon: "Bons de reduction",
+  coupon: "Bons de réduction",
   gift: "Cartes cadeaux",
   multipass: "Pass multi-commerces",
 };
@@ -50,7 +50,7 @@ export function StepType({ value, onChange }: StepTypeProps) {
           Type de carte
         </h2>
         <p className="text-sm text-gray-500 mt-1">
-          Choisissez le type de carte de fidelite a creer
+          Choisissez le type de carte de fidélité à créer
         </p>
       </div>
 
@@ -82,7 +82,7 @@ export function StepType({ value, onChange }: StepTypeProps) {
                     variant="secondary"
                     className="absolute -top-2 -right-2 text-[10px] px-1.5 py-0.5"
                   >
-                    Bientot
+                    Bientôt
                   </Badge>
                 )}
                 {Icon && (

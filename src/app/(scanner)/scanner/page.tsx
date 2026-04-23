@@ -85,7 +85,7 @@ export default function ScannerPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Erreur lors de l'utilisation de la recompense");
+        setError(data.error || "Erreur lors de l'utilisation de la récompense");
         return;
       }
 
@@ -124,7 +124,7 @@ export default function ScannerPage() {
               <h1 className="text-white text-xl font-bold mb-1">Scanner un client</h1>
               <p className="text-gray-400 text-sm">
                 {mode === "camera"
-                  ? "Pointez la camera sur le QR code"
+                  ? "Pointez la caméra sur le QR code"
                   : "Saisissez le code manuellement"}
               </p>
             </div>
@@ -139,7 +139,7 @@ export default function ScannerPage() {
                     : "text-gray-400 hover:text-white"
                 }`}
               >
-                Camera
+                Caméra
               </button>
               <button
                 type="button"
@@ -279,7 +279,7 @@ export default function ScannerPage() {
             {result.reward_earned ? (
               <div className="text-center animate-celebrate">
                 <div className="text-6xl mb-3">&#127881;</div>
-                <h2 className="text-white text-2xl font-bold">Recompense gagnee !</h2>
+                <h2 className="text-white text-2xl font-bold">Récompense gagnée !</h2>
                 <p className="text-amber-400 text-sm mt-1">{result.reward_text}</p>
               </div>
             ) : (
@@ -290,7 +290,7 @@ export default function ScannerPage() {
                   </svg>
                 </div>
                 <h2 className="text-white text-xl font-bold">
-                  {stamps > 1 ? `${stamps} tampons ajoutes !` : "Tampon ajoute !"}
+                  {stamps > 1 ? `${stamps} tampons ajoutés !` : "Tampon ajouté !"}
                 </h2>
               </div>
             )}
@@ -316,7 +316,7 @@ export default function ScannerPage() {
               </div>
               {result.rewards_available > 0 && (
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400 text-sm">Recompenses</span>
+                  <span className="text-gray-400 text-sm">Récompenses</span>
                   <span className="text-amber-400 font-bold">
                     {result.rewards_available} disponible{result.rewards_available > 1 ? "s" : ""}
                   </span>
@@ -331,14 +331,14 @@ export default function ScannerPage() {
                 size="lg"
                 className="w-full text-base font-semibold bg-amber-500 hover:bg-amber-600 text-black h-14"
               >
-                Utiliser la recompense
+                Utiliser la récompense
               </Button>
             )}
 
             {redeemSuccess && (
               <div className="rounded-xl bg-emerald-900/30 border border-emerald-700 px-4 py-3 text-center">
                 <p className="text-emerald-300 font-semibold">
-                  Recompense utilisee avec succes !
+                  Récompense utilisée avec succès !
                 </p>
               </div>
             )}

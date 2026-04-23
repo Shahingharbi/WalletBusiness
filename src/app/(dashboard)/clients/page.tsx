@@ -130,11 +130,11 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               <p className="text-gray-500 text-sm">
                 Aucun client pour le moment.
                 <br />
-                Vos clients apparaitront ici une fois qu&apos;ils auront installe une de vos cartes.
+                Vos clients apparaîtront ici une fois qu&apos;ils auront installé une de vos cartes.
               </p>
             ) : (
               <p className="text-gray-500 text-sm">
-                Aucun client ne correspond a vos filtres.
+                Aucun client ne correspond à vos filtres.
               </p>
             )}
           </CardContent>
@@ -146,10 +146,10 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               <thead className="border-b border-gray-100 bg-gray-50/50">
                 <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
                   <th className="px-5 py-3 font-medium">Client</th>
-                  <th className="px-5 py-3 font-medium">Telephone</th>
+                  <th className="px-5 py-3 font-medium">Téléphone</th>
                   <th className="px-5 py-3 font-medium">Cartes</th>
                   <th className="px-5 py-3 font-medium">Tampons</th>
-                  <th className="px-5 py-3 font-medium">Recompenses</th>
+                  <th className="px-5 py-3 font-medium">Récompenses</th>
                   <th className="px-5 py-3 font-medium">Dernier scan</th>
                   <th className="px-5 py-3 font-medium">Statut</th>
                 </tr>

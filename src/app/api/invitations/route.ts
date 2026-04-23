@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
     const { data: profile } = await supabase
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     }
     if (profile.role !== "business_owner") {
       return NextResponse.json(
-        { error: "Seul le proprietaire peut inviter des employes" },
+        { error: "Seul le propriétaire peut inviter des employés" },
         { status: 403 }
       );
     }
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
     if (existing) {
       return NextResponse.json(
-        { error: "Une invitation est deja en attente pour cet email" },
+        { error: "Une invitation est déjà en attente pour cet email" },
         { status: 409 }
       );
     }
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     if (error) {
       console.error("Invitation create error:", error);
       return NextResponse.json(
-        { error: "Erreur lors de la creation de l'invitation" },
+        { error: "Erreur lors de la création de l'invitation" },
         { status: 500 }
       );
     }
@@ -83,7 +83,7 @@ export async function DELETE(request: Request) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
     const { data: profile } = await supabase
@@ -93,7 +93,7 @@ export async function DELETE(request: Request) {
       .single();
 
     if (profile?.role !== "business_owner") {
-      return NextResponse.json({ error: "Acces refuse" }, { status: 403 });
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

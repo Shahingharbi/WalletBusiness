@@ -17,7 +17,7 @@ export default function AuthLayout({
         <div className="bg-white shadow-lg rounded-xl p-5 sm:p-8">{children}</div>
 
         <p className="text-center text-sm text-gray-500 mt-6 sm:mt-8">
-          aswallet &mdash; Fidelisez vos clients
+          aswallet &mdash; Fidélisez vos clients
         </p>
       </div>
     </div>

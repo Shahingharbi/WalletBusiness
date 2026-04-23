@@ -37,9 +37,9 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Parametres</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Gerez votre profil, votre commerce et vos employes.
+          Gérez votre profil, votre commerce et vos employés.
         </p>
       </div>
 
@@ -79,10 +79,10 @@ export default async function SettingsPage() {
           </div>
           <div>
             <p className="font-semibold text-gray-900 text-sm">
-              Donnees et confidentialite
+              Données et confidentialité
             </p>
             <p className="text-xs text-gray-500">
-              Exporter ou supprimer vos donnees (RGPD)
+              Exporter ou supprimer vos données (RGPD)
             </p>
           </div>
         </div>

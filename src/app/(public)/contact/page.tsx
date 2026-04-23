@@ -49,7 +49,7 @@ export default function ContactPage() {
               className="font-semibold text-foreground"
               style={{ fontFamily: "var(--font-maison-neue-extended)" }}
             >
-              Editeur
+              Éditeur
             </p>
             <p className="text-muted-foreground text-sm">
               Shahin Gharbi (entreprise individuelle)
@@ -74,7 +74,7 @@ export default function ContactPage() {
             <p className="text-muted-foreground text-sm">
               443 Rue des Combes
               <br />
-              73000 Chambery, France
+              73000 Chambéry, France
             </p>
           </div>
         </div>
@@ -85,10 +85,10 @@ export default function ContactPage() {
           className="font-semibold text-foreground mb-1"
           style={{ fontFamily: "var(--font-maison-neue-extended)" }}
         >
-          Vous etes commercant ?
+          Vous êtes commerçant ?
         </p>
         <p className="text-sm text-muted-foreground mb-4">
-          Decouvrez comment aswallet peut fideliser vos clients en 5 minutes.
+          Découvrez comment aswallet peut fidéliser vos clients en 5 minutes.
         </p>
         <a
           href="/register"

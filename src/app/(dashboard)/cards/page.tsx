@@ -43,7 +43,7 @@ export default async function CardsPage() {
       case "draft":
         return "Brouillon";
       case "archived":
-        return "Archivee";
+        return "Archivée";
       default:
         return status;
     }
@@ -73,7 +73,7 @@ export default async function CardsPage() {
                   href="/cards/new"
                   className="text-emerald-600 font-medium hover:underline"
                 >
-                  Creez votre premiere carte de fidelite !
+                  Créez votre première carte de fidélité !
                 </Link>
               </p>
             </div>

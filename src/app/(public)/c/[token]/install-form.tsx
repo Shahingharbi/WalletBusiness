@@ -24,12 +24,12 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
     setError(null);
 
     if (!firstName.trim()) {
-      setError("Le prenom est requis");
+      setError("Le prénom est requis");
       return;
     }
 
     if (!consent) {
-      setError("Vous devez accepter le traitement de vos donnees");
+      setError("Vous devez accepter le traitement de vos données");
       return;
     }
 
@@ -54,7 +54,7 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
 
       router.push(`/c/${cardId}/status/${data.instance_token}`);
     } catch {
-      setError("Erreur de connexion. Veuillez reessayer.");
+      setError("Erreur de connexion. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }
@@ -63,14 +63,14 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input
-        label="Prenom"
-        placeholder="Votre prenom"
+        label="Prénom"
+        placeholder="Votre prénom"
         value={firstName}
         onChange={(e) => setFirstName(e.target.value)}
         required
       />
       <Input
-        label="Telephone"
+        label="Téléphone"
         placeholder="06 12 34 56 78"
         type="tel"
         value={phone}
@@ -87,16 +87,16 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
           required
         />
         <span className="text-xs text-gray-600 leading-relaxed">
-          J&apos;accepte que mes donnees (prenom, telephone) soient traitees
+          J&apos;accepte que mes données (prénom, téléphone) soient traitées
           par <strong>{businessName}</strong> dans le cadre de cette carte de
-          fidelite. Voir la{" "}
+          fidélité. Voir la{" "}
           <a
             href="/privacy"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-black"
           >
-            politique de confidentialite
+            politique de confidentialité
           </a>
           .
         </span>
@@ -116,7 +116,7 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
         className="w-full text-base font-semibold"
         style={{ backgroundColor: accentColor }}
       >
-        Obtenir ma carte de fidelite
+        Obtenir ma carte de fidélité
       </Button>
     </form>
   );

@@ -19,17 +19,17 @@ const cases: UseCase[] = [
       "Remplissez les creux de 14h. Vos habitués reviennent 2x plus souvent.",
     image:
       "https://images.unsplash.com/photo-1561651823-34feb02250e4?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Demarrer gratuitement",
+    ctaLabel: "Démarrer gratuitement",
     badge: "+32% de retour",
   },
   {
-    title: "Boulangerie & cafe",
-    tagline: "9 visites = 1 cafe offert",
+    title: "Boulangerie & café",
+    tagline: "9 visites = 1 café offert",
     benefit:
-      "Fidelisez vos clients du matin. Notifications push pour le pain chaud.",
+      "Fidélisez vos clients du matin. Notifications push pour le pain chaud.",
     image:
       "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Demarrer gratuitement",
+    ctaLabel: "Démarrer gratuitement",
     badge: "Notifs gratuites",
   },
   {
@@ -39,37 +39,37 @@ const cases: UseCase[] = [
       "Relancez vos clientes dormantes en 1 clic. 3x plus de re-réservations.",
     image:
       "https://images.unsplash.com/photo-1562322140-8baeececf3df?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Demarrer gratuitement",
-    badge: "+3x re-resa",
+    ctaLabel: "Démarrer gratuitement",
+    badge: "+3x re-résa",
   },
   {
     title: "Pizzeria & restaurant",
     tagline: "La 10e pizza offerte",
     benefit:
-      "Doublez les reservations du mardi soir. Envoyez une promo ciblee.",
+      "Doublez les réservations du mardi soir. Envoyez une promo ciblée.",
     image:
       "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Demarrer gratuitement",
+    ctaLabel: "Démarrer gratuitement",
     badge: "x2 mardi soir",
   },
   {
-    title: "Fleuriste & epicerie",
-    tagline: "Cashback fidelite",
+    title: "Fleuriste & épicerie",
+    tagline: "Cashback fidélité",
     benefit:
-      "Rappels automatiques : fete des meres, Saint-Valentin. Jamais manquer un pic.",
+      "Rappels automatiques : fête des mères, Saint-Valentin. Jamais manquer un pic.",
     image:
       "https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Demarrer gratuitement",
+    ctaLabel: "Démarrer gratuitement",
     badge: "Pics saisonniers",
   },
   {
     title: "VIP & premium",
-    tagline: "Carte privilege",
+    tagline: "Carte privilège",
     benefit:
-      "Reservez votre meilleur tarif a vos meilleurs clients. Acces anticipe aux offres.",
+      "Réservez votre meilleur tarif à vos meilleurs clients. Accès anticipé aux offres.",
     image:
       "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Demarrer gratuitement",
+    ctaLabel: "Démarrer gratuitement",
     badge: "Top 10% CA",
   },
 ];
@@ -83,7 +83,7 @@ export function UseCasesSection() {
             className="inline-block bg-yellow text-foreground text-xs font-bold px-3 py-1 rounded-full uppercase mb-5"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Par metier
+            Par métier
           </span>
           <h2
             className="text-2xl sm:text-3xl lg:text-[40px] lg:leading-[48px] font-semibold"
@@ -95,7 +95,7 @@ export function UseCasesSection() {
             className="text-base text-muted-foreground mt-4"
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
-            Des mecaniques de fidelite qui marchent, adaptees a votre secteur.
+            Des mécaniques de fidélité qui marchent, adaptées à votre secteur.
           </p>
         </div>
 
@@ -162,12 +162,12 @@ export function UseCasesSection() {
           className="mt-12 text-center text-sm text-muted-foreground"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          Un autre metier ?{" "}
+          Un autre métier ?{" "}
           <a
             href="mailto:contact@aswallet.fr"
             className="font-semibold text-foreground underline underline-offset-4 hover:opacity-70 transition-opacity"
           >
-            On vous monte une demo sur mesure.
+            On vous monte une démo sur mesure.
           </a>
         </p>
       </div>

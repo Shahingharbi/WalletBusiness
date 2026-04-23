@@ -15,12 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatRelative } from "@/lib/utils";
 
 const TX_LABELS: Record<string, { label: string; color: string }> = {
-  stamp_add: { label: "Tampon ajoute", color: "text-emerald-600" },
-  reward_earned: { label: "Recompense gagnee", color: "text-amber-600" },
-  reward_redeemed: { label: "Recompense utilisee", color: "text-purple-600" },
-  card_installed: { label: "Carte installee", color: "text-blue-600" },
-  card_expired: { label: "Carte expiree", color: "text-gray-500" },
-  card_revoked: { label: "Carte revoquee", color: "text-red-600" },
+  stamp_add: { label: "Tampon ajouté", color: "text-emerald-600" },
+  reward_earned: { label: "Récompense gagnée", color: "text-amber-600" },
+  reward_redeemed: { label: "Récompense utilisée", color: "text-purple-600" },
+  card_installed: { label: "Carte installée", color: "text-blue-600" },
+  card_expired: { label: "Carte expirée", color: "text-gray-500" },
+  card_revoked: { label: "Carte révoquée", color: "text-red-600" },
 };
 
 export default async function ClientDetailPage({
@@ -162,7 +162,7 @@ export default async function ClientDetailPage({
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center gap-1.5 text-gray-500 text-[11px] sm:text-xs">
                   <Gift className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">Recompenses</span>
+                  <span className="truncate">Récompenses</span>
                 </div>
                 <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
                   {totalRewards}
@@ -185,11 +185,11 @@ export default async function ClientDetailPage({
           <Card>
             <CardContent className="p-6">
               <h2 className="font-semibold text-gray-900 mb-4">
-                Cartes installees
+                Cartes installées
               </h2>
               {!instances || instances.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-4">
-                  Aucune carte installee
+                  Aucune carte installée
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -214,7 +214,7 @@ export default async function ClientDetailPage({
                             {inst.rewards_available > 0 && (
                               <span className="text-amber-600 font-medium">
                                 {" \u00b7 "}
-                                {inst.rewards_available} recompense{inst.rewards_available > 1 ? "s" : ""}
+                                {inst.rewards_available} récompense{inst.rewards_available > 1 ? "s" : ""}
                               </span>
                             )}
                           </p>

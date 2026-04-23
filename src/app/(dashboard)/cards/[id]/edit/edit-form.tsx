@@ -57,7 +57,7 @@ export function EditCardForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur");
-      toast.success("Modifications enregistrees");
+      toast.success("Modifications enregistrées");
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
@@ -72,7 +72,7 @@ export function EditCardForm({
     try {
       const res = await fetch(`/api/cards/${cardId}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
-      toast.success("Carte archivee");
+      toast.success("Carte archivée");
       router.push("/cards");
     } catch {
       toast.error("Erreur lors de l'archivage");
@@ -96,8 +96,8 @@ export function EditCardForm({
 
       {status === "active" && (
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-          Cette carte est active. Les modifications seront visibles immediatement
-          pour les clients qui ont deja installe la carte.
+          Cette carte est active. Les modifications seront visibles immédiatement
+          pour les clients qui ont déjà installé la carte.
         </div>
       )}
 
@@ -134,12 +134,12 @@ export function EditCardForm({
         <div className="hidden lg:block lg:w-[40%]">
           <div className="sticky top-6">
             <p className="text-sm font-medium text-gray-500 text-center mb-4">
-              Apercu en direct
+              Aperçu en direct
             </p>
             <CardPreview
               cardName={settings.name || "Ma carte"}
               stampCount={settings.stampCount}
-              rewardText={settings.rewardText || "Votre recompense"}
+              rewardText={settings.rewardText || "Votre récompense"}
               design={design}
               cardType={cardType}
               barcodeType={settings.barcodeType}

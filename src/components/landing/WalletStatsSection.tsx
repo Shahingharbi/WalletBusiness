@@ -8,13 +8,13 @@ const mainStats = [
   },
   {
     value: "4,8x",
-    label: "ROI moyen des programmes de fidelite",
-    comparison: "34,8% des programmes depassent 500% de ROI",
+    label: "ROI moyen des programmes de fidélité",
+    comparison: "34,8% des programmes dépassent 500% de ROI",
   },
   {
     value: "0 EUR",
-    label: "par notification push envoyee",
-    comparison: "vs 0,01 a 0,05 EUR par SMS",
+    label: "par notification push envoyée",
+    comparison: "vs 0,01 à 0,05 EUR par SMS",
   },
 ];
 
@@ -59,9 +59,9 @@ const comparisonData = [
 
 const additionalStats = [
   { value: "37,8M", label: "de cartes wallet actives en France" },
-  { value: "71%", label: "des Francais jugent le wallet utile au quotidien" },
-  { value: "85%", label: "y stockent deja leurs cartes de fidelite" },
-  { value: "+67%", label: "de depenses par les clients fideles vs nouveaux" },
+  { value: "71%", label: "des Français jugent le wallet utile au quotidien" },
+  { value: "85%", label: "y stockent déjà leurs cartes de fidélité" },
+  { value: "+67%", label: "de dépenses par les clients fidèles vs nouveaux" },
 ];
 
 export function WalletStatsSection() {
@@ -78,7 +78,7 @@ export function WalletStatsSection() {
           className="text-center text-base text-muted-foreground mt-4 max-w-2xl mx-auto"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          Pourquoi la fidelite bascule dans le wallet : les chiffres qui comptent pour
+          Pourquoi la fidélité bascule dans le wallet : les chiffres qui comptent pour
           votre commerce.
         </p>
 
@@ -111,8 +111,8 @@ export function WalletStatsSection() {
             <span>Canal</span>
             <span>Taux d&apos;ouverture</span>
             <span>Taux de clic</span>
-            <span>Cout</span>
-            <span>Retention carte</span>
+            <span>Coût</span>
+            <span>Rétention carte</span>
           </div>
 
           {comparisonData.map((row) => (
@@ -134,11 +134,11 @@ export function WalletStatsSection() {
                 {row.ctr}
               </span>
               <span className="text-sm text-foreground">
-                <span className="md:hidden text-xs text-muted-foreground">Cout : </span>
+                <span className="md:hidden text-xs text-muted-foreground">Coût : </span>
                 {row.cost}
               </span>
               <span className="text-sm text-foreground">
-                <span className="md:hidden text-xs text-muted-foreground">Retention : </span>
+                <span className="md:hidden text-xs text-muted-foreground">Rétention : </span>
                 {row.retention}
               </span>
             </div>

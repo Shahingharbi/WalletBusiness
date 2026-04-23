@@ -104,10 +104,10 @@ export function StepTemplate({ selectedId, onSelect }: StepTemplateProps) {
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-gray-900">
-          Choisissez un modele
+          Choisissez un modèle
         </h2>
         <p className="text-sm text-gray-500 mt-1">
-          Demarrez avec un template pre-conçu, vous pourrez tout personnaliser ensuite.
+          Démarrez avec un template pré-conçu, vous pourrez tout personnaliser ensuite.
         </p>
       </div>
 

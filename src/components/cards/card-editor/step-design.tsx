@@ -53,10 +53,10 @@ const SHAPES: Array<{
 }> = [
   { key: "circle", label: "Rond", cls: "rounded-full" },
   { key: "squircle", label: "Squircle", cls: "rounded-[35%]" },
-  { key: "shield", label: "Ecusson", cls: "rounded-t-full rounded-b-md" },
+  { key: "shield", label: "Écusson", cls: "rounded-t-full rounded-b-md" },
   {
     key: "star",
-    label: "Etoile",
+    label: "Étoile",
     cls: "",
     style: {
       clipPath:
@@ -101,13 +101,13 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
           label='Label "tampons"'
           value={values.label_stamps}
           onChange={(e) => update("label_stamps", e.target.value)}
-          placeholder="Tampons avant recompense"
+          placeholder="Tampons avant récompense"
         />
         <Input
-          label='Label "recompenses"'
+          label='Label "récompenses"'
           value={values.label_rewards}
           onChange={(e) => update("label_rewards", e.target.value)}
-          placeholder="Recompenses disponibles"
+          placeholder="Récompenses disponibles"
         />
       </div>
 
@@ -119,15 +119,15 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
           onChange={(url) => update("logo_url", url)}
           folder="logos"
           aspect="square"
-          hint="Carre, fond transparent recommande"
+          hint="Carré, fond transparent recommandé"
         />
         <ImageUpload
-          label="Banniere / image de fond"
+          label="Bannière / image de fond"
           value={values.banner_url}
           onChange={(url) => update("banner_url", url)}
           folder="banners"
           aspect="wide"
-          hint="Un voile sombre sera ajoute pour lisibilite"
+          hint="Un voile sombre sera ajouté pour lisibilité"
         />
       </div>
 

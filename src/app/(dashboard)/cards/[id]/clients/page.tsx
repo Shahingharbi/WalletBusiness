@@ -62,7 +62,7 @@ export default async function CardClientsPage({
           <CardContent className="py-12 text-center">
             <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />
             <p className="text-sm text-gray-500">
-              Aucun client n&apos;a encore installe cette carte.
+              Aucun client n&apos;a encore installé cette carte.
             </p>
           </CardContent>
         </Card>
@@ -73,9 +73,9 @@ export default async function CardClientsPage({
               <thead className="border-b border-gray-100 bg-gray-50/50">
                 <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
                   <th className="px-5 py-3 font-medium">Client</th>
-                  <th className="px-5 py-3 font-medium">Telephone</th>
+                  <th className="px-5 py-3 font-medium">Téléphone</th>
                   <th className="px-5 py-3 font-medium">Tampons</th>
-                  <th className="px-5 py-3 font-medium">Recompenses</th>
+                  <th className="px-5 py-3 font-medium">Récompenses</th>
                   <th className="px-5 py-3 font-medium">Dernier scan</th>
                   <th className="px-5 py-3 font-medium">Statut</th>
                 </tr>
@@ -106,7 +106,7 @@ export default async function CardClientsPage({
                           </span>
                         ) : (
                           <span className="text-gray-400">
-                            {inst.rewards_redeemed} utilisee
+                            {inst.rewards_redeemed} utilisée
                             {inst.rewards_redeemed > 1 ? "s" : ""}
                           </span>
                         )}

@@ -66,7 +66,7 @@ export function InvitationsManager({
   };
 
   const handleRevoke = async (id: string) => {
-    if (!confirm("Revoquer cette invitation ?")) return;
+    if (!confirm("Révoquer cette invitation ?")) return;
     try {
       const res = await fetch(`/api/invitations?id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
@@ -92,14 +92,14 @@ export function InvitationsManager({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Employes & invitations</CardTitle>
+        <CardTitle>Employés & invitations</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <form onSubmit={handleInvite} className="space-y-3">
           <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
             <div className="flex-1 min-w-0">
               <Input
-                label="Inviter un employe"
+                label="Inviter un employé"
                 type="email"
                 placeholder="employe@exemple.com"
                 value={email}
@@ -114,7 +114,7 @@ export function InvitationsManager({
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <p className="text-xs text-gray-500">
-            L&apos;invitation genere un lien a partager (pas d&apos;email envoye).
+            L&apos;invitation génère un lien à partager (pas d&apos;email envoyé).
           </p>
         </form>
 
@@ -146,7 +146,7 @@ export function InvitationsManager({
                   >
                     {copied === inv.token ? (
                       <>
-                        <Check className="h-3 w-3 mr-1" /> Copie
+                        <Check className="h-3 w-3 mr-1" /> Copié
                       </>
                     ) : (
                       <>
@@ -158,7 +158,7 @@ export function InvitationsManager({
                     type="button"
                     onClick={() => handleRevoke(inv.id)}
                     className="text-gray-400 hover:text-red-600 p-2 rounded transition-colors cursor-pointer"
-                    aria-label="Revoquer"
+                    aria-label="Révoquer"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -171,7 +171,7 @@ export function InvitationsManager({
         {employees.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-gray-700">
-              Employes actifs ({employees.length})
+              Employés actifs ({employees.length})
             </h3>
             <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg">
               {employees.map((emp) => (

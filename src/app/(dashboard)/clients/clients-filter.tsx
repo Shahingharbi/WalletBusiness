@@ -9,7 +9,7 @@ const FILTERS = [
   { id: "all", label: "Tous" },
   { id: "active", label: "Actifs (30 j)" },
   { id: "inactive", label: "Inactifs (>30 j)" },
-  { id: "rewards", label: "Recompense dispo" },
+  { id: "rewards", label: "Récompense dispo" },
 ] as const;
 
 interface ClientsFilterProps {
@@ -48,7 +48,7 @@ export function ClientsFilter({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
         <input
           type="text"
-          placeholder="Rechercher par nom, telephone..."
+          placeholder="Rechercher par nom, téléphone..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="w-full h-11 pl-9 pr-9 rounded-lg border border-gray-200 bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"

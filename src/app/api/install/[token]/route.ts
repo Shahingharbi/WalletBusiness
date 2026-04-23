@@ -22,7 +22,7 @@ export async function POST(
 
     if (!first_name || typeof first_name !== "string" || !first_name.trim()) {
       return NextResponse.json(
-        { error: "Le prenom est requis" },
+        { error: "Le prénom est requis" },
         { status: 422 }
       );
     }
@@ -34,7 +34,7 @@ export async function POST(
     // card_instances and set it here via .insert({ ..., consent_given_at: new Date().toISOString() }).
     if (consent !== true) {
       return NextResponse.json(
-        { error: "Consentement requis au traitement des donnees" },
+        { error: "Consentement requis au traitement des données" },
         { status: 422 }
       );
     }
@@ -90,7 +90,7 @@ export async function POST(
       if (clientError) {
         console.error("Client creation error:", clientError);
         return NextResponse.json(
-          { error: "Erreur lors de la creation du client" },
+          { error: "Erreur lors de la création du client" },
           { status: 500 }
         );
       }
@@ -108,7 +108,7 @@ export async function POST(
 
     if (existingInstance) {
       return NextResponse.json(
-        { error: "Vous avez deja cette carte", instance_token: existingInstance.token },
+        { error: "Vous avez déjà cette carte", instance_token: existingInstance.token },
         { status: 409 }
       );
     }

@@ -24,7 +24,7 @@ export function ActivateButton({ cardId }: ActivateButtonProps) {
       if (!res.ok) {
         throw new Error(data?.error || "Erreur lors de l'activation");
       }
-      toast.success("Carte activee ! Elle est maintenant installable par vos clients.");
+      toast.success("Carte activée ! Elle est maintenant installable par vos clients.");
       startTransition(() => router.refresh());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
