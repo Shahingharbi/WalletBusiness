@@ -142,7 +142,11 @@ export default async function CardInstallPage({
         </div>
 
         {/* Install form */}
-        <InstallForm cardId={card.id} accentColor={design.accent_color as string} />
+        <InstallForm
+          cardId={card.id}
+          accentColor={design.accent_color as string}
+          businessName={businessName}
+        />
       </div>
     </div>
   );

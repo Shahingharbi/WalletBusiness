@@ -47,6 +47,7 @@ export function Footer() {
             </h4>
             <ul className="space-y-2">
               <li><Link href="/contact" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>Contact</Link></li>
+              <li><Link href="/mentions-legales" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>Mentions legales</Link></li>
               <li><Link href="/privacy" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>Confidentialite</Link></li>
               <li><Link href="/terms" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>CGU</Link></li>
               <li>
@@ -62,6 +63,7 @@ export function Footer() {
           <p className="text-xs text-white/40">&copy; 2026 aswallet &middot; SIRET 903 950 210 00026 &middot; Edite par Shahin Gharbi</p>
           <div className="flex flex-wrap gap-4">
             <Link href="/contact" className="text-xs text-white/40 hover:text-white/70 transition-colors">Contact</Link>
+            <Link href="/mentions-legales" className="text-xs text-white/40 hover:text-white/70 transition-colors">Mentions legales</Link>
             <Link href="/terms" className="text-xs text-white/40 hover:text-white/70 transition-colors">CGU</Link>
             <Link href="/privacy" className="text-xs text-white/40 hover:text-white/70 transition-colors">Confidentialite</Link>
           </div>

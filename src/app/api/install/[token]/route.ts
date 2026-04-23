@@ -1,19 +1,40 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  // Public, unauthenticated endpoint that creates DB rows — keep this low.
+  const limited = await rateLimit(request, {
+    limit: 5,
+    windowMs: 60_000,
+    key: "install:token",
+  });
+  if (limited) return limited;
+
   try {
     const { token } = await params;
     const supabase = createAdminClient();
     const body = await request.json();
-    const { first_name, phone } = body;
+    const { first_name, phone, consent } = body;
 
     if (!first_name || typeof first_name !== "string" || !first_name.trim()) {
       return NextResponse.json(
         { error: "Le prenom est requis" },
+        { status: 422 }
+      );
+    }
+
+    // RGPD — consent check. The UI enforces a mandatory checkbox; we re-check
+    // server-side to prevent bypass. We do not currently persist consent to
+    // the database (scope: keep migrations stable). If a full audit trail is
+    // needed later, add a `consent_given_at TIMESTAMPTZ` column on
+    // card_instances and set it here via .insert({ ..., consent_given_at: new Date().toISOString() }).
+    if (consent !== true) {
+      return NextResponse.json(
+        { error: "Consentement requis au traitement des donnees" },
         { status: 422 }
       );
     }

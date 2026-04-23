@@ -116,7 +116,7 @@ export function WhyWalletSection() {
               </div>
               <div className="mt-6 pt-6 border-t border-border">
                 <p className="text-xs text-muted-foreground">
-                  Sources : Mediametrie, Ifop/Captain Wallet 2025, PassKit, Mobiloud
+                  Sources : Mediametrie 2025, Ifop, PassKit, Mobiloud
                 </p>
               </div>
             </div>

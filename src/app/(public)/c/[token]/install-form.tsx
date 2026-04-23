@@ -8,12 +8,14 @@ import { Input } from "@/components/ui/input";
 interface InstallFormProps {
   cardId: string;
   accentColor: string;
+  businessName: string;
 }
 
-export function InstallForm({ cardId, accentColor }: InstallFormProps) {
+export function InstallForm({ cardId, accentColor, businessName }: InstallFormProps) {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [phone, setPhone] = useState("");
+  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,6 +28,11 @@ export function InstallForm({ cardId, accentColor }: InstallFormProps) {
       return;
     }
 
+    if (!consent) {
+      setError("Vous devez accepter le traitement de vos donnees");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch(`/api/install/${cardId}`, {
@@ -34,6 +41,7 @@ export function InstallForm({ cardId, accentColor }: InstallFormProps) {
         body: JSON.stringify({
           first_name: firstName.trim(),
           phone: phone.trim() || null,
+          consent: true,
         }),
       });
 
@@ -70,6 +78,30 @@ export function InstallForm({ cardId, accentColor }: InstallFormProps) {
         hint="Optionnel - pour recevoir des notifications"
       />
 
+      <label className="flex items-start gap-2.5 cursor-pointer select-none py-1">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-black"
+          required
+        />
+        <span className="text-xs text-gray-600 leading-relaxed">
+          J&apos;accepte que mes donnees (prenom, telephone) soient traitees
+          par <strong>{businessName}</strong> dans le cadre de cette carte de
+          fidelite. Voir la{" "}
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-black"
+          >
+            politique de confidentialite
+          </a>
+          .
+        </span>
+      </label>
+
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3">
           <p className="text-sm text-red-600">{error}</p>
@@ -80,6 +112,7 @@ export function InstallForm({ cardId, accentColor }: InstallFormProps) {
         type="submit"
         size="lg"
         loading={loading}
+        disabled={!consent || !firstName.trim()}
         className="w-full text-base font-semibold"
         style={{ backgroundColor: accentColor }}
       >

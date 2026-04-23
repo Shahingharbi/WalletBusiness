@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ShieldCheck, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SettingsForms } from "./settings-forms";
 import { InvitationsManager } from "./invitations-manager";
@@ -66,6 +68,26 @@ export default async function SettingsPage() {
           employees={employees ?? []}
         />
       )}
+
+      <Link
+        href="/settings/data"
+        className="flex items-center justify-between gap-3 rounded-2xl border border-beige-dark bg-white p-5 hover:border-foreground transition-colors group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-beige flex items-center justify-center shrink-0">
+            <ShieldCheck className="h-5 w-5 text-foreground" />
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900 text-sm">
+              Donnees et confidentialite
+            </p>
+            <p className="text-xs text-gray-500">
+              Exporter ou supprimer vos donnees (RGPD)
+            </p>
+          </div>
+        </div>
+        <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-gray-700 transition-colors" />
+      </Link>
     </div>
   );
 }

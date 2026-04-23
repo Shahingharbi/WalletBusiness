@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit } from "@/lib/rate-limit";
 
 const MAX_SIZE = 3 * 1024 * 1024; // 3 MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
@@ -9,6 +10,15 @@ const ALLOWED_BUCKETS = ["card-assets", "business-assets"] as const;
 type Bucket = (typeof ALLOWED_BUCKETS)[number];
 
 export async function POST(request: Request) {
+  // File upload — expensive in bandwidth/storage. Authenticated, but
+  // still cap to stop a compromised account flooding storage.
+  const limited = await rateLimit(request, {
+    limit: 20,
+    windowMs: 60_000,
+    key: "upload",
+  });
+  if (limited) return limited;
+
   try {
     const supabase = await createClient();
     const {

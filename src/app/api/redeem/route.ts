@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  // Reward-redemption endpoint: authenticated scanner. Cap at 20/min
+  // to mitigate a compromised scanner draining rewards in bulk.
+  const limited = await rateLimit(request, {
+    limit: 20,
+    windowMs: 60_000,
+    key: "redeem",
+  });
+  if (limited) return limited;
+
   try {
     const supabase = await createClient();
 

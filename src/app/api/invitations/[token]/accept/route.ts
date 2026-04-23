@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  // Account-creation endpoint tied to an invitation token: strict limit
+  // to stop brute-forcing tokens or mass account-creation.
+  const limited = await rateLimit(request, {
+    limit: 5,
+    windowMs: 60_000,
+    key: "invitations:accept",
+  });
+  if (limited) return limited;
+
   try {
     const { token } = await params;
     const admin = createAdminClient();

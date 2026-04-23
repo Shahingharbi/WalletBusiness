@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CookieNotice } from "@/components/public/cookie-notice";
 
 export const metadata: Metadata = {
   appleWebApp: {
@@ -33,6 +34,7 @@ export default function PublicLayout({
           <span className="font-semibold text-gray-500">aswallet</span>
         </p>
       </footer>
+      <CookieNotice />
     </div>
   );
 }
