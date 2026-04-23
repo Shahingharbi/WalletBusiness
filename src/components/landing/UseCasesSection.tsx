@@ -33,12 +33,12 @@ const cases: UseCase[] = [
     badge: "Notifs gratuites",
   },
   {
-    title: "Coiffeur & institut beaute",
+    title: "Coiffeur & institut beauté",
     tagline: "-20% sur le 5e soin",
     benefit:
-      "Relancez vos clientes dormantes en 1 clic. 3x plus de re-reservations.",
+      "Relancez vos clientes dormantes en 1 clic. 3x plus de re-réservations.",
     image:
-      "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=900&auto=format&fit=crop&q=70",
+      "https://images.unsplash.com/photo-1562322140-8baeececf3df?w=900&auto=format&fit=crop&q=70",
     ctaLabel: "Demarrer gratuitement",
     badge: "+3x re-resa",
   },
@@ -76,8 +76,8 @@ const cases: UseCase[] = [
 
 export function UseCasesSection() {
   return (
-    <section className="bg-beige py-20 lg:py-[86px]" id="use-cases">
-      <div className="mx-auto max-w-[1280px] px-6">
+    <section className="bg-beige py-14 sm:py-20 lg:py-[86px]" id="use-cases">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto">
           <span
             className="inline-block bg-yellow text-foreground text-xs font-bold px-3 py-1 rounded-full uppercase mb-5"
@@ -86,10 +86,10 @@ export function UseCasesSection() {
             Par metier
           </span>
           <h2
-            className="text-3xl lg:text-[40px] lg:leading-[48px] font-semibold"
+            className="text-2xl sm:text-3xl lg:text-[40px] lg:leading-[48px] font-semibold"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Pour tous les commerces de proximite
+            Pour tous les commerces de proximité
           </h2>
           <p
             className="text-base text-muted-foreground mt-4"
@@ -99,14 +99,14 @@ export function UseCasesSection() {
           </p>
         </div>
 
-        <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="mt-10 sm:mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {cases.map((c) => (
             <Link
               key={c.title}
               href="/register"
               className="group relative flex flex-col overflow-hidden rounded-3xl bg-white shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
             >
-              <div className="relative h-56 overflow-hidden">
+              <div className="relative h-44 sm:h-52 lg:h-56 overflow-hidden">
                 <img
                   src={c.image}
                   alt=""
@@ -139,7 +139,7 @@ export function UseCasesSection() {
                 </div>
               </div>
 
-              <div className="flex flex-col flex-1 p-6">
+              <div className="flex flex-col flex-1 p-5 sm:p-6">
                 <p
                   className="text-sm text-muted-foreground leading-relaxed flex-1"
                   style={{ fontFamily: "var(--font-maison-neue)" }}

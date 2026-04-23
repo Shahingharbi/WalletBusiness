@@ -10,19 +10,19 @@ export function HowItWorksSection() {
             className="inline-block bg-foreground text-white text-xs font-bold px-3 py-1 rounded-full uppercase mb-5"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            En 3 etapes
+            En 3 étapes
           </span>
           <h2
             className="text-3xl lg:text-[40px] lg:leading-[48px] font-semibold"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            De zero a operationnel en 5 minutes
+            De zéro à opérationnel en 5 minutes
           </h2>
           <p
             className="text-base text-muted-foreground mt-4"
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
-            Aucun materiel requis. Aucune integration caisse. Aucun developpeur.
+            Aucun matériel requis. Aucune intégration caisse. Aucun développeur.
           </p>
         </div>
 
@@ -57,7 +57,7 @@ export function HowItWorksSection() {
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-6 h-6 rounded bg-yellow" />
                   <span className="text-xs font-semibold text-foreground">
-                    Ma carte de fidelite
+                    Ma carte de fidélité
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -83,7 +83,7 @@ export function HowItWorksSection() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[9px] text-muted-foreground w-14 text-right">
-                      Regle
+                      Règle
                     </span>
                     <div className="flex-1 h-5 rounded bg-beige border border-border px-2 flex items-center">
                       <span className="text-[9px] text-foreground">10 tampons = 1 offert</span>
@@ -115,13 +115,13 @@ export function HowItWorksSection() {
               className="text-xl lg:text-2xl font-semibold"
               style={{ fontFamily: "var(--font-maison-neue-extended)" }}
             >
-              Creez votre carte
+              Créez votre carte
             </h3>
             <p
               className="mt-3 text-base text-muted-foreground leading-relaxed max-w-sm"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              Logo, couleurs, regle de fidelite (tampons, points ou cashback).
+              Logo, couleurs, règle de fidélité (tampons, points ou cashback).
               Personnalisation en 3 clics.
             </p>
 
@@ -166,7 +166,7 @@ export function HowItWorksSection() {
                   <div className="w-3 h-3 rounded bg-blue-400 mb-1" />
                   <div className="w-8 h-1 rounded bg-gray-200 mb-0.5" />
                   <div className="w-6 h-1 rounded bg-gray-200" />
-                  <div className="mt-2 text-[5px] font-bold text-green-600">Ajoute !</div>
+                  <div className="mt-2 text-[5px] font-bold text-green-600">Ajouté !</div>
                 </div>
               </div>
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 border-2 border-blue-300/30 rounded-lg" />
@@ -185,7 +185,7 @@ export function HowItWorksSection() {
               className="mt-3 text-base text-muted-foreground leading-relaxed max-w-sm"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              Vos clients scannent avec leur appareil photo. La carte s&apos;ajoute a
+              Vos clients scannent avec leur appareil photo. La carte s&apos;ajoute à
               Apple Wallet ou Google Wallet. Sans app, sans compte.
             </p>
 
@@ -218,7 +218,7 @@ export function HowItWorksSection() {
                     <span className="text-[8px] text-muted-foreground">maintenant</span>
                   </div>
                   <p className="text-[9px] text-muted-foreground mt-0.5">
-                    Votre 10e pizza est offerte ! Venez la recuperer
+                    Votre 10e pizza est offerte ! Venez la récupérer
                   </p>
                 </div>
               </div>
@@ -230,12 +230,12 @@ export function HowItWorksSection() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-semibold text-foreground">
-                      Salon Elegance
+                      Salon Élégance
                     </span>
                     <span className="text-[8px] text-muted-foreground">2min</span>
                   </div>
                   <p className="text-[9px] text-muted-foreground mt-0.5">
-                    Vous etes a 50m ! -15% aujourd&apos;hui sur les soins
+                    Vous êtes à 50m ! -15% aujourd&apos;hui sur les soins
                   </p>
                 </div>
               </div>
@@ -264,20 +264,20 @@ export function HowItWorksSection() {
             </div>
 
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-foreground bg-yellow px-2.5 py-1 rounded-full mb-3">
-              Gratuit & illimite
+              Gratuit & illimité
             </span>
             <h3
               className="text-xl lg:text-2xl font-semibold"
               style={{ fontFamily: "var(--font-maison-neue-extended)" }}
             >
-              Fidelisez et relancez
+              Fidélisez et relancez
             </h3>
             <p
               className="mt-3 text-base text-muted-foreground leading-relaxed max-w-sm"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              Notifications push gratuites, stats en temps reel, offres
-              geolocalisees. Vos clients reviennent.
+              Notifications push gratuites, stats en temps réel, offres
+              géolocalisées. Vos clients reviennent.
             </p>
           </div>
         </div>
@@ -288,7 +288,7 @@ export function HowItWorksSection() {
             className="rounded-full bg-foreground px-8 py-3.5 text-base font-semibold text-white hover:bg-foreground/90 transition-colors inline-flex items-center gap-2 shadow-lg"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Demarrer maintenant
+            Démarrer maintenant
             <ArrowRight size={18} />
           </Link>
           <p

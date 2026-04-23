@@ -42,7 +42,7 @@ export function StickyMobileCTA() {
         <ArrowRight size={16} />
       </Link>
       <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-        Sans CB &middot; Annulable a tout moment
+        Sans CB &middot; Annulable à tout moment
       </p>
     </div>
   );

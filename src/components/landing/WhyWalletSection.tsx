@@ -8,27 +8,27 @@ type Row = {
 const rows: Row[] = [
   {
     paper: "Perdue par 60% des clients en moins d'un an",
-    wallet: "Jamais perdue : stockee dans Apple / Google Wallet",
+    wallet: "Jamais perdue : stockée dans Apple / Google Wallet",
   },
   {
-    paper: "Oubliee au moment de payer",
-    wallet: "Toujours dans la poche, notifiee a proximite",
+    paper: "Oubliée au moment de payer",
+    wallet: "Toujours dans la poche, notifiée à proximité",
   },
   {
-    paper: "Impossible de contacter un client fidele",
-    wallet: "Notifications push gratuites et illimitees",
+    paper: "Impossible de contacter un client fidèle",
+    wallet: "Notifications push gratuites et illimitées",
   },
   {
-    paper: "Impression, tampons, cartes perdues : cout cache",
-    wallet: "0 impression, 0 materiel, 0 stock",
+    paper: "Impression, tampons, cartes perdues : coût caché",
+    wallet: "0 impression, 0 matériel, 0 stock",
   },
   {
-    paper: "Aucune donnee, aucune statistique",
-    wallet: "Tableau de bord temps reel : scans, retention, CA",
+    paper: "Aucune donnée, aucune statistique",
+    wallet: "Tableau de bord temps réel : scans, rétention, CA",
   },
   {
-    paper: "Zero personnalisation par client",
-    wallet: "Segmentation & offres ciblees par habitude",
+    paper: "Zéro personnalisation par client",
+    wallet: "Segmentation & offres ciblées par habitude",
   },
 ];
 
@@ -46,7 +46,7 @@ export function WhyWalletSection() {
           className="text-center text-base text-muted-foreground mt-4 max-w-2xl mx-auto"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          Le papier n&apos;a pas change depuis 30 ans. Vos clients, si.
+          Le papier n&apos;a pas changé depuis 30 ans. Vos clients, si.
           Voici ce qu&apos;ils attendent aujourd&apos;hui.
         </p>
 
@@ -106,7 +106,7 @@ export function WhyWalletSection() {
           className="mt-8 text-center text-sm text-muted-foreground"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          La carte papier n&apos;est pas cassee. Elle est juste depassee.
+          La carte papier n&apos;est pas cassée. Elle est juste dépassée.
         </p>
       </div>
     </section>

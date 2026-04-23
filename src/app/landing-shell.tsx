@@ -15,6 +15,7 @@ import { PricingSection } from "@/components/landing/PricingSection";
 import { FAQSection } from "@/components/landing/FAQSection";
 import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
+import { StickyMobileCTA } from "@/components/landing/StickyMobileCTA";
 
 export function LandingShell() {
   const [bannerVisible, setBannerVisible] = useState(true);
@@ -39,6 +40,7 @@ export function LandingShell() {
         </main>
         <Footer />
       </div>
+      <StickyMobileCTA />
     </>
   );
 }

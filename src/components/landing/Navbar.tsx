@@ -11,10 +11,10 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
         boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
       }}
     >
-      <nav className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-6">
+      <nav className="mx-auto flex h-[60px] sm:h-[72px] max-w-[1440px] items-center justify-between px-4 sm:px-6 gap-3">
         <Link
           href="/"
-          className="flex-shrink-0 text-2xl font-bold text-foreground tracking-tight"
+          className="flex-shrink-0 text-xl sm:text-2xl font-bold text-foreground tracking-tight"
           style={{ fontFamily: "var(--font-ginto-nord)" }}
         >
           aswallet
@@ -26,14 +26,14 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
             className="text-sm font-semibold text-foreground hover:opacity-70 transition-opacity"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Fonctionnalites
+            Fonctionnalités
           </a>
           <a
             href="#how-it-works"
             className="text-sm font-semibold text-foreground hover:opacity-70 transition-opacity"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Comment ca marche
+            Comment ça marche
           </a>
           <a
             href="#pricing"
@@ -51,7 +51,7 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
           </a>
         </div>
 
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3 sm:gap-5">
           <Link
             href="/login"
             className="hidden sm:block text-sm text-foreground hover:opacity-70 transition-opacity"
@@ -61,10 +61,11 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
           </Link>
           <Link
             href="/register"
-            className="rounded-full bg-yellow px-6 py-2.5 text-sm font-semibold text-foreground hover:bg-yellow-hover transition-colors"
+            className="rounded-full bg-yellow px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-foreground hover:bg-yellow-hover transition-colors whitespace-nowrap"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Essayer gratuitement
+            <span className="hidden sm:inline">Essayer gratuitement</span>
+            <span className="sm:hidden">Essai gratuit</span>
           </Link>
         </div>
       </nav>

@@ -41,7 +41,7 @@ export function CTASection() {
             className="text-4xl lg:text-[56px] lg:leading-[64px] font-semibold text-white"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Lancez votre carte de fidelite{" "}
+            Lancez votre carte de fidélité{" "}
             <span className="bg-yellow text-foreground px-3 rounded-lg">
               en 5 minutes
             </span>
@@ -50,7 +50,7 @@ export function CTASection() {
             className="mt-6 text-base lg:text-lg text-white/70"
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
-            Rejoignez les commercants qui ont arrete d&apos;imprimer des cartes
+            Rejoignez les commerçants qui ont arrêté d&apos;imprimer des cartes
             papier. 14 jours d&apos;essai, sans CB, sans engagement.
           </p>
 
@@ -78,7 +78,7 @@ export function CTASection() {
                 className="w-full rounded-full bg-yellow px-8 py-4 text-base font-semibold text-foreground hover:bg-yellow-hover transition-colors inline-flex items-center justify-center gap-2 cursor-pointer shadow-xl"
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
-                Demarrer mon essai gratuit
+                Démarrer mon essai gratuit
                 <ArrowRight size={18} />
               </button>
             </div>
@@ -99,7 +99,7 @@ export function CTASection() {
             <span className="h-3 w-px bg-white/20 hidden sm:block" />
             <span className="inline-flex items-center gap-1.5">
               <Globe size={14} />
-              Heberge en Europe
+              Hébergé en Europe
             </span>
             <span className="h-3 w-px bg-white/20 hidden sm:block" />
             <span className="inline-flex items-center gap-1.5">

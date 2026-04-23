@@ -12,7 +12,7 @@ type Testimonial = {
 const testimonials: Testimonial[] = [
   {
     quote:
-      "En 2 mois, 180 clients ont la carte dans leur telephone. Je leur envoie une offre le mardi midi, je double les couverts sur le service.",
+      "En 2 mois, 180 clients ont la carte dans leur téléphone. Je leur envoie une offre le mardi midi, je double les couverts sur le service.",
     name: "Karim",
     role: "Kebab",
     city: "Lyon 3e",
@@ -20,15 +20,15 @@ const testimonials: Testimonial[] = [
   },
   {
     quote:
-      "Les cartes papier, j'en imprimais 500 par mois et la moitie finissait a la poubelle. Avec aswallet, 0 impression et je vois qui revient.",
-    name: "Amelie",
+      "Les cartes papier, j'en imprimais 500 par mois et la moitié finissait à la poubelle. Avec aswallet, 0 impression et je vois qui revient.",
+    name: "Amélie",
     role: "Boulangerie",
     city: "Lille",
     avatarSeed: "Amelie",
   },
   {
     quote:
-      "Installe en 10 minutes entre deux rendez-vous. Mes clients scannent le QR code au comptoir, la carte est dans leur Apple Wallet, c'est tout.",
+      "Installé en 10 minutes entre deux rendez-vous. Mes clients scannent le QR code au comptoir, la carte est dans leur Apple Wallet, c'est tout.",
     name: "Mehdi",
     role: "Barber shop",
     city: "Marseille",
@@ -44,13 +44,13 @@ export function TestimonialsSection() {
           className="text-center text-3xl lg:text-[40px] lg:leading-[48px] font-semibold max-w-3xl mx-auto"
           style={{ fontFamily: "var(--font-maison-neue-extended)" }}
         >
-          Ils ont fait basculer leur fidelite
+          Ils ont fait basculer leur fidélité
         </h2>
         <p
           className="text-center text-base text-muted-foreground mt-4 max-w-2xl mx-auto"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          Des commercants comme vous, qui ont arrete d&apos;imprimer des cartes papier.
+          Des commerçants comme vous, qui ont arrêté d&apos;imprimer des cartes papier.
         </p>
 
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">

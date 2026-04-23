@@ -6,9 +6,9 @@ type Item = {
 };
 
 const items: Item[] = [
-  { icon: MapPin, label: "Heberge en Europe" },
+  { icon: MapPin, label: "Hébergé en Europe" },
   { icon: ShieldCheck, label: "Conforme RGPD" },
-  { icon: Lock, label: "Donnees chiffrees" },
+  { icon: Lock, label: "Données chiffrées" },
   { icon: CheckCircle2, label: "Sans engagement" },
 ];
 

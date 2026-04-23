@@ -42,10 +42,10 @@ export function FeaturesSection() {
                 0 EUR / message
               </span>
               <h3 className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
-                Remplissez les creux de la journee
+                Remplissez les creux de la journée
               </h3>
               <p className="mt-3 text-sm text-muted-foreground leading-relaxed flex-1" style={{ fontFamily: "var(--font-maison-neue)" }}>
-                Une offre flash &laquo;&nbsp;-20% entre 15h et 17h&nbsp;&raquo; en 2 clics, envoyee gratuitement
+                Une offre flash &laquo;&nbsp;-20% entre 15h et 17h&nbsp;&raquo; en 2 clics, envoyée gratuitement
                 dans le wallet de tous vos clients. 0 EUR contre 0,05 EUR par SMS.
               </p>
             </div>
@@ -57,7 +57,7 @@ export function FeaturesSection() {
               <div className="bg-white rounded-xl p-3 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[9px] font-semibold text-foreground">Tableau de bord</span>
-                  <span className="text-[8px] text-muted-foreground">Temps reel</span>
+                  <span className="text-[8px] text-muted-foreground">Temps réel</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <div className="bg-beige rounded-lg p-2 text-center">
@@ -82,14 +82,14 @@ export function FeaturesSection() {
             </div>
             <div className="p-6 flex-1 flex flex-col">
               <span className="text-xs font-bold text-yellow-hover bg-foreground rounded-full px-3 py-1 self-start mb-3">
-                Stats en temps reel
+                Stats en temps réel
               </span>
               <h3 className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
                 Sachez enfin qui revient (et qui ne revient plus)
               </h3>
               <p className="mt-3 text-sm text-muted-foreground leading-relaxed flex-1" style={{ fontFamily: "var(--font-maison-neue)" }}>
-                Voyez vos scans du jour, votre taux de retour, vos clients inactifs a relancer.
-                Toutes les donnees que votre caisse ne vous donne pas.
+                Voyez vos scans du jour, votre taux de retour, vos clients inactifs à relancer.
+                Toutes les données que votre caisse ne vous donne pas.
               </p>
             </div>
           </div>
@@ -120,14 +120,14 @@ export function FeaturesSection() {
             </div>
             <div className="p-6 flex-1 flex flex-col">
               <span className="text-xs font-bold text-yellow-hover bg-foreground rounded-full px-3 py-1 self-start mb-3">
-                0 materiel
+                0 matériel
               </span>
               <h3 className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
-                Aucune caisse a changer, rien a installer
+                Aucune caisse à changer, rien à installer
               </h3>
               <p className="mt-3 text-sm text-muted-foreground leading-relaxed flex-1" style={{ fontFamily: "var(--font-maison-neue)" }}>
-                aswallet vit sur votre smartphone, a cote de votre caisse actuelle.
-                Aucun achat de materiel, aucune formation, aucune integration.
+                aswallet vit sur votre smartphone, à côté de votre caisse actuelle.
+                Aucun achat de matériel, aucune formation, aucune intégration.
               </p>
             </div>
           </div>
@@ -156,8 +156,8 @@ export function FeaturesSection() {
                   </div>
                 </div>
                 <div className="absolute top-2 right-2 bg-white rounded-lg p-2 shadow-md">
-                  <p className="text-[8px] font-semibold text-foreground">Client a proximite !</p>
-                  <p className="text-[7px] text-muted-foreground">Notification envoyee</p>
+                  <p className="text-[8px] font-semibold text-foreground">Client à proximité !</p>
+                  <p className="text-[7px] text-muted-foreground">Notification envoyée</p>
                 </div>
               </div>
             </div>
@@ -169,7 +169,7 @@ export function FeaturesSection() {
                 Attrapez vos clients quand ils passent devant
               </h3>
               <p className="mt-3 text-sm text-muted-foreground leading-relaxed flex-1" style={{ fontFamily: "var(--font-maison-neue)" }}>
-                Des qu&apos;un client s&apos;approche de votre commerce, une offre pop dans son
+                Dès qu&apos;un client s&apos;approche de votre commerce, une offre pop dans son
                 wallet. Le bon message, au bon moment, sans rien faire.
               </p>
             </div>
@@ -199,13 +199,13 @@ export function FeaturesSection() {
             </div>
             <div className="p-6 flex-1 flex flex-col">
               <span className="text-xs font-bold text-yellow-hover bg-foreground rounded-full px-3 py-1 self-start mb-3">
-                Votre identite
+                Votre identité
               </span>
               <h3 className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
                 Votre logo, vos couleurs, votre carte
               </h3>
               <p className="mt-3 text-sm text-muted-foreground leading-relaxed flex-1" style={{ fontFamily: "var(--font-maison-neue)" }}>
-                Tampons, points ou cashback&nbsp;: choisissez votre mecanique. Logo et couleurs en
+                Tampons, points ou cashback&nbsp;: choisissez votre mécanique. Logo et couleurs en
                 3 clics. Vos clients reconnaissent votre commerce dans leur wallet en un coup d&apos;oeil.
               </p>
             </div>
@@ -218,7 +218,7 @@ export function FeaturesSection() {
                 {[
                   { num: "1", color: "bg-rose-200", textColor: "text-rose-600", label: "Inscription", time: "30 sec" },
                   { num: "2", color: "bg-rose-300", textColor: "text-white", label: "Personnalisation", time: "3 min" },
-                  { num: "3", color: "bg-rose-500", textColor: "text-white", label: "QR Code imprime", time: "1 min" },
+                  { num: "3", color: "bg-rose-500", textColor: "text-white", label: "QR Code imprimé", time: "1 min" },
                 ].map((s) => (
                   <div key={s.num} className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full ${s.color} flex items-center justify-center flex-shrink-0`}>
@@ -235,7 +235,7 @@ export function FeaturesSection() {
                     <span className="text-xs font-bold text-white">&#10003;</span>
                   </div>
                   <div className="flex-1 h-8 rounded-lg bg-green-50 border border-green-200 shadow-sm flex items-center px-3">
-                    <span className="text-[9px] text-green-700 font-bold">Operationnel !</span>
+                    <span className="text-[9px] text-green-700 font-bold">Opérationnel !</span>
                   </div>
                 </div>
               </div>
@@ -245,11 +245,11 @@ export function FeaturesSection() {
                 5 min chrono
               </span>
               <h3 className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
-                Operationnel le jour meme
+                Opérationnel le jour même
               </h3>
               <p className="mt-3 text-sm text-muted-foreground leading-relaxed flex-1" style={{ fontFamily: "var(--font-maison-neue)" }}>
                 Inscription, personnalisation, QR code&nbsp;: vous imprimez votre affiche et
-                vous tamponnez votre premier client le jour meme. Zero connaissance technique.
+                vous tamponnez votre premier client le jour même. Zéro connaissance technique.
               </p>
             </div>
           </div>

@@ -3,22 +3,20 @@
 import Link from "next/link";
 import { ArrowRight, Smartphone, Star, Clock } from "lucide-react";
 
-const DEMO_CARD_PATH = "/c/07d40ad7-e4f9-4c3b-8530-2c7627ce51df";
-
 const avatarSeeds = ["Karim", "Amelie", "Mehdi", "Sophie", "Jules"];
 
 export function HeroSection() {
   return (
-    <section className="bg-beige">
-      <div className="mx-auto max-w-[1280px] px-6 pt-20 pb-16">
-        <div className="flex flex-col lg:flex-row gap-12 lg:gap-8">
-          <div className="flex-1 flex flex-col justify-center">
-            <div className="flex items-center gap-3 mb-8">
-              <span className="bg-yellow text-foreground text-xs font-bold px-3 py-1 rounded-full uppercase">
+    <section className="bg-beige overflow-hidden">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-6 pt-10 sm:pt-16 lg:pt-20 pb-10 sm:pb-16">
+        <div className="flex flex-col lg:flex-row gap-10 sm:gap-12 lg:gap-8">
+          <div className="flex-1 flex flex-col justify-center order-2 lg:order-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+              <span className="bg-yellow text-foreground text-[10px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 rounded-full uppercase">
                 Offre de lancement
               </span>
               <span
-                className="text-sm text-foreground"
+                className="text-xs sm:text-sm text-foreground"
                 style={{ fontFamily: "var(--font-maison-neue)" }}
               >
                 1 mois gratuit en plus pour les 50 premiers
@@ -26,7 +24,7 @@ export function HeroSection() {
             </div>
 
             <h1
-              className="text-[34px] lg:text-[58px] leading-[1.1] lg:leading-[66px]"
+              className="text-[30px] sm:text-[40px] lg:text-[58px] leading-[1.08] lg:leading-[66px]"
               style={{
                 fontFamily: "var(--font-ginto-nord)",
                 fontWeight: 500,
@@ -39,42 +37,42 @@ export function HeroSection() {
             </h1>
 
             <p
-              className="text-base lg:text-xl leading-relaxed lg:leading-[30px] max-w-[560px] mt-6 text-foreground"
+              className="text-sm sm:text-base lg:text-xl leading-relaxed lg:leading-[30px] max-w-[560px] mt-5 sm:mt-6 text-foreground"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              La carte de fidelite digitale pensee pour les kebabs, boulangeries,
-              pizzerias, instituts et fleuristes. Zero app a telecharger, zero
-              materiel : un QR code sur votre comptoir, et vos clients
-              l&apos;ajoutent a Apple Wallet ou Google Wallet en 2&nbsp;clics.
+              La carte de fidélité digitale pensée pour les kebabs, boulangeries,
+              pizzerias, instituts et fleuristes. Zéro app à télécharger, zéro
+              matériel : un QR code sur votre comptoir, et vos clients
+              l&apos;ajoutent à Apple Wallet ou Google Wallet en 2&nbsp;clics.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 mt-8">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
               <Link
                 href="/register"
-                className="rounded-full bg-foreground px-8 py-4 text-base font-semibold text-white hover:bg-foreground/90 transition-colors text-center inline-flex items-center justify-center gap-2 shadow-lg"
+                className="rounded-full bg-foreground px-6 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-semibold text-white hover:bg-foreground/90 transition-colors text-center inline-flex items-center justify-center gap-2 shadow-lg min-h-[48px]"
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
                 Lancer ma carte en 5 minutes
                 <ArrowRight size={18} />
               </Link>
-              <Link
-                href={DEMO_CARD_PATH}
-                className="rounded-full border border-foreground/20 bg-white px-8 py-4 text-base font-semibold text-foreground hover:border-foreground transition-colors text-center inline-flex items-center justify-center gap-2"
+              <a
+                href="#how-it-works"
+                className="rounded-full border border-foreground/20 bg-white px-6 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-semibold text-foreground hover:border-foreground transition-colors text-center inline-flex items-center justify-center gap-2 min-h-[48px]"
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
-                Voir un exemple
-              </Link>
+                Voir une démo
+              </a>
             </div>
 
             <p
               className="mt-4 text-sm text-foreground/60"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              14 jours d&apos;essai sans carte bancaire &middot; Sans engagement &middot; Resiliable en 1 clic
+              14 jours d&apos;essai sans carte bancaire &middot; Sans engagement &middot; Résiliable en 1 clic
             </p>
 
             {/* Social proof: avatar stack */}
-            <div className="mt-10 flex items-center gap-4">
+            <div className="mt-8 sm:mt-10 flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="flex -space-x-2">
                 {avatarSeeds.map((seed) => (
                   <img
@@ -87,7 +85,7 @@ export function HeroSection() {
                     height={40}
                     loading="lazy"
                     decoding="async"
-                    className="h-10 w-10 rounded-full border-2 border-beige bg-white"
+                    className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border-2 border-beige bg-white max-w-full"
                   />
                 ))}
               </div>
@@ -107,15 +105,15 @@ export function HeroSection() {
                   <span className="ml-1 font-semibold text-foreground">4,8/5</span>
                 </span>
                 <span className="text-xs text-foreground/60">
-                  Deja utilise par des commercants en France
+                  Déjà utilisé par des commerçants en France
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="relative w-full max-w-[400px]">
-              <div className="relative mx-auto w-[280px] lg:w-[320px] aspect-[9/16] rounded-[40px] bg-gradient-to-br from-neutral-900 to-neutral-700 p-3 shadow-2xl">
+          <div className="flex-1 flex flex-col items-center justify-center order-1 lg:order-2 w-full">
+            <div className="relative w-full max-w-[360px] sm:max-w-[400px] mx-auto">
+              <div className="relative mx-auto w-[240px] sm:w-[280px] lg:w-[320px] max-w-full aspect-[9/16] rounded-[40px] bg-gradient-to-br from-neutral-900 to-neutral-700 p-3 shadow-2xl">
                 <div className="w-full h-full rounded-[32px] bg-white overflow-hidden flex flex-col">
                   <div className="flex justify-center pt-3 pb-2">
                     <div className="w-20 h-5 bg-black rounded-full" />
@@ -128,7 +126,7 @@ export function HeroSection() {
                         </div>
                         <div>
                           <p className="text-xs font-bold text-foreground/60 uppercase">
-                            Carte de fidelite
+                            Carte de fidélité
                           </p>
                           <p className="text-sm font-bold text-foreground">Mon Commerce</p>
                         </div>
@@ -157,7 +155,7 @@ export function HeroSection() {
                         </div>
                       </div>
                       <div className="mt-3 text-xs text-foreground/60 text-center">
-                        Encore 2 achats pour votre recompense !
+                        Encore 2 achats pour votre récompense !
                       </div>
                     </div>
 
@@ -171,7 +169,7 @@ export function HeroSection() {
                             Mon Commerce
                           </p>
                           <p className="text-[10px] text-muted-foreground">
-                            Offre flash ! -20% aujourd&apos;hui sur votre menu prefere
+                            Offre flash ! -20% aujourd&apos;hui sur votre menu préféré
                           </p>
                         </div>
                         <span className="text-[9px] text-muted-foreground flex-shrink-0">
@@ -198,8 +196,8 @@ export function HeroSection() {
               <div className="hidden lg:flex absolute -right-4 bottom-16 bg-foreground rounded-2xl px-4 py-3 shadow-xl items-center gap-2">
                 <Clock size={18} className="text-yellow" />
                 <div>
-                  <p className="text-xs font-bold text-white">Pret en 5 min</p>
-                  <p className="text-[10px] text-white/60">Sans developpeur</p>
+                  <p className="text-xs font-bold text-white">Prêt en 5 min</p>
+                  <p className="text-[10px] text-white/60">Sans développeur</p>
                 </div>
               </div>
             </div>
@@ -207,15 +205,15 @@ export function HeroSection() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1280px] px-6 pb-20">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-6 pb-14 sm:pb-20">
         <p
-          className="text-center text-base font-semibold mb-10"
+          className="text-center text-sm sm:text-base font-semibold mb-6 sm:mb-10"
           style={{ fontFamily: "var(--font-maison-neue-extended)" }}
         >
-          Pour tous les commerces de proximite
+          Pour tous les commerces de proximité
         </p>
         <div
-          className="flex flex-wrap justify-center gap-x-8 gap-y-4 text-muted-foreground text-sm"
+          className="flex flex-wrap justify-center gap-x-4 sm:gap-x-8 gap-y-2 sm:gap-y-4 text-muted-foreground text-xs sm:text-sm"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
           {[
@@ -224,11 +222,11 @@ export function HeroSection() {
             "Pizzerias",
             "Salons de coiffure",
             "Barbiers",
-            "Instituts de beaute",
-            "Cafes & bars",
+            "Instituts de beauté",
+            "Cafés & bars",
             "Pressing",
             "Fleuristes",
-            "Epiceries",
+            "Épiceries",
           ].map((name) => (
             <span key={name} className="hover:text-foreground transition-colors">
               {name}

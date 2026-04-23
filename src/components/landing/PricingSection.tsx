@@ -15,14 +15,14 @@ const plans: Plan[] = [
   {
     name: "Starter",
     price: "49",
-    description: "Ideal pour un commerce independant qui demarre sa fidelisation digitale.",
+    description: "Idéal pour un commerce indépendant qui démarre sa fidélisation digitale.",
     features: [
       "1 point de vente",
-      "Carte de fidelite personnalisee",
+      "Carte de fidélité personnalisée",
       "Scanner (webapp smartphone)",
-      "Notifications push gratuites & illimitees",
+      "Notifications push gratuites & illimitées",
       "Dashboard avec statistiques",
-      "QR code a imprimer",
+      "QR code à imprimer",
       "Support par email",
     ],
     highlighted: false,
@@ -31,12 +31,12 @@ const plans: Plan[] = [
   {
     name: "Pro",
     price: "99",
-    description: "Pour les commercants qui veulent aller plus loin avec la geolocalisation et la segmentation.",
+    description: "Pour les commerçants qui veulent aller plus loin avec la géolocalisation et la segmentation.",
     features: [
-      "Jusqu'a 5 points de vente",
+      "Jusqu'à 5 points de vente",
       "Tout le plan Starter +",
-      "Statistiques avancees",
-      "Notifications geolocalisees",
+      "Statistiques avancées",
+      "Notifications géolocalisées",
       "Segmentation clients",
       "Cartes cadeaux digitales",
       "Support prioritaire par chat",
@@ -48,27 +48,27 @@ const plans: Plan[] = [
   {
     name: "Business",
     price: "199",
-    description: "Pour les reseaux et franchises qui ont besoin de puissance et de personnalisation.",
+    description: "Pour les réseaux et franchises qui ont besoin de puissance et de personnalisation.",
     features: [
-      "Points de vente illimites",
+      "Points de vente illimités",
       "Tout le plan Pro +",
       "API & webhooks",
-      "Integrations caisse (sur demande)",
-      "Support prioritaire telephone",
+      "Intégrations caisse (sur demande)",
+      "Support prioritaire téléphone",
       "Marque blanche",
-      "Account manager dedie",
+      "Account manager dédié",
     ],
     highlighted: false,
-    ctaLabel: "Parler a l'equipe",
+    ctaLabel: "Parler à l'équipe",
   },
 ];
 
 export function PricingSection() {
   return (
-    <section className="bg-white py-20 lg:py-[86px]" id="pricing">
-      <div className="mx-auto max-w-[1280px] px-6">
+    <section className="bg-white py-14 sm:py-20 lg:py-[86px]" id="pricing">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
         <h2
-          className="text-center text-3xl lg:text-[40px] lg:leading-[48px] font-semibold"
+          className="text-center text-2xl sm:text-3xl lg:text-[40px] lg:leading-[48px] font-semibold"
           style={{ fontFamily: "var(--font-maison-neue-extended)" }}
         >
           Des tarifs simples et transparents
@@ -77,7 +77,7 @@ export function PricingSection() {
           className="text-center text-base text-muted-foreground mt-4 max-w-xl mx-auto"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          Pas de frais caches, pas d&apos;engagement.
+          Pas de frais cachés, pas d&apos;engagement.
         </p>
 
         <div className="mt-6 flex justify-center">
@@ -89,12 +89,12 @@ export function PricingSection() {
           </span>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+        <div className="mt-10 sm:mt-12 grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 lg:gap-8">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative flex flex-col rounded-2xl border-2 p-8 transition-shadow duration-300 hover:shadow-xl ${
-                plan.highlighted ? "border-foreground shadow-lg scale-[1.02]" : "border-border"
+              className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 transition-shadow duration-300 hover:shadow-xl ${
+                plan.highlighted ? "border-foreground shadow-lg md:scale-[1.02]" : "border-border"
               }`}
             >
               {plan.badge && (
@@ -133,7 +133,7 @@ export function PricingSection() {
 
               <Link
                 href={plan.name === "Business" ? "/contact" : `/register?plan=${plan.name.toLowerCase()}`}
-                className={`mt-8 block text-center rounded-full px-6 py-3.5 text-base font-semibold transition-colors ${
+                className={`mt-8 w-full block text-center rounded-full px-6 py-3.5 text-sm sm:text-base font-semibold transition-colors min-h-[48px] inline-flex items-center justify-center ${
                   plan.highlighted
                     ? "bg-foreground text-white hover:bg-foreground/90"
                     : "bg-yellow text-foreground hover:bg-yellow-hover"
@@ -158,7 +158,7 @@ export function PricingSection() {
             <ShieldCheck size={16} className="text-green-600" />
             <span>
               <strong className="font-semibold">Essai 14 jours sans engagement.</strong>{" "}
-              Resiliable en 1 clic, a tout moment.
+              Résiliable en 1 clic, à tout moment.
             </span>
           </div>
           <a
@@ -166,7 +166,7 @@ export function PricingSection() {
             className="text-sm font-semibold text-foreground underline underline-offset-4 hover:opacity-70 transition-opacity"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Une question ? Voir les questions frequentes &rarr;
+            Une question ? Voir les questions fréquentes &rarr;
           </a>
         </div>
       </div>
