@@ -5,19 +5,16 @@ const mainStats = [
     value: "90%",
     label: "de taux de lecture des notifications wallet",
     comparison: "vs 20% pour l'email",
-    source: "Mediametrie",
   },
   {
     value: "4,8x",
     label: "ROI moyen des programmes de fidelite",
     comparison: "34,8% des programmes depassent 500% de ROI",
-    source: "Antavo 2025",
   },
   {
     value: "0 EUR",
     label: "par notification push envoyee",
     comparison: "vs 0,01 a 0,05 EUR par SMS",
-    source: "Mobiloud",
   },
 ];
 
@@ -61,10 +58,10 @@ const comparisonData = [
 ];
 
 const additionalStats = [
-  { value: "37,8M", label: "de cartes wallet actives en France", source: "Ifop 2025" },
-  { value: "71%", label: "des Francais jugent le wallet utile au quotidien", source: "Ifop 2025" },
-  { value: "85%", label: "des utilisateurs y stockent leurs cartes de fidelite", source: "Ifop 2025" },
-  { value: "+67%", label: "de depenses par les clients fideles vs nouveaux", source: "Semrush" },
+  { value: "37,8M", label: "de cartes wallet actives en France" },
+  { value: "71%", label: "des Francais jugent le wallet utile au quotidien" },
+  { value: "85%", label: "y stockent deja leurs cartes de fidelite" },
+  { value: "+67%", label: "de depenses par les clients fideles vs nouveaux" },
 ];
 
 export function WalletStatsSection() {
@@ -81,7 +78,8 @@ export function WalletStatsSection() {
           className="text-center text-base text-muted-foreground mt-4 max-w-2xl mx-auto"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          Des chiffres marche reels et verifiables. Pas nos chiffres, ceux de l&apos;industrie.
+          Pourquoi la fidelite bascule dans le wallet : les chiffres qui comptent pour
+          votre commerce.
         </p>
 
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
@@ -100,7 +98,6 @@ export function WalletStatsSection() {
                 {stat.label}
               </p>
               <p className="text-sm text-muted-foreground mt-1">{stat.comparison}</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Source : {stat.source}</p>
             </div>
           ))}
         </div>
@@ -146,10 +143,6 @@ export function WalletStatsSection() {
               </span>
             </div>
           ))}
-
-          <p className="mt-4 text-xs text-muted-foreground">
-            Sources : Mediametrie, Mobiloud, PassKit, Rivo. Taux constates sur l&apos;ensemble du marche.
-          </p>
         </div>
 
         <div className="mt-12 grid grid-cols-2 lg:grid-cols-4 gap-6">
@@ -161,7 +154,6 @@ export function WalletStatsSection() {
               <p className="mt-2 text-sm text-muted-foreground leading-snug" style={{ fontFamily: "var(--font-maison-neue)" }}>
                 {stat.label}
               </p>
-              <p className="text-xs text-muted-foreground/60 mt-1">{stat.source}</p>
             </div>
           ))}
         </div>

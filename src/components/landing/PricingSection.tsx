@@ -1,7 +1,17 @@
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, ShieldCheck } from "lucide-react";
 
-const plans = [
+type Plan = {
+  name: string;
+  price: string;
+  description: string;
+  features: string[];
+  highlighted: boolean;
+  badge?: string;
+  ctaLabel: string;
+};
+
+const plans: Plan[] = [
   {
     name: "Starter",
     price: "49",
@@ -9,13 +19,14 @@ const plans = [
     features: [
       "1 point de vente",
       "Carte de fidelite personnalisee",
-      "Scanner app (webapp smartphone)",
-      "Notifications push gratuites et illimitees",
+      "Scanner (webapp smartphone)",
+      "Notifications push gratuites & illimitees",
       "Dashboard avec statistiques",
       "QR code a imprimer",
       "Support par email",
     ],
     highlighted: false,
+    ctaLabel: "Commencer en Starter",
   },
   {
     name: "Pro",
@@ -31,7 +42,8 @@ const plans = [
       "Support prioritaire par chat",
     ],
     highlighted: true,
-    badge: "Populaire",
+    badge: "Le + populaire",
+    ctaLabel: "Choisir Pro",
   },
   {
     name: "Business",
@@ -47,6 +59,7 @@ const plans = [
       "Account manager dedie",
     ],
     highlighted: false,
+    ctaLabel: "Parler a l'equipe",
   },
 ];
 
@@ -64,8 +77,17 @@ export function PricingSection() {
           className="text-center text-base text-muted-foreground mt-4 max-w-xl mx-auto"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          Pas de frais caches, pas d&apos;engagement. Essayez gratuitement pendant 14 jours.
+          Pas de frais caches, pas d&apos;engagement.
         </p>
+
+        <div className="mt-6 flex justify-center">
+          <span
+            className="inline-flex items-center gap-2 rounded-full bg-yellow px-4 py-2 text-sm font-semibold text-foreground"
+            style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+          >
+            <Check size={16} /> 14 jours gratuits sur tous les plans &middot; Sans CB
+          </span>
+        </div>
 
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {plans.map((plan) => (
@@ -110,7 +132,7 @@ export function PricingSection() {
               </div>
 
               <Link
-                href="/register"
+                href={plan.name === "Business" ? "/contact" : `/register?plan=${plan.name.toLowerCase()}`}
                 className={`mt-8 block text-center rounded-full px-6 py-3.5 text-base font-semibold transition-colors ${
                   plan.highlighted
                     ? "bg-foreground text-white hover:bg-foreground/90"
@@ -118,7 +140,7 @@ export function PricingSection() {
                 }`}
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
-                Essayer gratuitement
+                {plan.ctaLabel}
               </Link>
 
               <p className="mt-3 text-center text-xs text-muted-foreground">
@@ -126,6 +148,26 @@ export function PricingSection() {
               </p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-10 flex flex-col items-center gap-4">
+          <div
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-beige/60 px-5 py-2.5 text-sm text-foreground"
+            style={{ fontFamily: "var(--font-maison-neue)" }}
+          >
+            <ShieldCheck size={16} className="text-green-600" />
+            <span>
+              <strong className="font-semibold">Essai 14 jours sans engagement.</strong>{" "}
+              Resiliable en 1 clic, a tout moment.
+            </span>
+          </div>
+          <a
+            href="#faq"
+            className="text-sm font-semibold text-foreground underline underline-offset-4 hover:opacity-70 transition-opacity"
+            style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+          >
+            Une question ? Voir les questions frequentes &rarr;
+          </a>
         </div>
       </div>
     </section>

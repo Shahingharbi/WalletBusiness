@@ -1,25 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Smartphone } from "lucide-react";
+import { ArrowRight, Smartphone, Star, Clock } from "lucide-react";
 
-const stats = [
-  { value: "37,8M", label: "de cartes wallet actives en France", source: "Ifop 2025" },
-  { value: "90%", label: "de taux de lecture des notifications push", source: "Mediametrie" },
-  { value: "67%", label: "de depenses en plus par les clients fideles", source: "Semrush" },
-];
+const DEMO_CARD_PATH = "/c/07d40ad7-e4f9-4c3b-8530-2c7627ce51df";
+
+const avatarSeeds = ["Karim", "Amelie", "Mehdi", "Sophie", "Jules"];
 
 export function HeroSection() {
-  const [currentStat, setCurrentStat] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentStat((prev) => (prev + 1) % stats.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <section className="bg-beige">
       <div className="mx-auto max-w-[1280px] px-6 pt-20 pb-16">
@@ -27,52 +15,101 @@ export function HeroSection() {
           <div className="flex-1 flex flex-col justify-center">
             <div className="flex items-center gap-3 mb-8">
               <span className="bg-yellow text-foreground text-xs font-bold px-3 py-1 rounded-full uppercase">
-                Nouveau
+                Offre de lancement
               </span>
               <span
                 className="text-sm text-foreground"
                 style={{ fontFamily: "var(--font-maison-neue)" }}
               >
-                La fidelite client, reinventee
+                1 mois gratuit en plus pour les 50 premiers
               </span>
             </div>
 
             <h1
-              className="text-[36px] lg:text-[60px] leading-[1.15] lg:leading-[72px]"
+              className="text-[34px] lg:text-[58px] leading-[1.1] lg:leading-[66px]"
               style={{
                 fontFamily: "var(--font-ginto-nord)",
                 fontWeight: 500,
-                whiteSpace: "pre-line",
               }}
             >
-              {"Vos clients\nreviennent.\nVotre CA\ndecolle."}
+              Vos clients reviennent,
+              <br />
+              directement depuis leur{" "}
+              <span className="bg-yellow px-2 rounded-md">wallet</span>.
             </h1>
 
             <p
-              className="text-base lg:text-xl leading-relaxed lg:leading-[30px] max-w-[540px] mt-6 text-foreground"
+              className="text-base lg:text-xl leading-relaxed lg:leading-[30px] max-w-[560px] mt-6 text-foreground"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              Creez une carte de fidelite digitale dans Apple Wallet et Google Wallet.
-              Vos clients l&apos;ajoutent en 2 clics, sans app a telecharger.
-              Envoyez des notifications push gratuites et illimitees.
+              La carte de fidelite digitale pensee pour les kebabs, boulangeries,
+              pizzerias, instituts et fleuristes. Zero app a telecharger, zero
+              materiel : un QR code sur votre comptoir, et vos clients
+              l&apos;ajoutent a Apple Wallet ou Google Wallet en 2&nbsp;clics.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 mt-8">
+            <div className="flex flex-col sm:flex-row gap-3 mt-8">
               <Link
                 href="/register"
-                className="rounded-full bg-yellow px-8 py-3.5 text-base font-semibold text-foreground hover:bg-yellow-hover transition-colors text-center"
+                className="rounded-full bg-foreground px-8 py-4 text-base font-semibold text-white hover:bg-foreground/90 transition-colors text-center inline-flex items-center justify-center gap-2 shadow-lg"
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
-                Essayer gratuitement
+                Lancer ma carte en 5 minutes
+                <ArrowRight size={18} />
               </Link>
-              <a
-                href="#how-it-works"
-                className="rounded-full border border-foreground px-8 py-3.5 text-base font-semibold text-foreground hover:bg-foreground hover:text-white transition-colors text-center inline-flex items-center justify-center gap-2"
+              <Link
+                href={DEMO_CARD_PATH}
+                className="rounded-full border border-foreground/20 bg-white px-8 py-4 text-base font-semibold text-foreground hover:border-foreground transition-colors text-center inline-flex items-center justify-center gap-2"
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
-                Voir comment ca marche
-                <ArrowRight size={16} />
-              </a>
+                Voir un exemple
+              </Link>
+            </div>
+
+            <p
+              className="mt-4 text-sm text-foreground/60"
+              style={{ fontFamily: "var(--font-maison-neue)" }}
+            >
+              14 jours d&apos;essai sans carte bancaire &middot; Sans engagement &middot; Resiliable en 1 clic
+            </p>
+
+            {/* Social proof: avatar stack */}
+            <div className="mt-10 flex items-center gap-4">
+              <div className="flex -space-x-2">
+                {avatarSeeds.map((seed) => (
+                  <img
+                    key={seed}
+                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                      seed
+                    )}&backgroundColor=fff382,ffe94d,f9f7f0&fontFamily=Arial`}
+                    alt=""
+                    width={40}
+                    height={40}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-10 w-10 rounded-full border-2 border-beige bg-white"
+                  />
+                ))}
+              </div>
+              <div
+                className="text-sm text-foreground/80"
+                style={{ fontFamily: "var(--font-maison-neue)" }}
+              >
+                <span className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star
+                      key={i}
+                      size={14}
+                      className="text-foreground"
+                      fill="currentColor"
+                    />
+                  ))}
+                  <span className="ml-1 font-semibold text-foreground">4,8/5</span>
+                </span>
+                <span className="text-xs text-foreground/60">
+                  Deja utilise par des commercants en France
+                </span>
+              </div>
             </div>
           </div>
 
@@ -127,7 +164,7 @@ export function HeroSection() {
                     <div className="w-full rounded-xl bg-beige border border-border p-3 shadow-sm">
                       <div className="flex items-start gap-2">
                         <div className="w-6 h-6 rounded-md bg-yellow flex-shrink-0 flex items-center justify-center mt-0.5">
-                          <span className="text-[10px] font-bold">FP</span>
+                          <span className="text-[10px] font-bold">AS</span>
                         </div>
                         <div>
                           <p className="text-[11px] font-semibold text-foreground">
@@ -145,41 +182,25 @@ export function HeroSection() {
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="relative w-full max-w-[400px] mt-8">
-              {stats.map((stat, index) => (
-                <div
-                  key={index}
-                  className="absolute inset-0 transition-opacity duration-500 flex items-center justify-center"
-                  style={{
-                    opacity: currentStat === index ? 1 : 0,
-                    position: index === 0 ? "relative" : "absolute",
-                  }}
+              {/* Floating stat chips */}
+              <div className="hidden lg:block absolute -left-6 top-12 bg-white rounded-2xl px-4 py-3 shadow-xl border border-border">
+                <p
+                  className="text-2xl text-foreground leading-none"
+                  style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}
                 >
-                  <div className="bg-foreground rounded-2xl p-5 w-full text-center">
-                    <p
-                      className="text-white text-3xl lg:text-4xl"
-                      style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}
-                    >
-                      {stat.value}
-                    </p>
-                    <p className="text-white/80 text-sm mt-1">{stat.label}</p>
-                    <p className="text-white/50 text-xs mt-1">Source : {stat.source}</p>
-                  </div>
+                  90%
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                  de taux de lecture<br />des push wallet
+                </p>
+              </div>
+              <div className="hidden lg:flex absolute -right-4 bottom-16 bg-foreground rounded-2xl px-4 py-3 shadow-xl items-center gap-2">
+                <Clock size={18} className="text-yellow" />
+                <div>
+                  <p className="text-xs font-bold text-white">Pret en 5 min</p>
+                  <p className="text-[10px] text-white/60">Sans developpeur</p>
                 </div>
-              ))}
-              <div className="flex gap-2 mt-4 justify-center">
-                {stats.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentStat(index)}
-                    className={`w-3 h-3 rounded-full transition-colors cursor-pointer ${
-                      currentStat === index ? "bg-foreground" : "bg-border"
-                    }`}
-                    aria-label={`Statistique ${index + 1}`}
-                  />
-                ))}
               </div>
             </div>
           </div>
@@ -198,16 +219,16 @@ export function HeroSection() {
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
           {[
-            "Restaurants",
-            "Fast-food & Tacos",
+            "Kebabs & tacos",
             "Boulangeries",
             "Pizzerias",
             "Salons de coiffure",
+            "Barbiers",
             "Instituts de beaute",
-            "Bars & Cafes",
-            "Salles de sport",
-            "Commerces alimentaires",
-            "Boutiques",
+            "Cafes & bars",
+            "Pressing",
+            "Fleuristes",
+            "Epiceries",
           ].map((name) => (
             <span key={name} className="hover:text-foreground transition-colors">
               {name}

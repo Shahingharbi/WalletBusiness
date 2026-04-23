@@ -1,26 +1,45 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 export function HowItWorksSection() {
   return (
     <section className="px-6 py-6" id="how-it-works">
       <div className="mx-auto max-w-[1280px] rounded-[20px] bg-beige px-8 lg:px-12 py-16 lg:py-[86px]">
-        <h2
-          className="text-center text-3xl lg:text-[40px] lg:leading-[48px] font-semibold"
-          style={{ fontFamily: "var(--font-maison-neue-extended)" }}
-        >
-          Comment ca marche
-        </h2>
-        <p
-          className="text-center text-base text-muted-foreground mt-4 max-w-xl mx-auto"
-          style={{ fontFamily: "var(--font-maison-neue)" }}
-        >
-          Operationnel en 5 minutes. Aucun materiel requis. Aucune integration caisse.
-        </p>
+        <div className="text-center max-w-2xl mx-auto">
+          <span
+            className="inline-block bg-foreground text-white text-xs font-bold px-3 py-1 rounded-full uppercase mb-5"
+            style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+          >
+            En 3 etapes
+          </span>
+          <h2
+            className="text-3xl lg:text-[40px] lg:leading-[48px] font-semibold"
+            style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+          >
+            De zero a operationnel en 5 minutes
+          </h2>
+          <p
+            className="text-base text-muted-foreground mt-4"
+            style={{ fontFamily: "var(--font-maison-neue)" }}
+          >
+            Aucun materiel requis. Aucune integration caisse. Aucun developpeur.
+          </p>
+        </div>
 
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="flex flex-col items-center text-center">
-            <div className="w-12 h-12 rounded-full bg-foreground flex items-center justify-center mb-6">
-              <span className="text-white text-lg font-bold" style={{ fontFamily: "var(--font-ginto-nord)" }}>
+        <div className="relative mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-4">
+          {/* Horizontal dashed connector behind the cards (desktop only) */}
+          <div
+            aria-hidden
+            className="hidden md:block absolute top-6 left-[16.66%] right-[16.66%] h-px border-t-2 border-dashed border-foreground/20"
+          />
+
+          {/* Step 1 */}
+          <div className="relative flex flex-col items-center text-center">
+            <div className="relative z-10 w-12 h-12 rounded-full bg-foreground flex items-center justify-center mb-6 shadow-md ring-4 ring-beige">
+              <span
+                className="text-white text-lg font-bold"
+                style={{ fontFamily: "var(--font-ginto-nord)" }}
+              >
                 1
               </span>
             </div>
@@ -37,17 +56,23 @@ export function HowItWorksSection() {
               <div className="p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-6 h-6 rounded bg-yellow" />
-                  <span className="text-xs font-semibold text-foreground">Ma carte de fidelite</span>
+                  <span className="text-xs font-semibold text-foreground">
+                    Ma carte de fidelite
+                  </span>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] text-muted-foreground w-14 text-right">Nom</span>
+                    <span className="text-[9px] text-muted-foreground w-14 text-right">
+                      Nom
+                    </span>
                     <div className="flex-1 h-5 rounded bg-beige border border-border px-2 flex items-center">
                       <span className="text-[9px] text-foreground">Ma Boulangerie</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] text-muted-foreground w-14 text-right">Couleur</span>
+                    <span className="text-[9px] text-muted-foreground w-14 text-right">
+                      Couleur
+                    </span>
                     <div className="flex gap-1.5">
                       <div className="w-5 h-5 rounded-full bg-yellow border-2 border-foreground" />
                       <div className="w-5 h-5 rounded-full bg-blue-500" />
@@ -57,7 +82,9 @@ export function HowItWorksSection() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] text-muted-foreground w-14 text-right">Regle</span>
+                    <span className="text-[9px] text-muted-foreground w-14 text-right">
+                      Regle
+                    </span>
                     <div className="flex-1 h-5 rounded bg-beige border border-border px-2 flex items-center">
                       <span className="text-[9px] text-foreground">10 tampons = 1 offert</span>
                     </div>
@@ -81,17 +108,36 @@ export function HowItWorksSection() {
               </div>
             </div>
 
-            <h3 className="text-xl lg:text-2xl font-semibold" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
-              Creez votre carte en 5 minutes
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-foreground bg-yellow px-2.5 py-1 rounded-full mb-3">
+              5 min
+            </span>
+            <h3
+              className="text-xl lg:text-2xl font-semibold"
+              style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+            >
+              Creez votre carte
             </h3>
-            <p className="mt-3 text-base text-muted-foreground leading-relaxed max-w-sm" style={{ fontFamily: "var(--font-maison-neue)" }}>
-              Personnalisez avec votre logo, vos couleurs et vos regles de fidelite : tampons, points, cashback.
+            <p
+              className="mt-3 text-base text-muted-foreground leading-relaxed max-w-sm"
+              style={{ fontFamily: "var(--font-maison-neue)" }}
+            >
+              Logo, couleurs, regle de fidelite (tampons, points ou cashback).
+              Personnalisation en 3 clics.
             </p>
+
+            {/* Mobile arrow */}
+            <div className="md:hidden mt-6 mb-2 text-foreground/40">
+              <ArrowRight size={24} className="rotate-90" />
+            </div>
           </div>
 
-          <div className="flex flex-col items-center text-center">
-            <div className="w-12 h-12 rounded-full bg-foreground flex items-center justify-center mb-6">
-              <span className="text-white text-lg font-bold" style={{ fontFamily: "var(--font-ginto-nord)" }}>
+          {/* Step 2 */}
+          <div className="relative flex flex-col items-center text-center">
+            <div className="relative z-10 w-12 h-12 rounded-full bg-foreground flex items-center justify-center mb-6 shadow-md ring-4 ring-beige">
+              <span
+                className="text-white text-lg font-bold"
+                style={{ fontFamily: "var(--font-ginto-nord)" }}
+              >
                 2
               </span>
             </div>
@@ -111,7 +157,9 @@ export function HowItWorksSection() {
                     />
                   ))}
                 </div>
-                <p className="text-[6px] text-center text-muted-foreground mt-1">Scannez-moi</p>
+                <p className="text-[6px] text-center text-muted-foreground mt-1">
+                  Scannez-moi
+                </p>
               </div>
               <div className="relative z-20 -mt-4 w-16 h-28 rounded-xl bg-gradient-to-b from-neutral-800 to-neutral-600 p-1 shadow-xl transform -rotate-6">
                 <div className="w-full h-full rounded-lg bg-white flex flex-col items-center justify-center">
@@ -124,17 +172,35 @@ export function HowItWorksSection() {
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 border-2 border-blue-300/30 rounded-lg" />
             </div>
 
-            <h3 className="text-xl lg:text-2xl font-semibold" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
-              Vos clients l&apos;ajoutent en 2 clics
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-foreground bg-yellow px-2.5 py-1 rounded-full mb-3">
+              2 clics
+            </span>
+            <h3
+              className="text-xl lg:text-2xl font-semibold"
+              style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+            >
+              Imprimez le QR en boutique
             </h3>
-            <p className="mt-3 text-base text-muted-foreground leading-relaxed max-w-sm" style={{ fontFamily: "var(--font-maison-neue)" }}>
-              Un QR code sur votre comptoir, le client scanne et la carte s&apos;ajoute a Apple Wallet ou Google Wallet. Sans app, sans compte.
+            <p
+              className="mt-3 text-base text-muted-foreground leading-relaxed max-w-sm"
+              style={{ fontFamily: "var(--font-maison-neue)" }}
+            >
+              Vos clients scannent avec leur appareil photo. La carte s&apos;ajoute a
+              Apple Wallet ou Google Wallet. Sans app, sans compte.
             </p>
+
+            <div className="md:hidden mt-6 mb-2 text-foreground/40">
+              <ArrowRight size={24} className="rotate-90" />
+            </div>
           </div>
 
-          <div className="flex flex-col items-center text-center">
-            <div className="w-12 h-12 rounded-full bg-foreground flex items-center justify-center mb-6">
-              <span className="text-white text-lg font-bold" style={{ fontFamily: "var(--font-ginto-nord)" }}>
+          {/* Step 3 */}
+          <div className="relative flex flex-col items-center text-center">
+            <div className="relative z-10 w-12 h-12 rounded-full bg-yellow flex items-center justify-center mb-6 shadow-md ring-4 ring-beige">
+              <span
+                className="text-foreground text-lg font-bold"
+                style={{ fontFamily: "var(--font-ginto-nord)" }}
+              >
                 3
               </span>
             </div>
@@ -146,7 +212,9 @@ export function HowItWorksSection() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-foreground">Ma Pizzeria</span>
+                    <span className="text-[10px] font-semibold text-foreground">
+                      Ma Pizzeria
+                    </span>
                     <span className="text-[8px] text-muted-foreground">maintenant</span>
                   </div>
                   <p className="text-[9px] text-muted-foreground mt-0.5">
@@ -161,7 +229,9 @@ export function HowItWorksSection() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-foreground">Salon Elegance</span>
+                    <span className="text-[10px] font-semibold text-foreground">
+                      Salon Elegance
+                    </span>
                     <span className="text-[8px] text-muted-foreground">2min</span>
                   </div>
                   <p className="text-[9px] text-muted-foreground mt-0.5">
@@ -172,7 +242,9 @@ export function HowItWorksSection() {
 
               <div className="bg-white rounded-xl p-3 shadow-sm mt-auto">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[9px] font-semibold text-foreground">Cette semaine</span>
+                  <span className="text-[9px] font-semibold text-foreground">
+                    Cette semaine
+                  </span>
                   <span className="text-[9px] text-green-600 font-semibold">+24%</span>
                 </div>
                 <div className="flex items-end gap-1 h-8">
@@ -191,23 +263,40 @@ export function HowItWorksSection() {
               </div>
             </div>
 
-            <h3 className="text-xl lg:text-2xl font-semibold" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
-              Fidelisez et communiquez
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-foreground bg-yellow px-2.5 py-1 rounded-full mb-3">
+              Gratuit & illimite
+            </span>
+            <h3
+              className="text-xl lg:text-2xl font-semibold"
+              style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+            >
+              Fidelisez et relancez
             </h3>
-            <p className="mt-3 text-base text-muted-foreground leading-relaxed max-w-sm" style={{ fontFamily: "var(--font-maison-neue)" }}>
-              Envoyez des notifications push gratuites, suivez vos stats en temps reel, activez la geolocalisation.
+            <p
+              className="mt-3 text-base text-muted-foreground leading-relaxed max-w-sm"
+              style={{ fontFamily: "var(--font-maison-neue)" }}
+            >
+              Notifications push gratuites, stats en temps reel, offres
+              geolocalisees. Vos clients reviennent.
             </p>
           </div>
         </div>
 
-        <div className="flex justify-center mt-12">
+        <div className="flex flex-col items-center gap-3 mt-14">
           <Link
             href="/register"
-            className="rounded-full bg-foreground px-8 py-3.5 text-base font-semibold text-white hover:bg-foreground/90 transition-colors"
+            className="rounded-full bg-foreground px-8 py-3.5 text-base font-semibold text-white hover:bg-foreground/90 transition-colors inline-flex items-center gap-2 shadow-lg"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Essayer gratuitement, 14 jours offerts
+            Demarrer maintenant
+            <ArrowRight size={18} />
           </Link>
+          <p
+            className="text-xs text-muted-foreground"
+            style={{ fontFamily: "var(--font-maison-neue)" }}
+          >
+            14 jours gratuits &middot; Sans CB &middot; Sans engagement
+          </p>
         </div>
       </div>
     </section>

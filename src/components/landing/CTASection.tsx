@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ShieldCheck, Globe, Lock, Clock } from "lucide-react";
 
 export function CTASection() {
   const router = useRouter();
@@ -19,17 +19,39 @@ export function CTASection() {
 
   return (
     <section className="px-6 py-6" id="contact">
-      <div className="mx-auto max-w-[1280px] rounded-[20px] bg-yellow px-8 lg:px-12 py-16 lg:py-20">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2
-            className="text-3xl lg:text-[48px] lg:leading-[56px] font-semibold"
+      <div className="relative overflow-hidden mx-auto max-w-[1280px] rounded-[20px] bg-foreground px-8 lg:px-12 py-20 lg:py-28">
+        {/* Decorative glow */}
+        <div
+          aria-hidden
+          className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-yellow/30 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-yellow/20 blur-3xl"
+        />
+
+        <div className="relative max-w-2xl mx-auto text-center">
+          <span
+            className="inline-block bg-yellow text-foreground text-xs font-bold px-3 py-1 rounded-full uppercase mb-6"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Pret a fideliser vos clients autrement ?
+            C&apos;est parti
+          </span>
+          <h2
+            className="text-4xl lg:text-[56px] lg:leading-[64px] font-semibold text-white"
+            style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+          >
+            Lancez votre carte de fidelite{" "}
+            <span className="bg-yellow text-foreground px-3 rounded-lg">
+              en 5 minutes
+            </span>
           </h2>
-          <p className="mt-4 text-base text-foreground/70" style={{ fontFamily: "var(--font-maison-neue)" }}>
-            Rejoignez les commercants qui passent a la fidelisation digitale.
-            14 jours d&apos;essai gratuit, sans engagement.
+          <p
+            className="mt-6 text-base lg:text-lg text-white/70"
+            style={{ fontFamily: "var(--font-maison-neue)" }}
+          >
+            Rejoignez les commercants qui ont arrete d&apos;imprimer des cartes
+            papier. 14 jours d&apos;essai, sans CB, sans engagement.
           </p>
 
           <form onSubmit={submit} className="mt-10 max-w-md mx-auto">
@@ -40,30 +62,56 @@ export function CTASection() {
                 placeholder="Votre email professionnel"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-full border border-foreground/20 bg-white px-6 py-3.5 text-base outline-none focus:border-foreground transition-colors"
+                className="w-full rounded-full border border-white/20 bg-white/5 backdrop-blur px-6 py-4 text-base text-white placeholder:text-white/40 outline-none focus:border-yellow focus:bg-white focus:text-foreground focus:placeholder:text-foreground/40 transition-colors"
                 style={{ fontFamily: "var(--font-maison-neue)" }}
               />
               <input
                 type="text"
-                placeholder="Nom de votre commerce"
+                placeholder="Nom de votre commerce (optionnel)"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
-                className="w-full rounded-full border border-foreground/20 bg-white px-6 py-3.5 text-base outline-none focus:border-foreground transition-colors"
+                className="w-full rounded-full border border-white/20 bg-white/5 backdrop-blur px-6 py-4 text-base text-white placeholder:text-white/40 outline-none focus:border-yellow focus:bg-white focus:text-foreground focus:placeholder:text-foreground/40 transition-colors"
                 style={{ fontFamily: "var(--font-maison-neue)" }}
               />
               <button
                 type="submit"
-                className="w-full rounded-full bg-foreground px-8 py-3.5 text-base font-semibold text-white hover:bg-foreground/90 transition-colors inline-flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full rounded-full bg-yellow px-8 py-4 text-base font-semibold text-foreground hover:bg-yellow-hover transition-colors inline-flex items-center justify-center gap-2 cursor-pointer shadow-xl"
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
                 Demarrer mon essai gratuit
                 <ArrowRight size={18} />
               </button>
             </div>
-            <p className="mt-3 text-xs text-foreground/50">
-              14 jours gratuits. Sans carte bancaire. Sans engagement.
+            <p className="mt-4 text-xs text-white/50">
+              14 jours gratuits &middot; Sans carte bancaire &middot; Sans engagement
             </p>
           </form>
+
+          {/* Trust badges row */}
+          <div
+            className="mt-12 pt-8 border-t border-white/10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs text-white/70"
+            style={{ fontFamily: "var(--font-maison-neue)" }}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck size={14} />
+              Conforme RGPD
+            </span>
+            <span className="h-3 w-px bg-white/20 hidden sm:block" />
+            <span className="inline-flex items-center gap-1.5">
+              <Globe size={14} />
+              Heberge en Europe
+            </span>
+            <span className="h-3 w-px bg-white/20 hidden sm:block" />
+            <span className="inline-flex items-center gap-1.5">
+              <Lock size={14} />
+              Chiffrement SSL
+            </span>
+            <span className="h-3 w-px bg-white/20 hidden sm:block" />
+            <span className="inline-flex items-center gap-1.5">
+              <Clock size={14} />
+              14 jours offerts
+            </span>
+          </div>
         </div>
       </div>
     </section>

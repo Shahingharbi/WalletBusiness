@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { GoogleAuth } from "google-auth-library";
 
 interface PassParams {
   cardId: string;
@@ -128,4 +129,45 @@ export function generateGoogleWalletPassUrl(p: PassParams): string {
 
   const token = jwt.sign(claims, PRIVATE_KEY, { algorithm: "RS256" });
   return `https://pay.google.com/gp/v/save/${token}`;
+}
+
+// Google Wallet: push updated stamps/rewards to an existing loyaltyObject.
+// Called after /api/scan so users who added the card to Wallet see fresh counts.
+// Silently no-ops on 404 (user never added to Wallet yet) or on timeout.
+export async function syncLoyaltyObject(
+  instanceToken: string,
+  stampsCollected: number,
+  rewardsAvailable: number
+): Promise<void> {
+  if (!isGoogleWalletConfigured()) return;
+
+  const objId = objectId(instanceToken);
+  const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${objId}`;
+  const body = {
+    loyaltyPoints: { balance: { int: stampsCollected }, label: "Tampons" },
+    secondaryLoyaltyPoints: {
+      balance: { int: rewardsAvailable },
+      label: "Recompenses",
+    },
+  };
+
+  const auth = new GoogleAuth({
+    credentials: {
+      client_email: SERVICE_ACCOUNT_EMAIL,
+      private_key: PRIVATE_KEY,
+    },
+    scopes: ["https://www.googleapis.com/auth/wallet_object.issuer"],
+  });
+
+  try {
+    const client = await auth.getClient();
+    await client.request({ url, method: "PATCH", data: body, timeout: 3000 });
+  } catch (err: unknown) {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 404) return; // user has not saved the pass yet, normal
+    console.warn(
+      `[wallet-sync] PATCH ${objId} failed:`,
+      (err as { message?: string })?.message ?? err
+    );
+  }
 }

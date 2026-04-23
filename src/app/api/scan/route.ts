@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { syncLoyaltyObject } from "@/lib/google-wallet";
 
 export async function POST(request: Request) {
   try {
@@ -152,6 +153,10 @@ export async function POST(request: Request) {
     const newStamps = updated?.stamps_collected ?? instance.stamps_collected + 1;
     const newRewards = updated?.rewards_available ?? instance.rewards_available;
     const rewardEarned = newRewards > instance.rewards_available;
+
+    // Sync count to Google Wallet if the user previously added the pass.
+    // Swallow errors so scan never fails because of a Wallet hiccup.
+    await syncLoyaltyObject(instance.token, newStamps, newRewards);
 
     return NextResponse.json({
       success: true,
