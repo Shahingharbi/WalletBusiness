@@ -17,7 +17,7 @@ const classBody = {
   id: CLASS_ID,
   issuerName: "aswallet",
   programName: "aswallet Demo Loyalty",
-  reviewStatus: "DRAFT",
+  reviewStatus: "UNDER_REVIEW",
   hexBackgroundColor: "#10b981",
   countryCode: "FR",
   localizedIssuerName: {
@@ -28,7 +28,7 @@ const classBody = {
   },
   programLogo: {
     sourceUri: {
-      uri: "https://wallet-business-blond.vercel.app/icon.svg",
+      uri: "https://aswallet.fr/icon.svg",
     },
     contentDescription: {
       defaultValue: { language: "fr", value: "aswallet" },

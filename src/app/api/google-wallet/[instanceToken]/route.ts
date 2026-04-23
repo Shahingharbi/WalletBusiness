@@ -53,7 +53,7 @@ export async function GET(
     const businessName = card.businesses?.name ?? "Commerce";
     const customerName =
       `${client?.first_name ?? ""} ${client?.last_name ?? ""}`.trim() || "Client";
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://wallet-business-blond.vercel.app";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
 
     const url = generateGoogleWalletPassUrl({
       cardId: card.id,
