@@ -5,6 +5,83 @@
 
 ---
 
+## 2026-04-23 — Production polish : security, RGPD, Google Wallet live sync, CRO, responsive, accents
+
+### Google Wallet : carte live + tampons visuels (technique Boomerangme)
+- **Sync automatique après scan** — `lib/google-wallet.ts` : nouvelle fonction `syncLoyaltyObject(token, stamps, rewards, appUrl)` qui PATCH `/loyaltyObject/{id}` via service account. Appelée depuis `api/scan/route.ts` après chaque tampon ajouté. Silencieux sur 404 (user n'a pas ajouté la carte au Wallet) + timeout 3s.
+- **heroImage dynamique par instance** — nouveau endpoint `src/app/api/wallet/banner/[instanceToken]/[count]/route.tsx` qui rend un **PNG 1032×336** via Next `ImageResponse` (`next/og`). Grid de tampons **matchant la preview de l'app** : shape (circle / squircle / shield / star / hex) en SVG inline, icône (14 variants de `lib/stamp-icons.tsx` inlinées : check, star, heart, coffee, pizza, flower, scissors, crown, leaf, gift, baguette, kebab, diamond, sparkle). Si le commerçant a uploadé `stamp_active_url` / `stamp_inactive_url`, ce sont eux qui s'affichent.
+- **URL = cache-buster** : le `count` dans le path change à chaque scan → Google refetch → le wallet affiche le nouveau visuel en live.
+- **Contraintes Satori respectées** : flexbox only, SVG inline, pas de `clip-path` / `mask` / grid CSS.
+- **DB source de vérité** : le `count` URL sert uniquement au cache-bust ; le renderer lit toujours `stamps_collected` depuis Supabase.
+- **Fallback logo obligatoire** — `lib/google-wallet.ts` : si le commerçant n'a pas de logo, fallback automatique sur `https://aswallet.fr/icon.svg` (sinon Google refuse la création de class avec "LoyaltyClass cannot be created without a program logo" — c'était le bug "erreur est survenue" au Save final, 11 cartes sur 15 étaient cassées).
+- **Pré-création des classes** — nouveau script `scripts/sync-wallet-classes.mjs` : itère toutes les cartes Supabase et crée la class Google Wallet correspondante via l'API (POST `/loyaltyClass`). Plus fiable que le JWT-embedded insert. Run une fois = 15/15 classes APPROVED.
+- **Scripts diag** : `scripts/list-classes.mjs`, `scripts/debug-card-class.mjs`, `scripts/promote-classes.mjs` (DRAFT → UNDER_REVIEW).
+
+### Security baseline SaaS
+- **Headers** (`next.config.ts`) : HSTS, X-Content-Type-Options, X-Frame-Options DENY, Referrer-Policy, Permissions-Policy (camera self, micro/geo/payment off), CSP en **Report-Only** (TODO : flip en enforcing après vérif).
+- **Rate limiting in-memory** (`lib/rate-limit.ts`) : sliding window per-IP. Appliqué sur `/api/upload` (20/min), `/api/redeem` (20/min), `/api/install/[token]` (5/min), `/api/invitations/[token]/accept` (5/min). Module-scoped Map — migrable vers Upstash Redis plus tard.
+- **Env guard** (`lib/env.ts`) : validation des 7 env vars obligatoires au runtime prod (avertit hors prod, ne bloque pas le build CI).
+- **SEO baseline** : `src/app/robots.ts` (disallow `/api/`, `/dashboard/`, etc. + lien sitemap) + `src/app/sitemap.ts` (pages publiques seulement).
+- **Error boundary global** (`src/app/error.tsx`) : copy FR propre, plus de stacktrace en prod.
+
+### RGPD / CNIL full compliance
+- **`/mentions-legales`** (NEW, LCEN) : éditeur Shahin Gharbi SIRET 903 950 210 00026, hébergeur Vercel (USA), hébergement DB Supabase (EU Irlande), TVA non-assujetti.
+- **`/privacy`** : rewrite complet — tableau finalités / bases légales / durées (art. 6 RGPD), liste sous-traitants (Supabase, Vercel, Google, IONOS) avec SCCs, 8 droits RGPD, CNIL.
+- **`/terms`** : ajout art. 7 (responsable vs sous-traitant art. 28 RGPD, DPA sur demande) et art. 8 (durée, portabilité, sort des données).
+- **`/settings/data`** (dashboard) : bouton **Exporter mes données** (JSON complet download) + bouton **Supprimer mon compte** (confirmation `SUPPRIMER`). APIs `/api/account/export` GET + `/api/account` DELETE.
+- **Install form consent** : checkbox consentement obligatoire avant install d'une carte + vérification server-side.
+- **Cookie notice** : toast discret one-time dismissible (pas de bannière RGPD lourde car on utilise uniquement des cookies techniques).
+
+### Landing CRO overhaul
+- Hero : headline commerce-focused, CTA unique above-the-fold, avatar stack DiceBear, trust line "14 jours sans CB". Bouton "Voir un exemple" (mort) remplacé par "Voir une démo" qui scroll sur `#how-it-works`.
+- 3 nouvelles sections : **TrustBar** (🇫🇷 Europe + RGPD + chiffrement), **UseCasesSection** (6 industries avec photos Unsplash halal-friendly : kebab / boulangerie / coiffeur-scissors / pizza / fleurs / VIP + badge metrics), **FAQSection** (8 objections types).
+- HowItWorks : connecteurs dashed desktop + flèches mobile, chips "5 min"/"1 min" par étape.
+- Pricing : badge "Le + populaire" sur Pro, reassurance shield "Essai 14j sans engagement".
+- CTA finale : dark + yellow highlight.
+- **SocialProofSection** : marquee infini de 11 vrais logos SVG (Starbucks / McDo / Nike / Adidas / Air France / SNCF / Fnac / IKEA / Carrefour / Zara / Uniqlo) via Simple Icons CDN — **logos en couleur native**, opacity 90%. Plus de "Captain Wallet" cités nulle part.
+- Nouvel ordre : Navbar → Hero → TrustBar → SocialProof → WhyWallet → HowItWorks → Features → UseCases → WalletStats → Pricing → FAQ → CTA → Footer.
+
+### Responsive A à Z (mobile-first, 375px)
+- `ui/input` + `ui/dropdown` + `ui/button` : `h-11` + `text-base sm:text-sm` (pas de zoom iOS au focus), touch target 44px.
+- Dashboard : KPIs cramped → `p-4 sm:p-6`, wizard step indicator compact + `overflow-x-auto`, tabs scrollables, forms stack → `flex-col sm:flex-row`.
+- Landing : hero mockup s'affiche en-dessous du copy sur mobile (`order-2 lg:order-1`), tailles fluides (`text-[30px] sm:text-[40px] lg:text-[58px]`), marquee `overflow-hidden`.
+- Install flow `/c/[token]` : banner `h-40 sm:h-48`, `max-w-lg mx-auto`, truncate sur noms longs.
+- Scanner, auth, settings, card editor, card preview : paddings + gaps + fonts fluides.
+
+### Accents FR (sweep ~90 fichiers)
+- Landing + dashboard + auth + légal + scanner + constants + card editor + API errors.
+- Mots corrigés : fidélité, proximité, créer, gérer, déjà, après, très, récompense, paramètres, données, commerçant (ç!), employé, téléphone, accès, Chambéry, étape, zéro, même, réel, fonctionnalités, spécifique, sécurité, activité, durée, expérience, dernière, numéro, télécharger, nécessaire, vérifier, autorisé, complet/complète, légal/légale, éditeur, déconnexion, réservation, rétention, délai, été, Éditeur, etc.
+
+### Google OAuth login/register
+- `src/components/auth/google-auth-button.tsx` + `src/app/auth/callback/route.ts` (exchange code for session + guard open-redirect).
+- Provider Google activé côté Supabase via Management API (PATCH `/config/auth`).
+- Client ID / Secret Google Cloud + consent screen publié en production.
+
+### Domaine aswallet.fr fully live
+- Vercel env `NEXT_PUBLIC_APP_URL=https://aswallet.fr` set sur les 3 environnements.
+- DNS IONOS : `A @ → 76.76.21.21`, `CNAME www → cname.vercel-dns.com`, records IONOS Default Site supprimés. MX/SPF/DMARC/DKIM mail inchangés.
+- Vercel domaines `aswallet.fr` + `www.aswallet.fr` attachés et vérifiés.
+- Google Wallet issuer approuvé production par Navya (support team Google Wallet API).
+- Business profile Google Pay & Wallet Console mis à jour : Corporate website `https://aswallet.fr`, support URL `https://aswallet.fr/contact`.
+
+### Assets cleanup
+- Suppression des 5 SVG template Next (next/vercel/file/globe/window).
+- Photo coiffeur (visage) remplacée par photo scissors (halal-friendly).
+- `.gitignore` : pattern `.tmp-*` pour éviter leak de secrets passés par tmpfiles.
+
+### Validation
+- `npx tsc --noEmit` ✅ à chaque commit.
+- 8 commits pushés : `8772254` rebrand+OAuth, `36c26f1` wallet finalisation, `8eeb099` fallback logo, `55afb81` security+RGPD+landing cleanup, `1ba870c` CRO landing + sync tampons, `390623c` tampons visuels wallet + LP polish, `3ad0336` responsive LP + wallet banner design, `af807c6` responsive dashboard + accents partiels, `5799f23` accents app-wide.
+
+### À faire (manuel)
+- **Apple Wallet** : nécessite Apple Developer Program (99 USD/an, 24–48h approbation), Pass Type ID + cert .p12. Je peux faire tout le code .pkpass + l'export du cert via openssl (pas besoin de Mac), user doit s'inscrire et payer.
+- **Mailbox `contact@aswallet.fr`** : à créer côté IONOS (MX déjà en place).
+- **Custom SMTP Supabase** pour emails auth (optionnel — amélioration cosmétique des emails de confirmation).
+- **Révoquer tokens temporaires** : Vercel PAT + Supabase PAT qui ont transité par la conv (job fait).
+- **CSP enforcing** : passer de `Content-Security-Policy-Report-Only` → `Content-Security-Policy` après soak.
+
+---
+
 ## 2026-04-21 — Rebrand FidPass → aswallet + domaine aswallet.fr
 
 ### Rebrand complet (sans casser le code)

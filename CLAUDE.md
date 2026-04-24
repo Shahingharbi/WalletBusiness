@@ -26,9 +26,30 @@ Stack : Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 + Supabase.
 
 ## Intégrations externes
 
-- **Google Wallet** : configuré, `GOOGLE_WALLET_ISSUER_ID` / `SERVICE_ACCOUNT_EMAIL` / `PRIVATE_KEY` en env. `lib/google-wallet.ts` respecte `barcode_type` (QR_CODE vs PDF_417). En cours d'approbation par Google.
-- **Apple Wallet** : pas encore implémenté (nécessite cert 99 USD/an). Status page a un hint "ajoutez à l'écran d'accueil" pour iOS en attendant.
+- **Google Wallet** : **APPROUVÉ PRODUCTION** (issuer `3388000000023104053`). `GOOGLE_WALLET_ISSUER_ID` / `SERVICE_ACCOUNT_EMAIL` / `PRIVATE_KEY` en env. `lib/google-wallet.ts` :
+  - Respecte `barcode_type` (QR_CODE vs PDF_417)
+  - **Fallback logo obligatoire** → `https://aswallet.fr/icon.svg` si le commerçant n'a pas uploadé de logo (sinon Google refuse la class avec "LoyaltyClass cannot be created without a program logo").
+  - **heroImage dynamique** par loyaltyObject → PNG rendu par `/api/wallet/banner/[instanceToken]/[count]` (Next `ImageResponse`, Satori). Le `count` dans l'URL sert de cache-bust : quand il change, Google refetch. Le renderer reflète le design custom (shape + icon de `lib/stamp-icons.tsx`, + `stamp_active_url` / `stamp_inactive_url` si uploadés).
+  - **`syncLoyaltyObject(token, stamps, rewards, appUrl)`** : PATCH le loyaltyObject après chaque scan pour rafraîchir le compte + heroImage. Silencieux sur 404 (pas encore ajouté au Wallet) + timeout 3s. Appelé depuis `api/scan/route.ts`.
+  - **Pré-création classes** recommandée via `scripts/sync-wallet-classes.mjs` (plus fiable que le JWT-embedded insert).
+- **Apple Wallet** : pas encore implémenté. Nécessite Apple Developer Program (99 USD/an, 24-48h approbation) + Pass Type ID + cert .p12. Génération du cert faisable via openssl sur Windows/Linux (pas besoin de Mac). Status page a un hint "ajoutez à l'écran d'accueil" pour iOS en attendant.
+- **Google OAuth** : provider activé côté Supabase (Management API). Bouton `GoogleAuthButton` sur login/register. Callback route `src/app/auth/callback/route.ts` (exchange code + open-redirect guard). Consent screen publié en production, scopes basiques (email/profile/openid → pas de review Google).
 - **Supabase Storage** : buckets `card-assets` et `business-assets`, path `{businessId}/{folder}/{timestamp}-{random}.{ext}` via service role.
+
+## Security baseline
+
+- **Headers** dans `next.config.ts` : HSTS, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, CSP en **Report-Only** (à flip en enforcing plus tard).
+- **Rate limiting** in-memory via `lib/rate-limit.ts` (sliding window per-IP) sur `/api/upload`, `/api/redeem`, `/api/install/[token]`, `/api/invitations/[token]/accept`. Migrable vers Upstash Redis.
+- **Env guard** `lib/env.ts` valide les 7 env vars obligatoires au runtime prod (ne casse pas le build CI).
+- **Error boundary global** `src/app/error.tsx` (plus de stacktrace affiché en prod).
+
+## RGPD / CNIL
+
+- Tableau finalités/bases légales/durées sur `/privacy`.
+- `/mentions-legales` (LCEN), `/terms` (art. 28 sous-traitant + DPA sur demande).
+- `/settings/data` : bouton **Exporter mes données** (JSON) et **Supprimer mon compte** (confirmation "SUPPRIMER"). APIs `/api/account/export` + `/api/account` DELETE.
+- Consent checkbox obligatoire sur install form `/c/[token]` + vérif server-side.
+- **Uniquement cookies techniques** → pas de bannière CNIL lourde, juste un toast info dismissible (`components/public/cookie-notice.tsx`).
 
 ## Gotchas Next.js 16
 
