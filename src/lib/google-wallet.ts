@@ -153,17 +153,22 @@ export function generateGoogleWalletPassUrl(p: PassParams): string {
 // Google Wallet: push updated stamps/rewards to an existing loyaltyObject.
 // Called after /api/scan so users who added the card to Wallet see fresh counts.
 // Silently no-ops on 404 (user never added to Wallet yet) or on timeout.
+//
+// `message` (optionnel) — quand fourni, ajoute un objet `messages[]` au pass
+// et Google envoie une notification push silencieuse au téléphone du porteur.
+// Utilisé par les campagnes (broadcasts) côté `/api/campaigns`.
 export async function syncLoyaltyObject(
   instanceToken: string,
   stampsCollected: number,
   rewardsAvailable: number,
-  appUrl: string
-): Promise<void> {
-  if (!isGoogleWalletConfigured()) return;
+  appUrl: string,
+  message?: string
+): Promise<{ ok: boolean; status?: number }> {
+  if (!isGoogleWalletConfigured()) return { ok: false };
 
   const objId = objectId(instanceToken);
   const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${objId}`;
-  const body = {
+  const body: Record<string, unknown> = {
     loyaltyPoints: { balance: { int: stampsCollected }, label: "Tampons" },
     secondaryLoyaltyPoints: {
       balance: { int: rewardsAvailable },
@@ -180,6 +185,20 @@ export async function syncLoyaltyObject(
     },
   };
 
+  if (message && message.trim()) {
+    // Google envoie une notification push silencieuse au porteur quand
+    // un nouveau message est ajouté. Le messageId doit être unique pour
+    // déclencher la notif sur le device.
+    body.messages = [
+      {
+        id: `campaign-${Date.now()}`,
+        header: "Nouveauté",
+        body: message.trim().slice(0, 200),
+        messageType: "TEXT",
+      },
+    ];
+  }
+
   const auth = new GoogleAuth({
     credentials: {
       client_email: SERVICE_ACCOUNT_EMAIL,
@@ -191,12 +210,14 @@ export async function syncLoyaltyObject(
   try {
     const client = await auth.getClient();
     await client.request({ url, method: "PATCH", data: body, timeout: 3000 });
+    return { ok: true };
   } catch (err: unknown) {
     const status = (err as { response?: { status?: number } })?.response?.status;
-    if (status === 404) return; // user has not saved the pass yet, normal
+    if (status === 404) return { ok: false, status: 404 }; // pass jamais ajouté, normal
     console.warn(
       `[wallet-sync] PATCH ${objId} failed:`,
       (err as { message?: string })?.message ?? err
     );
+    return { ok: false, status };
   }
 }

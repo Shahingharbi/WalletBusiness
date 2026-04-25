@@ -56,6 +56,8 @@ export const DEFAULT_CARD_DESIGN = {
   stamp_inactive_url: null as string | null,
   label_stamps: "Tampons avant récompense",
   label_rewards: "Récompenses disponibles",
+  /** Offre de bienvenue affichée et débloquée à l'installation (optionnel). */
+  welcome_reward: "" as string,
 };
 
 export const BUSINESS_CATEGORIES = [

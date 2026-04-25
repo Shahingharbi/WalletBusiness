@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ShieldCheck, Globe, Lock, Clock } from "lucide-react";
 
@@ -86,6 +87,17 @@ export function CTASection() {
               14 jours gratuits &middot; Sans carte bancaire &middot; Sans engagement
             </p>
           </form>
+
+          <div className="mt-6 flex justify-center">
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-yellow transition-colors"
+              style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+            >
+              Tester maintenant (sans compte)
+              <ArrowRight size={14} />
+            </Link>
+          </div>
 
           {/* Trust badges row */}
           <div

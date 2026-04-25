@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,18 +64,31 @@ export default async function CardsPage() {
 
       {/* Content */}
       {!cards || cards.length === 0 ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center">
-              <p className="text-gray-500">
-                Vous n&apos;avez pas encore de carte.{" "}
-                <Link
-                  href="/cards/new"
-                  className="text-emerald-600 font-medium hover:underline"
-                >
-                  Créez votre première carte de fidélité !
-                </Link>
-              </p>
+        <Card className="border-beige-dark">
+          <CardContent className="py-14 sm:py-20 px-6 text-center">
+            <div className="mx-auto h-24 w-24 rounded-full bg-beige flex items-center justify-center mb-6">
+              <CreditCard className="h-16 w-16 text-foreground/70" strokeWidth={1.4} />
+            </div>
+            <h2
+              className="text-xl sm:text-2xl text-foreground"
+              style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}
+            >
+              Créez votre première carte
+            </h2>
+            <p
+              className="mt-3 text-sm sm:text-base text-foreground/70 max-w-md mx-auto"
+              style={{ fontFamily: "var(--font-maison-neue)" }}
+            >
+              Vos clients pourront l&apos;ajouter à leur Wallet en 2 clics.
+              5 minutes suffisent.
+            </p>
+            <div className="mt-6">
+              <Link href="/cards/new">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Créer une carte
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

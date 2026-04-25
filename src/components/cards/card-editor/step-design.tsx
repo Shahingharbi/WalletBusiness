@@ -214,6 +214,30 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
           aspect="square"
         />
       </div>
+
+      {/* Welcome offer (optional) */}
+      <div className="space-y-1.5">
+        <label
+          htmlFor="welcome_reward"
+          className="block text-sm font-medium text-gray-700"
+        >
+          Offre de bienvenue (optionnel)
+        </label>
+        <textarea
+          id="welcome_reward"
+          rows={2}
+          maxLength={140}
+          value={values.welcome_reward ?? ""}
+          onChange={(e) => update("welcome_reward", e.target.value)}
+          placeholder="Ex : -10% sur votre première commande, ou un café offert"
+          className="flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent resize-none"
+        />
+        <p className="text-xs text-gray-500">
+          Si renseigné, chaque nouveau client reçoit cette offre dès
+          l&apos;installation : 1 récompense est créditée et un message wallet est
+          envoyé automatiquement.
+        </p>
+      </div>
     </div>
   );
 }

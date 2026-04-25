@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Users, Search } from "lucide-react";
+import { Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClientsFilter } from "./clients-filter";
@@ -123,15 +124,32 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
       <ClientsFilter currentFilter={filter} initialQuery={search} counts={counts} />
 
       {filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+        <Card className="border-beige-dark">
+          <CardContent className="py-14 sm:py-20 px-6 text-center">
             {clients.length === 0 ? (
-              <p className="text-gray-500 text-sm">
-                Aucun client pour le moment.
-                <br />
-                Vos clients apparaîtront ici une fois qu&apos;ils auront installé une de vos cartes.
-              </p>
+              <>
+                <div className="mx-auto h-24 w-24 rounded-full bg-beige flex items-center justify-center mb-6">
+                  <Users className="h-16 w-16 text-foreground/70" strokeWidth={1.4} />
+                </div>
+                <h2
+                  className="text-xl sm:text-2xl text-foreground"
+                  style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}
+                >
+                  Aucun client pour le moment
+                </h2>
+                <p
+                  className="mt-3 text-sm sm:text-base text-foreground/70 max-w-md mx-auto"
+                  style={{ fontFamily: "var(--font-maison-neue)" }}
+                >
+                  Vos clients apparaîtront ici dès leur première installation.
+                  Partagez le QR code de votre carte pour démarrer.
+                </p>
+                <div className="mt-6">
+                  <Link href="/cards">
+                    <Button variant="secondary">Voir mes cartes</Button>
+                  </Link>
+                </div>
+              </>
             ) : (
               <p className="text-gray-500 text-sm">
                 Aucun client ne correspond à vos filtres.

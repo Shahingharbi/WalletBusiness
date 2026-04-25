@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Pencil, BarChart3, Users, Info } from "lucide-react";
+import { Pencil, BarChart3, Users, Info, Send } from "lucide-react";
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -127,6 +127,10 @@ export default async function CardDetailPage({
                 <BarChart3 className="h-4 w-4 mr-1.5" />
                 Stats
               </TabsTrigger>
+              <TabsTrigger value="campaigns">
+                <Send className="h-4 w-4 mr-1.5" />
+                Campagnes
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="info">
@@ -205,6 +209,21 @@ export default async function CardDetailPage({
                   </p>
                   <Link href={`/cards/${card.id}/stats`}>
                     <Button variant="secondary">Voir les stats</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="campaigns">
+              <Card>
+                <CardContent className="p-6 text-center py-10 space-y-3">
+                  <Send className="h-8 w-8 text-gray-300 mx-auto" />
+                  <p className="text-sm text-gray-500">
+                    Envoyez un message push wallet à tous vos clients ou à un
+                    segment ciblé.
+                  </p>
+                  <Link href={`/cards/${card.id}/campaigns`}>
+                    <Button variant="secondary">Ouvrir les campagnes</Button>
                   </Link>
                 </CardContent>
               </Card>

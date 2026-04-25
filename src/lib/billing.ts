@@ -34,6 +34,8 @@ export interface PlanLimits {
   api: boolean;
   /** Marque blanche. */
   whiteLabel: boolean;
+  /** Push campaigns aux porteurs de carte (broadcasts). */
+  campaigns: boolean;
 }
 
 export interface PlanDescriptor {
@@ -64,6 +66,7 @@ export const PLANS: Readonly<Record<PlanId, PlanDescriptor>> = {
       giftCards: false,
       api: false,
       whiteLabel: false,
+      campaigns: false,
     },
     features: [
       "1 carte de fidélité",
@@ -91,6 +94,7 @@ export const PLANS: Readonly<Record<PlanId, PlanDescriptor>> = {
       giftCards: true,
       api: false,
       whiteLabel: false,
+      campaigns: true,
     },
     features: [
       "Jusqu'à 5 cartes de fidélité",
@@ -119,6 +123,7 @@ export const PLANS: Readonly<Record<PlanId, PlanDescriptor>> = {
       giftCards: true,
       api: true,
       whiteLabel: true,
+      campaigns: true,
     },
     features: [
       "Cartes illimitées",
@@ -221,7 +226,8 @@ export type GatedFeature =
   | "segments"
   | "gift_cards"
   | "api"
-  | "white_label";
+  | "white_label"
+  | "campaigns";
 
 export interface RequirePlanOk {
   ok: true;
@@ -344,6 +350,15 @@ export function requirePlan(
         reason: "plan_too_low",
         requiredPlan: "business",
         message: "La marque blanche est incluse dans le plan Business.",
+      };
+    case "campaigns":
+      if (limits.campaigns) return { ok: true, plan };
+      return {
+        ok: false,
+        reason: "plan_too_low",
+        requiredPlan: "pro",
+        message:
+          "Les campagnes push wallet sont incluses à partir du plan Pro.",
       };
   }
 }

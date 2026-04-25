@@ -55,13 +55,13 @@ export function HeroSection() {
                 Lancer ma carte en 5 minutes
                 <ArrowRight size={18} />
               </Link>
-              <a
-                href="#how-it-works"
+              <Link
+                href="/demo"
                 className="rounded-full border border-foreground/20 bg-white px-6 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-semibold text-foreground hover:border-foreground transition-colors text-center inline-flex items-center justify-center gap-2 min-h-[48px]"
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
-                Voir une démo
-              </a>
+                Tester maintenant (sans compte)
+              </Link>
             </div>
 
             <p

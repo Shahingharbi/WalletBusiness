@@ -6,12 +6,14 @@ import {
   Gift,
   Stamp as StampIcon,
   ArrowRight,
+  BarChart3,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { ScansChart } from "@/components/dashboard/scans-chart";
 import { RangeFilter } from "@/components/dashboard/range-filter";
 import { rangeToDates, type RangeId } from "@/lib/range";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatRelative } from "@/lib/utils";
@@ -195,6 +197,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const transactions = recentTx.data ?? [];
 
+  // Empty state : post-onboarding, aucun scan ni client encore.
+  const isFreshDashboard =
+    (scansPeriod.count ?? 0) === 0 &&
+    (clientsRes.count ?? 0) === 0 &&
+    transactions.length === 0;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -211,6 +219,40 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
         <RangeFilter />
       </div>
+
+      {isFreshDashboard && (
+        <Card className="border-beige-dark">
+          <CardContent className="py-12 sm:py-16 px-6 text-center">
+            <div className="mx-auto h-24 w-24 rounded-full bg-beige flex items-center justify-center mb-6">
+              <BarChart3
+                className="h-16 w-16 text-foreground/70"
+                strokeWidth={1.4}
+              />
+            </div>
+            <h2
+              className="text-xl sm:text-2xl text-foreground"
+              style={{
+                fontFamily: "var(--font-ginto-nord)",
+                fontWeight: 500,
+              }}
+            >
+              Vos statistiques arriveront bientôt
+            </h2>
+            <p
+              className="mt-3 text-sm sm:text-base text-foreground/70 max-w-md mx-auto"
+              style={{ fontFamily: "var(--font-maison-neue)" }}
+            >
+              Dès le premier scan d&apos;un tampon, vos KPI s&apos;afficheront en
+              temps réel ici.
+            </p>
+            <div className="mt-6">
+              <Link href="/scanner">
+                <Button>Aller au scanner</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => (

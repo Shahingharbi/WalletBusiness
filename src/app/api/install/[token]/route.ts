@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email";
+import { syncLoyaltyObject } from "@/lib/google-wallet";
 
 export async function POST(
   request: Request,
@@ -43,7 +44,7 @@ export async function POST(
     // Get card by id (token = card.id for now)
     const { data: card, error: cardError } = await supabase
       .from("cards")
-      .select("id, business_id, status")
+      .select("id, business_id, status, name, reward_text, design")
       .eq("id", token)
       .single();
 
@@ -114,6 +115,15 @@ export async function POST(
       );
     }
 
+    // Welcome offer auto : si la carte a un `welcome_reward` configuré, on
+    // crédite immédiatement 1 récompense et on envoie une notification.
+    const design = (card.design ?? {}) as Record<string, unknown>;
+    const welcomeReward =
+      typeof design.welcome_reward === "string"
+        ? design.welcome_reward.trim()
+        : "";
+    const initialRewards = welcomeReward ? 1 : 0;
+
     // Create card instance
     const { data: instance, error: instanceError } = await supabase
       .from("card_instances")
@@ -124,7 +134,7 @@ export async function POST(
         status: "active",
         wallet_type: "pwa",
         stamps_collected: 0,
-        rewards_available: 0,
+        rewards_available: initialRewards,
       })
       .select("id, token")
       .single();
@@ -144,8 +154,30 @@ export async function POST(
       type: "card_installed",
     });
 
+    if (welcomeReward) {
+      await supabase.from("transactions").insert({
+        card_instance_id: instance.id,
+        business_id: card.business_id,
+        type: "reward_earned",
+        notes: `Offre de bienvenue : ${welcomeReward}`,
+      });
+    }
+
     // Notify the merchant — fire-and-forget so it never blocks the response.
     void notifyMerchantCardInstalled(supabase, card.business_id, card.id);
+
+    if (welcomeReward && clientId) {
+      // Best-effort : push wallet + email client si on a un email.
+      void deliverWelcomeOffer({
+        supabase,
+        instanceToken: instance.token,
+        clientId,
+        cardName: card.name,
+        businessId: card.business_id,
+        welcomeReward,
+        initialRewards,
+      });
+    }
 
     return NextResponse.json(
       { instance_token: instance.token },
@@ -157,6 +189,74 @@ export async function POST(
       { error: "Erreur serveur" },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Délivre l'offre de bienvenue : Google Wallet push (silencieux si pas
+ * encore ajouté au wallet, c'est attendu) + email Resend si on a un email
+ * sur la fiche client. Best effort : aucune erreur ne casse l'install.
+ */
+async function deliverWelcomeOffer(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  instanceToken: string;
+  clientId: string;
+  cardName: string;
+  businessId: string;
+  welcomeReward: string;
+  initialRewards: number;
+}): Promise<void> {
+  const {
+    supabase,
+    instanceToken,
+    clientId,
+    cardName,
+    businessId,
+    welcomeReward,
+    initialRewards,
+  } = args;
+  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
+
+    // Push Google Wallet (no-op si l'utilisateur n'a pas encore ajouté la
+    // carte à Google Wallet — totalement normal au moment de l'install).
+    void syncLoyaltyObject(
+      instanceToken,
+      0,
+      initialRewards,
+      appUrl,
+      `Bienvenue ! Voici votre offre : ${welcomeReward}`
+    ).catch(() => undefined);
+
+    // Email client si on connait son email (form actuel ne le capture pas
+    // mais un commerçant peut renseigner un email sur la fiche client).
+    const { data: client } = await supabase
+      .from("clients")
+      .select("email, first_name")
+      .eq("id", clientId)
+      .single();
+
+    if (!client?.email) return;
+
+    const { data: business } = await supabase
+      .from("businesses")
+      .select("name")
+      .eq("id", businessId)
+      .single();
+
+    await sendEmail({
+      to: client.email,
+      template: "reward-earned",
+      subject: `Bienvenue ${client.first_name ?? ""} — votre offre est dans votre wallet`,
+      data: {
+        firstName: client.first_name ?? undefined,
+        rewardText: welcomeReward,
+        businessName: business?.name ?? cardName,
+        walletUrl: `${appUrl}/c/${businessId}/status/${instanceToken}`,
+      },
+    });
+  } catch (err) {
+    console.error("[install] deliverWelcomeOffer failed:", err);
   }
 }
 
