@@ -20,7 +20,10 @@ function loadEnv() {
 const env = loadEnv();
 const SB_URL = env.NEXT_PUBLIC_SUPABASE_URL;
 const SR_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
-const APP_URL = env.NEXT_PUBLIC_APP_URL || "https://aswallet.fr";
+// IMPORTANT: this script ALWAYS targets prod (aswallet.fr) so Google can fetch
+// the banner — Google's servers can't reach localhost. Override via PROD_URL
+// env if needed.
+const APP_URL = process.env.PROD_URL || "https://aswallet.fr";
 
 const KEY_FILE = "./google-wallet-key.json";
 const ISSUER_ID = "3388000000023104053";
