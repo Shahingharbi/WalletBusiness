@@ -5,6 +5,91 @@
 
 ---
 
+## 2026-04-25 — Apple Wallet live + Stripe + Resend + Sentry + Onboarding + Push campaigns + Demo
+
+### Apple Wallet (END-TO-END LIVE)
+- Apple Developer Program souscrit (99 USD/an), Apple ID validé.
+- **Pass Type ID** : `pass.fr.aswallet.loyalty` créé.
+- **Team ID** : `P46VQPFRPC`.
+- Cert workflow réalisé sur Windows via `openssl` (pas besoin de Mac) : génération clé privée RSA + CSR → upload sur portail Apple → download `pass.cer` → conversion DER→PEM → encodage base64 des 3 fichiers (WWDR G4 + signer cert + clé privée).
+- 5 env vars Apple Wallet uploadées sur Vercel via API : `APPLE_TEAM_ID`, `APPLE_PASS_TYPE_ID`, `APPLE_WALLET_WWDR_BASE64`, `APPLE_WALLET_SIGNER_CERT_BASE64`, `APPLE_WALLET_SIGNER_KEY_BASE64`.
+- `lib/apple-wallet.ts` + `/api/apple-wallet/[instanceToken]/route.ts` : génère le `.pkpass` via `passkit-generator` v3.5, type `storeCard`, primaryFields=Récompense, headerFields=Tampons X/Y, secondaryFields=Récompenses dispo, backFields=lien web + support, QR code, background color depuis `design.accent_color`.
+- `public/apple-wallet/icon{,@2x,@3x}.png` + `logo{,@2x,@3x}.png` : générés depuis `public/icon.svg` via `scripts/gen-apple-wallet-icons.mjs` (sharp).
+- Bouton "Ajouter à Apple Wallet" sur `/c/[token]/status/[instanceToken]` à côté du Google Wallet.
+- `.gitignore` : `.apple-wallet/` exclu (clé privée + .cer + .p12 jamais commit).
+
+### Stripe billing (complet)
+- Migration `002_billing.sql` appliquée Supabase via Management API : colonnes `stripe_*`, `subscription_*`, `trial_ends_at` sur `businesses` + table `stripe_events` (idempotence webhook). Trigger `handle_new_user` met automatiquement trial 14j.
+- `lib/stripe.ts` + `lib/billing.ts` : SDK + plan limits (Starter 1 carte/200 clients, Pro 5/2000+segments+campaigns, Business unlimited+multi-employés), `getPlanLimits()`, `requirePlan(business, feature)`.
+- `/api/billing/checkout` (POST) → Stripe Checkout Session subscription mode.
+- `/api/billing/portal` (POST) → Customer Portal (cancel/upgrade/payment).
+- `/api/billing/webhook` : signature-verified, idempotent via `stripe_events`, handle `checkout.session.completed`, `customer.subscription.{created,updated,deleted}`, `invoice.payment_failed`.
+- `/settings/billing` : plan en cours, trial countdown, banner past_due, upgrade/downgrade, factures Stripe.
+- Middleware : gate trial-expired (read-only access /settings/billing + /dashboard).
+- PricingSection CTAs branchés sur checkout (auth-required + plan).
+- **Reste à faire (toi)** : créer compte Stripe, 3 produits, 6 price_ids, paste les 9 env vars Vercel.
+
+### Resend transactional emails
+- `lib/email.ts` : wrapper `sendEmail({to, template, data})`.
+- `src/emails/*.tsx` : 6 templates react-email (welcome, card-installed, reward-earned, trial-expires-soon, invoice-payment-failed, password-reset). Brand yellow + beige.
+- `/api/scan` : envoie reward-earned au customer après unlock.
+- `/api/install` : envoie card-installed au merchant.
+- `/api/cron/trial-expires-soon` : cron Vercel daily 9am qui notifie les merchants J-3.
+- `vercel.json` avec config crons.
+- **Reste à faire (toi)** : compte Resend, vérifier domaine `aswallet.fr` (DNS), API key Vercel.
+
+### Sentry monitoring
+- `instrumentation.ts` + `sentry.{client,server,edge}.config.ts`.
+- `next.config.ts` wrap `withSentryConfig`.
+- `src/app/global-error.tsx` pour reporter les erreurs critiques.
+- `onRequestError` export (compat Next 16 → fallback `captureRequestError`).
+- **Reste à faire (toi)** : signup sentry.io, DSN dans Vercel.
+
+### Vercel Analytics + SpeedInsights
+- `@vercel/analytics` + `@vercel/speed-insights` mounted dans `app/layout.tsx`.
+- Free tier auto-actif. Aucune config user.
+
+### SEO + a11y baseline
+- `metadata` enrichie : keywords, OG image dynamique via `/api/og` (next/og), Twitter card, alternates canonical, `metadataBase`.
+- Skip-to-content link a11y dans `layout.tsx` (visible focus uniquement).
+- `main#main-content` + `tabIndex=-1` pour focus management.
+
+### Onboarding flow 3-step
+- Migration `003_onboarding.sql` appliquée : `businesses.onboarding_completed_at` + `onboarding_data` JSONB.
+- `(onboarding)/onboarding/page.tsx` + `onboarding-wizard.tsx` : 3 étapes (Bienvenue + questions métier, Créer ma première carte, Imprimer le QR poster).
+- `/api/onboarding/complete` + `/api/onboarding/answers` + `/api/onboarding/poster/[cardId]` (PDF imprimable QR + branding).
+- Middleware redirect `/dashboard` → `/onboarding` si pas complété.
+
+### Push campaigns Boomerangme-style (la feature signature)
+- Migration `004_campaigns.sql` appliquée : table `campaigns` (card_id, message, segment, recipients_count, sent_at) + RLS owner-only + index.
+- `/api/campaigns` POST/GET + `/api/campaigns/segment-counts` : segments `all` / `inactive_30d` / `has_reward` / `never_redeemed`. Pour chaque instance ciblée, `syncLoyaltyObject` est appelée avec un `messages[]` → Google Wallet envoie une notif push silencieuse au tel du porteur.
+- `/cards/[id]/campaigns` : composer 200 chars + dropdown segment + histogramme live des 4 segments + historique des campagnes envoyées. Tab "Campagnes" sur `/cards/[id]`.
+- Plan-gated : Pro+ uniquement (Starter voit teaser + CTA upgrade).
+- `lib/google-wallet.ts` : `syncLoyaltyObject(token, stamps, rewards, appUrl, message?)` étendu avec `messages[]` pour push silencieux Google.
+- Apple Wallet APNs phase 2 (cert APNs séparé) → noté TODO, pas bloquant.
+
+### Welcome offer auto
+- `design.welcome_reward` (textarea optionnel dans `step-design.tsx`).
+- Au moment de l'install d'une carte avec welcome_reward set, `rewards_available=1` automatique + push wallet "Bienvenue ! Voici votre offre".
+
+### Demo public `/demo` (no auth)
+- Playground 2 cols desktop / stacked mobile : controls (nom commerce, accent color picker, industry, nb tampons, reward_text) + `card-preview` live.
+- CTA bottom "Lancer mon vrai compte" → `/register?business=X&color=Y&industry=Z` (prefill).
+- Boutons "Tester maintenant (sans compte)" dans Hero + CTASection.
+
+### Empty states polish (fini "MVP feel")
+- `/cards` (no cards) : illustration `CreditCard` + "Créez votre première carte" + CTA.
+- `/clients` (no clients) : `Users` icon + "Aucun client pour le moment" + CTA voir cartes.
+- `/dashboard` (no data) : `BarChart3` + "Vos statistiques arriveront bientôt" + CTA scanner.
+
+### Validation
+- `npx tsc --noEmit` ✅
+- `npm run build` ✅ (Compiled successfully in 11.5s)
+- Vercel deploy `7ea05dc` ✅ READY sur prod.
+- 4 migrations appliquées Supabase confirmées via API (colonnes vérifiées).
+
+---
+
 ## 2026-04-23 — Production polish : security, RGPD, Google Wallet live sync, CRO, responsive, accents
 
 ### Google Wallet : carte live + tampons visuels (technique Boomerangme)
