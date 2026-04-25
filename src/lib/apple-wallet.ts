@@ -53,12 +53,48 @@ function hexToRgb(hex: string): string {
   return `rgb(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)})`;
 }
 
+// Récupère le strip dynamique (PNG avec grille de tampons) depuis l'endpoint
+// /api/wallet/banner — même image que pour Google Wallet, embed dans le .pkpass.
+// Apple Wallet attend strip.png (320x123), strip@2x.png (640x246), strip@3x.png (960x369).
+async function fetchStrip(
+  appUrl: string,
+  token: string,
+  count: number,
+): Promise<{ "strip.png"?: Buffer; "strip@2x.png"?: Buffer; "strip@3x.png"?: Buffer }> {
+  const url = `${appUrl}/api/wallet/banner/${token}/${count}`;
+  try {
+    // 4s timeout — si l'endpoint plante, on génère le pass sans strip plutôt que d'échouer.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) return {};
+    const buf = Buffer.from(await res.arrayBuffer());
+    // L'endpoint renvoie 1032x336 - assez large pour servir comme @3x. Apple
+    // accepte qu'on fournisse uniquement la version la plus haute résolution
+    // tant qu'elle a le bon ratio.
+    return {
+      "strip.png": buf,
+      "strip@2x.png": buf,
+      "strip@3x.png": buf,
+    };
+  } catch (err) {
+    console.warn("[apple-wallet] failed to fetch strip:", err);
+    return {};
+  }
+}
+
 export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffer> {
   if (!isAppleWalletConfigured()) {
     throw new Error("Apple Wallet not configured");
   }
 
-  const buffers = loadIconBuffers();
+  const stripBuffers = await fetchStrip(
+    p.appUrl,
+    p.customerInstanceToken,
+    p.stampsCollected,
+  );
+  const buffers = { ...loadIconBuffers(), ...stripBuffers };
   const bgColor = hexToRgb(p.bgColor);
 
   const pass = new PKPass(

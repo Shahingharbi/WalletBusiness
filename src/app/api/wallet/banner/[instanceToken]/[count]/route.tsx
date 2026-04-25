@@ -2,279 +2,84 @@ import { ImageResponse } from "next/og";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
 
-// Google Wallet heroImage ~3:1 recommendation
+export const runtime = "nodejs";
+
+// Google Wallet heroImage 3:1, Apple Wallet strip 3:1 (we reuse same endpoint).
 const WIDTH = 1032;
 const HEIGHT = 336;
 
-type StampShape = "circle" | "squircle" | "shield" | "star" | "hex";
-type StampIconKey =
-  | "check" | "star" | "heart" | "coffee" | "pizza" | "flower"
-  | "scissors" | "crown" | "leaf" | "gift" | "baguette" | "kebab"
-  | "diamond" | "sparkle";
+// Map of icon keys -> emoji (rendered via Twemoji-friendly font fallback in Satori).
+// These read clean as glyphs in `system-ui` and most rendering pipelines support
+// them out of the box. No nested <svg> needed → much more robust in Satori.
+const ICON_GLYPH: Record<string, string> = {
+  check: "✓",
+  star: "★",
+  heart: "♥",
+  coffee: "☕",
+  pizza: "🍕",
+  flower: "✿",
+  scissors: "✂",
+  crown: "♛",
+  leaf: "❦",
+  gift: "🎁",
+  baguette: "🥖",
+  kebab: "🥙",
+  diamond: "♦",
+  sparkle: "✦",
+  circle: "●",
+  square: "■",
+};
 
-// Pick a nice grid layout for a given total.
-function pickGrid(total: number): { cols: number; rows: number } {
-  const table: Record<number, { cols: number; rows: number }> = {
-    6: { cols: 3, rows: 2 },
-    8: { cols: 4, rows: 2 },
-    10: { cols: 5, rows: 2 },
-    12: { cols: 6, rows: 2 },
-    15: { cols: 5, rows: 3 },
-    20: { cols: 5, rows: 4 },
-  };
-  if (table[total]) return table[total];
-  if (total <= 5) return { cols: total, rows: 1 };
-  if (total <= 20) {
-    const rows = 2;
-    const cols = Math.ceil(total / rows);
-    return { cols, rows };
-  }
-  const rows = Math.ceil(total / 5);
-  return { cols: 5, rows };
+function pickIcon(design: Record<string, unknown>, filled: boolean): string {
+  // Field naming has evolved in DB — accept all variants.
+  const key = filled
+    ? (design.stamp_active_icon as string) ??
+      (design.stamp_icon as string) ??
+      "check"
+    : (design.stamp_inactive_icon as string) ??
+      (design.stamp_icon as string) ??
+      "circle";
+  return ICON_GLYPH[key] ?? (filled ? "✓" : "●");
 }
 
-// SVG path for each supported shape in a 48x48 viewbox.
-function shapeElement(shape: StampShape, stroke: string, fill: string, strokeW: number) {
-  const common = { stroke, fill, strokeWidth: strokeW, strokeLinejoin: "round" as const };
+// Clip a stamp container to a recognizable shape via border-radius. Satori
+// supports border-radius as %.
+function shapeRadius(shape: string): string {
   switch (shape) {
     case "squircle":
-      return <rect x="3" y="3" width="42" height="42" rx="12" ry="12" {...common} />;
+      return "30%";
     case "shield":
-      // Shield: top flat, curved bottom.
-      return (
-        <path
-          d="M24 3 L43 9 V24 C43 34 34 42 24 45 C14 42 5 34 5 24 V9 Z"
-          {...common}
-        />
-      );
-    case "star":
-      // 5-point star inscribed in 48x48.
-      return (
-        <path
-          d="M24 3 L29.5 18.5 L45.5 19 L32.8 29 L37.5 44.5 L24 35 L10.5 44.5 L15.2 29 L2.5 19 L18.5 18.5 Z"
-          {...common}
-        />
-      );
     case "hex":
-      // Flat-top hexagon.
-      return (
-        <polygon
-          points="24,3 43,13.5 43,34.5 24,45 5,34.5 5,13.5"
-          {...common}
-        />
-      );
+      return "20%"; // approximated; true polygons aren't reliably renderable in Satori
+    case "star":
+      return "50%"; // we'll add a halo to evoke a "star" feel in fallback
     case "circle":
     default:
-      return <circle cx="24" cy="24" r="21" {...common} />;
+      return "50%";
   }
 }
 
-// Inlined icon SVG children for 14 keys. Each icon is authored for a 24x24
-// viewbox; we render them inside a 24x24 <svg> nested on top of the shape.
-// `color` here is passed as explicit stroke/fill - no `currentColor` because
-// Satori does not always resolve it reliably.
-function iconChildren(key: StampIconKey, color: string) {
-  switch (key) {
-    case "check":
-      return (
-        <path
-          d="M5 13l4 4L19 7"
-          stroke={color}
-          strokeWidth={2.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-      );
-    case "star":
-      return (
-        <path
-          d="M12 2.5l2.95 6.15 6.8.78-5 4.77 1.32 6.7L12 17.6l-6.07 3.3L7.25 14.2l-5-4.77 6.8-.78L12 2.5z"
-          fill={color}
-        />
-      );
-    case "heart":
-      return (
-        <path
-          d="M12 20.5s-7.5-4.4-7.5-10.2A4.3 4.3 0 0 1 12 7.1a4.3 4.3 0 0 1 7.5 3.2C19.5 16.1 12 20.5 12 20.5z"
-          fill={color}
-        />
-      );
-    case "coffee":
-      return (
-        <>
-          <path
-            d="M17 8h1a4 4 0 0 1 0 8h-1"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <path
-            d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <path
-            d="M6 2v2M10 2v2M14 2v2"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinecap="round"
-            fill="none"
-          />
-        </>
-      );
-    case "pizza":
-      return (
-        <>
-          <path
-            d="M12 2a10 10 0 0 1 8.66 5L12 22 3.34 7A10 10 0 0 1 12 2zm0 2a8 8 0 0 0-6.56 3.43L12 18.55 18.56 7.43A8 8 0 0 0 12 4z"
-            fill={color}
-          />
-          <circle cx="9" cy="10" r="1.1" fill={color} />
-          <circle cx="13.5" cy="9" r="1.1" fill={color} />
-          <circle cx="11.5" cy="14" r="1.1" fill={color} />
-        </>
-      );
-    case "flower":
-      return (
-        <>
-          <circle cx="12" cy="12" r="2.2" fill={color} />
-          <path
-            d="M12 2a3.3 3.3 0 0 1 3 4.8c1.8-.3 3.5 1.4 3.2 3.2A3.3 3.3 0 0 1 22 12a3.3 3.3 0 0 1-3.8 2c.3 1.8-1.4 3.5-3.2 3.2A3.3 3.3 0 0 1 12 22a3.3 3.3 0 0 1-3-4.8c-1.8.3-3.5-1.4-3.2-3.2A3.3 3.3 0 0 1 2 12a3.3 3.3 0 0 1 3.8-2C5.5 8.2 7.2 6.5 9 6.8A3.3 3.3 0 0 1 12 2z"
-            fill={color}
-          />
-        </>
-      );
-    case "scissors":
-      return (
-        <>
-          <circle cx="6" cy="6" r="3" fill="none" stroke={color} strokeWidth={2} />
-          <circle cx="6" cy="18" r="3" fill="none" stroke={color} strokeWidth={2} />
-          <path
-            d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </>
-      );
-    case "crown":
-      return (
-        <path
-          d="M2 18l2-10 5 4 3-7 3 7 5-4 2 10H2zm0 2h20v2H2v-2z"
-          fill={color}
-        />
-      );
-    case "leaf":
-      return (
-        <path
-          d="M20 3c-7 0-13 4-13 11 0 2 .6 3.8 1.6 5.3L5 22l1.4 1.4 3.3-3.3C11 21 12.7 21.5 14.5 21.5 19 21.5 21 16 21 10c0-3 .4-5.7-1-7zM9 16c0-5 4-9 9-9-1 6-5 9-9 9z"
-          fill={color}
-        />
-      );
-    case "gift":
-      return (
-        <>
-          <path
-            d="M20 12v10H4V12"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <path
-            d="M2 7h20v5H2z"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <path
-            d="M12 22V7"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinecap="round"
-            fill="none"
-          />
-          <path
-            d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"
-            stroke={color}
-            strokeWidth={2}
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </>
-      );
-    case "baguette":
-      return (
-        <path
-          d="M18.5 3c1.5 0 2.5 1 2.5 2.5 0 .8-.3 1.3-.9 1.9L7.4 20.1c-.6.6-1.1.9-1.9.9C4 21 3 20 3 18.5c0-.8.3-1.3.9-1.9L16.6 3.9c.6-.6 1.1-.9 1.9-.9z"
-          fill={color}
-        />
-      );
-    case "kebab":
-      return (
-        <>
-          <rect x="3" y="11" width="18" height="3" rx="1.5" fill={color} />
-          <circle cx="6.5" cy="7.5" r="2.5" fill={color} />
-          <circle cx="12" cy="6.5" r="3" fill={color} />
-          <circle cx="17.5" cy="7.5" r="2.5" fill={color} />
-          <circle cx="7" cy="17" r="2" fill={color} />
-          <circle cx="12.5" cy="18" r="2" fill={color} />
-          <circle cx="17.5" cy="17" r="2" fill={color} />
-        </>
-      );
-    case "diamond":
-      return (
-        <path
-          d="M6 3h12l4 6-10 12L2 9l4-6zm1.3 2L4.8 8.6 12 17l7.2-8.4L16.7 5H7.3z"
-          fill={color}
-        />
-      );
-    case "sparkle":
-      return (
-        <path
-          d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5L12 2z"
-          fill={color}
-        />
-      );
-    default:
-      return (
-        <path
-          d="M5 13l4 4L19 7"
-          stroke={color}
-          strokeWidth={2.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-      );
-  }
-}
-
-function normalizeIconKey(k: unknown): StampIconKey {
-  const valid: StampIconKey[] = [
-    "check", "star", "heart", "coffee", "pizza", "flower",
-    "scissors", "crown", "leaf", "gift", "baguette", "kebab",
-    "diamond", "sparkle",
-  ];
-  return typeof k === "string" && (valid as string[]).includes(k)
-    ? (k as StampIconKey)
-    : "check";
-}
-
-function normalizeShape(s: unknown): StampShape {
-  const valid: StampShape[] = ["circle", "squircle", "shield", "star", "hex"];
-  return typeof s === "string" && (valid as string[]).includes(s)
-    ? (s as StampShape)
-    : "circle";
+function pickGrid(total: number): { cols: number; rows: number } {
+  const map: Record<number, [number, number]> = {
+    5: [5, 1],
+    6: [3, 2],
+    7: [4, 2],
+    8: [4, 2],
+    9: [3, 3],
+    10: [5, 2],
+    11: [4, 3],
+    12: [6, 2],
+    13: [5, 3],
+    14: [5, 3],
+    15: [5, 3],
+    16: [4, 4],
+    18: [6, 3],
+    20: [5, 4],
+  };
+  if (map[total]) return { cols: map[total][0], rows: map[total][1] };
+  if (total <= 4) return { cols: total, rows: 1 };
+  const cols = total > 12 ? 5 : 4;
+  return { cols, rows: Math.ceil(total / cols) };
 }
 
 function errorImage(message: string) {
@@ -290,7 +95,7 @@ function errorImage(message: string) {
           backgroundColor: "#1f2937",
           color: "white",
           fontSize: 36,
-          fontFamily: "system-ui, sans-serif",
+          fontFamily: "system-ui",
         }}
       >
         {message}
@@ -299,7 +104,7 @@ function errorImage(message: string) {
     {
       width: WIDTH,
       height: HEIGHT,
-      status: 404,
+      status: 200,
       headers: {
         "Cache-Control": "public, max-age=60, s-maxage=60",
         "Content-Type": "image/png",
@@ -316,77 +121,72 @@ export async function GET(
     const { instanceToken } = await params;
     const supabase = createAdminClient();
 
-    // Lean query: only fields actually used for rendering.
     const { data: instance, error } = await supabase
       .from("card_instances")
       .select(
-        `
-        stamps_collected,
-        cards(name, stamp_count, reward_text, design, businesses(name))
-      `,
+        `stamps_collected,
+         cards(name, stamp_count, reward_text, design, businesses(name))`,
       )
       .eq("token", instanceToken)
       .single();
 
-    if (error || !instance) {
-      return errorImage("Carte introuvable");
-    }
+    if (error || !instance) return errorImage("Carte introuvable");
 
     const card = instance.cards as unknown as {
       name: string;
       stamp_count: number;
-      reward_text: string;
+      reward_text: string | null;
       design: Record<string, unknown> | null;
       businesses: { name: string } | null;
     };
 
-    const design = { ...DEFAULT_CARD_DESIGN, ...(card.design ?? {}) } as Record<string, unknown>;
+    const design: Record<string, unknown> = {
+      ...DEFAULT_CARD_DESIGN,
+      ...(card.design ?? {}),
+    };
+
+    // Visual config — accept multiple field naming conventions for forward compat.
     const accent = (design.accent_color as string) || "#10b981";
-    const bannerUrl = (design.banner_url as string | null) || null;
     const stampActiveUrl =
       (design.stamp_active_url as string | null) ||
-      (design["activeImageUrl"] as string | null) ||
+      (design.activeImageUrl as string | null) ||
       null;
     const stampInactiveUrl =
       (design.stamp_inactive_url as string | null) ||
-      (design["inactiveImageUrl"] as string | null) ||
+      (design.inactiveImageUrl as string | null) ||
       null;
-    const iconKey = normalizeIconKey(design.stamp_icon);
-    const shape = normalizeShape(design.stamp_shape);
-
+    const shape =
+      (design.stamp_shape as string) ||
+      (design.stamp_active_icon === "square" ? "squircle" : "circle");
+    const radius = shapeRadius(shape);
     const businessName = card.businesses?.name ?? "Commerce";
-    const cardName = card.name;
-    const rewardText = card.reward_text;
+    const cardName = card.name ?? "Carte de fidélité";
 
-    // DB is source of truth - URL count is only a cache buster.
+    const stampsTotal = Math.max(1, Math.min(20, card.stamp_count));
     const stampsCollected = Math.max(
       0,
-      Math.min(instance.stamps_collected, card.stamp_count),
+      Math.min(instance.stamps_collected, stampsTotal),
     );
-    const stampsTotal = Math.max(1, card.stamp_count);
 
     const { cols, rows } = pickGrid(stampsTotal);
 
-    // Size each stamp to fit in right panel.
-    const rightWidth = WIDTH * 0.6;
-    const rightHeight = HEIGHT;
-    const gap = 12;
-    const padding = 24;
-    const maxW = (rightWidth - padding * 2 - gap * (cols - 1)) / cols;
-    const maxH = (rightHeight - padding * 2 - gap * (rows - 1)) / rows;
-    const stampSize = Math.max(
-      28,
-      Math.min(80, Math.floor(Math.min(maxW, maxH))),
-    );
-    const iconSize = Math.floor(stampSize * 0.5);
+    // Compute stamp size to fit perfectly in right panel.
+    const rightPanelW = Math.floor(WIDTH * 0.6);
+    const padding = 28;
+    const gap = 14;
+    const maxByW = (rightPanelW - padding * 2 - gap * (cols - 1)) / cols;
+    const maxByH = (HEIGHT - padding * 2 - gap * (rows - 1)) / rows;
+    const stampSize = Math.max(36, Math.min(86, Math.floor(Math.min(maxByW, maxByH))));
+    const iconFontSize = Math.floor(stampSize * 0.55);
 
-    const stamps: Array<{ filled: boolean; key: number }> = [];
+    const stamps: Array<{ filled: boolean; idx: number }> = [];
     for (let i = 0; i < stampsTotal; i++) {
-      stamps.push({ filled: i < stampsCollected, key: i });
+      stamps.push({ filled: i < stampsCollected, idx: i });
     }
-
-    // If banner image is present we darken the whole thing for legibility.
-    const useBannerBg = Boolean(bannerUrl);
+    const rowsArr: typeof stamps[] = [];
+    for (let r = 0; r < rows; r++) {
+      rowsArr.push(stamps.slice(r * cols, (r + 1) * cols));
+    }
 
     return new ImageResponse(
       (
@@ -396,30 +196,12 @@ export async function GET(
             height: "100%",
             display: "flex",
             flexDirection: "row",
-            backgroundColor: accent,
-            backgroundImage: useBannerBg ? `url(${bannerUrl})` : undefined,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            position: "relative",
-            fontFamily: "system-ui, sans-serif",
+            background: `linear-gradient(135deg, ${accent} 0%, ${darken(accent, 0.25)} 100%)`,
+            fontFamily: "system-ui, -apple-system, sans-serif",
+            color: "white",
           }}
         >
-          {/* Dark / gradient overlay */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              display: "flex",
-              backgroundImage: useBannerBg
-                ? "linear-gradient(to right, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.55) 100%)"
-                : "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%)",
-            }}
-          />
-
-          {/* Left 40% */}
+          {/* LEFT PANEL: 40% — branding */}
           <div
             style={{
               width: `${WIDTH * 0.4}px`,
@@ -427,44 +209,57 @@ export async function GET(
               display: "flex",
               flexDirection: "column",
               justifyContent: "center",
-              padding: "32px 28px",
-              color: "white",
-              position: "relative",
+              padding: "28px 32px",
             }}
           >
             <div
               style={{
-                fontSize: 20,
-                color: "rgba(255,255,255,0.8)",
-                marginBottom: 8,
-                letterSpacing: 0.5,
+                display: "flex",
+                fontSize: 18,
+                color: "rgba(255,255,255,0.78)",
+                marginBottom: 10,
+                textTransform: "uppercase",
+                letterSpacing: 1.5,
+                fontWeight: 600,
               }}
             >
-              {businessName}
+              {truncate(businessName, 28)}
             </div>
             <div
               style={{
-                fontSize: 40,
-                fontWeight: 700,
+                display: "flex",
+                fontSize: 38,
+                fontWeight: 800,
                 lineHeight: 1.1,
                 marginBottom: 14,
+              }}
+            >
+              {truncate(cardName, 30)}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 16,
+                color: "rgba(255,255,255,0.78)",
+                lineHeight: 1.35,
+              }}
+            >
+              {truncate(card.reward_text ?? "", 60)}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                marginTop: "auto",
+                fontSize: 22,
+                fontWeight: 700,
                 color: "white",
               }}
             >
-              {cardName}
-            </div>
-            <div
-              style={{
-                fontSize: 18,
-                color: "rgba(255,255,255,0.75)",
-                lineHeight: 1.3,
-              }}
-            >
-              {rewardText}
+              {stampsCollected} / {stampsTotal} tampons
             </div>
           </div>
 
-          {/* Right 60%: stamp grid */}
+          {/* RIGHT PANEL: 60% — stamps grid */}
           <div
             style={{
               width: `${WIDTH * 0.6}px`,
@@ -474,7 +269,6 @@ export async function GET(
               alignItems: "center",
               justifyContent: "center",
               padding: `${padding}px`,
-              position: "relative",
             }}
           >
             <div
@@ -484,9 +278,9 @@ export async function GET(
                 gap: `${gap}px`,
               }}
             >
-              {Array.from({ length: rows }).map((_, rowIdx) => (
+              {rowsArr.map((row, rIdx) => (
                 <div
-                  key={rowIdx}
+                  key={rIdx}
                   style={{
                     display: "flex",
                     flexDirection: "row",
@@ -494,95 +288,20 @@ export async function GET(
                     justifyContent: "center",
                   }}
                 >
-                  {stamps
-                    .slice(rowIdx * cols, rowIdx * cols + cols)
-                    .map((s) => {
-                      const imgUrl = s.filled ? stampActiveUrl : stampInactiveUrl;
-                      if (imgUrl) {
-                        return (
-                          <div
-                            key={s.key}
-                            style={{
-                              width: `${stampSize}px`,
-                              height: `${stampSize}px`,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              opacity: s.filled ? 1 : 0.45,
-                            }}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={imgUrl}
-                              alt=""
-                              width={stampSize}
-                              height={stampSize}
-                              style={{
-                                width: `${stampSize}px`,
-                                height: `${stampSize}px`,
-                                objectFit: "contain",
-                              }}
-                            />
-                          </div>
-                        );
-                      }
-                      // Shape + icon rendering.
-                      const shapeStroke = "rgba(255,255,255,0.95)";
-                      const shapeFill = s.filled ? "#ffffff" : "rgba(255,255,255,0.06)";
-                      const iconColor = s.filled ? accent : "rgba(255,255,255,0.85)";
-                      const iconOffset = (stampSize - iconSize) / 2;
-                      return (
-                        <div
-                          key={s.key}
-                          style={{
-                            width: `${stampSize}px`,
-                            height: `${stampSize}px`,
-                            display: "flex",
-                            position: "relative",
-                          }}
-                        >
-                          <svg
-                            width={stampSize}
-                            height={stampSize}
-                            viewBox="0 0 48 48"
-                            style={{ position: "absolute", top: 0, left: 0 }}
-                          >
-                            {shapeElement(shape, shapeStroke, shapeFill, 2.2)}
-                          </svg>
-                          <svg
-                            width={iconSize}
-                            height={iconSize}
-                            viewBox="0 0 24 24"
-                            style={{
-                              position: "absolute",
-                              top: `${iconOffset}px`,
-                              left: `${iconOffset}px`,
-                            }}
-                          >
-                            {iconChildren(iconKey, iconColor)}
-                          </svg>
-                        </div>
-                      );
-                    })}
+                  {row.map((s) => renderStamp({
+                    filled: s.filled,
+                    size: stampSize,
+                    iconFontSize,
+                    radius,
+                    accent,
+                    activeUrl: stampActiveUrl,
+                    inactiveUrl: stampInactiveUrl,
+                    iconGlyph: pickIcon(design, s.filled),
+                    key: s.idx,
+                  }))}
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Bottom-right counter */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 16,
-              right: 24,
-              display: "flex",
-              fontSize: 20,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.92)",
-              letterSpacing: 0.4,
-            }}
-          >
-            {stampsCollected} / {stampsTotal} tampons
           </div>
         </div>
       ),
@@ -596,7 +315,87 @@ export async function GET(
       },
     );
   } catch (err) {
-    console.error("GET /api/wallet/banner error:", err);
-    return errorImage("Erreur");
+    console.error("[wallet-banner] error:", err);
+    return errorImage("Erreur de rendu");
   }
+}
+
+interface StampProps {
+  filled: boolean;
+  size: number;
+  iconFontSize: number;
+  radius: string;
+  accent: string;
+  activeUrl: string | null;
+  inactiveUrl: string | null;
+  iconGlyph: string;
+  key: number;
+}
+
+function renderStamp(p: StampProps) {
+  const url = p.filled ? p.activeUrl : p.inactiveUrl;
+  if (url) {
+    return (
+      <div
+        key={p.key}
+        style={{
+          width: `${p.size}px`,
+          height: `${p.size}px`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: p.filled ? 1 : 0.35,
+          borderRadius: p.radius,
+          overflow: "hidden",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt=""
+          width={p.size}
+          height={p.size}
+          style={{ width: `${p.size}px`, height: `${p.size}px`, objectFit: "cover" }}
+        />
+      </div>
+    );
+  }
+  return (
+    <div
+      key={p.key}
+      style={{
+        width: `${p.size}px`,
+        height: `${p.size}px`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: p.filled ? "#ffffff" : "rgba(255,255,255,0.10)",
+        border: p.filled ? "none" : "2.5px solid rgba(255,255,255,0.55)",
+        borderRadius: p.radius,
+        boxShadow: p.filled ? "0 4px 12px rgba(0,0,0,0.18)" : "none",
+        color: p.filled ? p.accent : "rgba(255,255,255,0.85)",
+        fontSize: `${p.iconFontSize}px`,
+        fontWeight: 700,
+        lineHeight: 1,
+      }}
+    >
+      {p.iconGlyph}
+    </div>
+  );
+}
+
+function truncate(s: string, n: number): string {
+  if (!s) return "";
+  return s.length <= n ? s : s.slice(0, n - 1).trimEnd() + "…";
+}
+
+// Darken a hex color by a fraction (0..1).
+function darken(hex: string, amount: number): string {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const f = (v: number) => Math.max(0, Math.min(255, Math.round(v * (1 - amount))));
+  const r = f(parseInt(m[1], 16));
+  const g = f(parseInt(m[2], 16));
+  const b = f(parseInt(m[3], 16));
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
