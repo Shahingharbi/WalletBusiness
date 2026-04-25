@@ -43,3 +43,6 @@ google-wallet-key.json
 
 # tmp files (ex: tokens, patches passes au runtime)
 .tmp-*
+
+# Apple Wallet certs (privée + cer + p12 — JAMAIS commiter)
+.apple-wallet/
