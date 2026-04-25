@@ -27,7 +27,7 @@ export default function PublicLayout({
 }) {
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <main className="flex-1">{children}</main>
+      <main id="main-content" className="flex-1" tabIndex={-1}>{children}</main>
       <footer className="py-4 text-center">
         <p className="text-xs text-gray-400">
           Propulse par{" "}

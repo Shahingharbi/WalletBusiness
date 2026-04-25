@@ -9,6 +9,7 @@ interface KpiCardProps {
   icon: LucideIcon;
   previousValue?: number;
   format?: "number" | "percent";
+  placeholder?: boolean;
 }
 
 export function KpiCard({
@@ -17,6 +18,7 @@ export function KpiCard({
   icon: Icon,
   previousValue,
   format = "number",
+  placeholder = false,
 }: KpiCardProps) {
   const hasComparison =
     typeof previousValue === "number" && previousValue !== undefined;
@@ -33,7 +35,12 @@ export function KpiCard({
   };
 
   return (
-    <Card className="p-5 border-beige-dark">
+    <Card
+      className={cn(
+        "p-5 border-beige-dark",
+        placeholder && "bg-gray-50/60"
+      )}
+    >
       <div className="flex items-start justify-between">
         <div className="space-y-2 min-w-0">
           <p
@@ -43,7 +50,10 @@ export function KpiCard({
             {title}
           </p>
           <p
-            className="text-4xl text-foreground"
+            className={cn(
+              "text-4xl",
+              placeholder ? "text-gray-300" : "text-foreground"
+            )}
             style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}
           >
             {formatValue(value)}

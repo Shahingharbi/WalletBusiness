@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
+import { requirePlan, type BusinessBillingState } from "@/lib/billing";
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,38 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Commerce introuvable" },
         { status: 400 }
+      );
+    }
+
+    // Charge l'état billing du business pour gating.
+    const { data: business } = await supabase
+      .from("businesses")
+      .select("subscription_status, subscription_plan, trial_ends_at")
+      .eq("id", profile.business_id)
+      .single();
+
+    const billingState: BusinessBillingState = {
+      subscription_status: business?.subscription_status ?? null,
+      subscription_plan: business?.subscription_plan ?? null,
+      trial_ends_at: business?.trial_ends_at ?? null,
+    };
+
+    const { count: cardsCount } = await supabase
+      .from("cards")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", profile.business_id);
+
+    const gate = requirePlan(billingState, "extra_cards", {
+      currentCardsCount: cardsCount ?? 0,
+    });
+    if (!gate.ok) {
+      return NextResponse.json(
+        {
+          error: gate.message,
+          reason: gate.reason,
+          requiredPlan: gate.requiredPlan,
+        },
+        { status: 402 }
       );
     }
 

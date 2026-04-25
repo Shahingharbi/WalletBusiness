@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 /**
  * Content-Security-Policy directives.
@@ -76,4 +77,17 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Wrap with Sentry — uploads source maps at build time when SENTRY_AUTH_TOKEN
+// is set, otherwise it is a no-op. `silent` keeps build logs clean locally.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  // Hide Sentry's own request from ad blockers via a tunnel route.
+  tunnelRoute: "/monitoring",
+  // Avoid noisy build output and large bundles for monitoring features
+  // we don't currently use.
+  disableLogger: true,
+  widenClientFileUpload: true,
+});

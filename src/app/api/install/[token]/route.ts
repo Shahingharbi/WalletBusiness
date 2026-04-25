@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/rate-limit";
+import { sendEmail } from "@/lib/email";
 
 export async function POST(
   request: Request,
@@ -143,6 +144,9 @@ export async function POST(
       type: "card_installed",
     });
 
+    // Notify the merchant — fire-and-forget so it never blocks the response.
+    void notifyMerchantCardInstalled(supabase, card.business_id, card.id);
+
     return NextResponse.json(
       { instance_token: instance.token },
       { status: 201 }
@@ -153,5 +157,57 @@ export async function POST(
       { error: "Erreur serveur" },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Send the "card installed" email to the merchant. Best-effort: any failure
+ * is logged and swallowed so the install flow stays robust.
+ */
+async function notifyMerchantCardInstalled(
+  supabase: ReturnType<typeof createAdminClient>,
+  businessId: string,
+  cardId: string
+): Promise<void> {
+  try {
+    const { data: card } = await supabase
+      .from("cards")
+      .select("name")
+      .eq("id", cardId)
+      .single();
+
+    const { data: business } = await supabase
+      .from("businesses")
+      .select("owner_id")
+      .eq("id", businessId)
+      .single();
+
+    if (!card || !business?.owner_id) return;
+
+    // Fetch the owner's email via auth.admin (service role).
+    const { data: ownerAuth } = await supabase.auth.admin.getUserById(
+      business.owner_id
+    );
+    const ownerEmail = ownerAuth?.user?.email;
+    if (!ownerEmail) return;
+
+    // Total clients on this card.
+    const { count } = await supabase
+      .from("card_instances")
+      .select("id", { count: "exact", head: true })
+      .eq("card_id", cardId);
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
+    await sendEmail({
+      to: ownerEmail,
+      template: "card-installed",
+      data: {
+        cardName: card.name,
+        totalClients: count ?? 1,
+        dashboardUrl: `${appUrl}/dashboard/clients`,
+      },
+    });
+  } catch (err) {
+    console.error("[install] notifyMerchantCardInstalled failed:", err);
   }
 }

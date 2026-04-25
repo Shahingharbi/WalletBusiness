@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -53,9 +53,33 @@ const initialState: FormState = {
 };
 
 export default function NewCardPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewCardForm />
+    </Suspense>
+  );
+}
+
+function NewCardForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const fromOnboarding = params.get("from") === "onboarding";
+  const onboardingType = params.get("type") ?? null;
+
+  const initialFormState: FormState = (() => {
+    const next = { ...initialState };
+    if (onboardingType) {
+      // Map onboarding answer to a card type when relevant.
+      // Most commerces use stamp cards; coiffeur tends to discount; cafe to cashback.
+      if (onboardingType === "coiffeur") next.type = "discount";
+      else if (onboardingType === "cafe") next.type = "cashback";
+      else next.type = "stamp";
+    }
+    return next;
+  })();
+
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState<FormState>(initialState);
+  const [form, setForm] = useState<FormState>(initialFormState);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -127,11 +151,26 @@ export default function NewCardPage() {
 
       const data = await res.json();
 
+      if (res.status === 402) {
+        // Plan limit hit — redirige vers la page billing.
+        setError(
+          (data.error as string) ??
+            "Limite atteinte. Mettez à niveau votre plan pour créer plus de cartes."
+        );
+        setSubmitting(false);
+        setTimeout(() => router.push("/settings/billing"), 1500);
+        return;
+      }
+
       if (!res.ok) {
         throw new Error(data.error || "Erreur lors de la création");
       }
 
-      router.push(`/cards/${data.card.id}`);
+      if (fromOnboarding) {
+        router.push(`/onboarding?step=3&cardId=${data.card.id}`);
+      } else {
+        router.push(`/cards/${data.card.id}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue");
     } finally {

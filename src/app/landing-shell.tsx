@@ -25,7 +25,7 @@ export function LandingShell() {
       <TopBanner onDismiss={() => setBannerVisible(false)} />
       <div style={{ paddingTop: bannerVisible ? 52 : 0 }}>
         <Navbar bannerVisible={bannerVisible} />
-        <main>
+        <main id="main-content" tabIndex={-1}>
           <HeroSection />
           <TrustBar />
           <SocialProofSection />

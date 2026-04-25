@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
 
 export default function Error({
@@ -13,6 +14,8 @@ export default function Error({
   useEffect(() => {
     // Surface the error in logs; production will only have the digest.
     console.error(error);
+    // Report to Sentry. No-op when DSN is not configured.
+    Sentry.captureException(error);
   }, [error]);
 
   return (

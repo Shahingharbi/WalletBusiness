@@ -27,16 +27,32 @@ Ces étapes nécessitent des comptes payants ou des actions hors du codebase.
 
 ## 3. Stripe billing
 
-**Pourquoi** : la page `/pricing` montre des plans 49/99/199 EUR mais aucun paiement n'est actuellement collecté.
+**Statut code** : tout le flow est implémenté (checkout, webhook idempotent, customer portal, gating par plan, page `/settings/billing`, banner d'essai). Il ne reste qu'à créer les produits côté Stripe et coller les clés.
 
 **Étapes** :
-1. Créer un compte Stripe (gratuit) : https://dashboard.stripe.com/register
-2. Créer 3 produits : Starter, Pro, Business avec prix mensuels
-3. Récupérer les `STRIPE_PUBLISHABLE_KEY` et `STRIPE_SECRET_KEY` dans `.env.local`
-4. Installer `stripe` côté Node
-5. Créer `/api/billing/checkout` qui crée une Checkout Session
-6. Créer `/api/billing/webhook` pour traiter `checkout.session.completed` et activer l'abonnement
-7. Ajouter une colonne `subscription_status` dans la table `businesses`
+
+1. **Créer un compte Stripe** (gratuit) : https://dashboard.stripe.com/register puis activer le mode test (toggle en haut à droite) pour le dev.
+
+2. **Appliquer la migration SQL** : copie-colle `supabase/migrations/002_billing.sql` dans le SQL Editor Supabase. Elle ajoute les colonnes `subscription_*` sur `businesses`, met l'essai 14j sur les comptes existants, et crée la table `stripe_events` (idempotence webhook).
+
+3. **Créer 3 produits** dans Stripe Dashboard → *Products* → *Add product*. Pour chaque produit, créer **2 prix récurrents** (monthly + yearly) :
+   - Starter : 49 EUR/mois et 39 EUR/mois facturé annuellement (= 468 EUR/an)
+   - Pro : 99 EUR/mois et 79 EUR/mois facturé annuellement (= 948 EUR/an)
+   - Business : 199 EUR/mois et 159 EUR/mois facturé annuellement (= 1908 EUR/an)
+   - Pour chaque prix, copier le `price_id` (commence par `price_...`).
+
+4. **Récupérer les clés API** dans Stripe → *Developers* → *API keys*. Copier `Secret key` (sk_test_...) et `Publishable key` (pk_test_...). Les coller dans `.env.local` (les noms sont déjà listés dans `.env.example`).
+
+5. **Configurer le webhook** : Stripe → *Developers* → *Webhooks* → *Add endpoint*.
+   - URL : `https://aswallet.fr/api/billing/webhook` (en local : utiliser `stripe listen --forward-to localhost:3000/api/billing/webhook` qui imprime un `whsec_...`).
+   - Events à sélectionner : `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`.
+   - Copier le `Signing secret` (whsec_...) dans `STRIPE_WEBHOOK_SECRET`.
+
+6. **Activer le Customer Portal** : Stripe → *Settings* → *Billing* → *Customer portal*. Activer ; cocher "Allow customers to cancel subscriptions" et "Update payment methods".
+
+7. **Vercel** : ajouter les 9 variables d'env dans le dashboard Vercel (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, et les 6 `STRIPE_PRICE_ID_*`). Redéployer.
+
+8. **Tester** : avec une carte test (`4242 4242 4242 4242`, n'importe quelle date + CVC), depuis `/settings/billing` cliquer "Souscrire", terminer le checkout, vérifier que `businesses.subscription_status = 'active'` et que `subscription_plan` est correct côté DB.
 
 ## 4. Email transactionnel (confirmation, invitations)
 

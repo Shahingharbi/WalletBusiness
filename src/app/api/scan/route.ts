@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { syncLoyaltyObject } from "@/lib/google-wallet";
+import { sendEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
@@ -159,6 +161,17 @@ export async function POST(request: Request) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
     await syncLoyaltyObject(instance.token, newStamps, newRewards, appUrl);
 
+    // Notify customer if a new reward was just earned. Fire-and-forget.
+    if (rewardEarned) {
+      void notifyCustomerRewardEarned({
+        clientId: client.id,
+        businessId: instance.business_id,
+        instanceToken: instance.token,
+        rewardText: card.reward_text,
+        appUrl,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       client_name: client.first_name,
@@ -175,5 +188,47 @@ export async function POST(request: Request) {
       { error: "Erreur serveur" },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Notify a customer that they just unlocked a reward. Best-effort: any
+ * failure (no email on file, Resend unconfigured, etc.) is logged and
+ * swallowed so the scan flow stays robust.
+ */
+async function notifyCustomerRewardEarned(args: {
+  clientId: string;
+  businessId: string;
+  instanceToken: string;
+  rewardText: string;
+  appUrl: string;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: client } = await admin
+      .from("clients")
+      .select("first_name, email")
+      .eq("id", args.clientId)
+      .single();
+    if (!client?.email) return;
+
+    const { data: business } = await admin
+      .from("businesses")
+      .select("name")
+      .eq("id", args.businessId)
+      .single();
+
+    await sendEmail({
+      to: client.email,
+      template: "reward-earned",
+      data: {
+        firstName: client.first_name ?? undefined,
+        rewardText: args.rewardText,
+        businessName: business?.name ?? "votre commerce",
+        walletUrl: `${args.appUrl}/c/wallet/${args.instanceToken}`,
+      },
+    });
+  } catch (err) {
+    console.error("[scan] notifyCustomerRewardEarned failed:", err);
   }
 }
