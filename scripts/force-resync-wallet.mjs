@@ -35,12 +35,16 @@ const auth = new GoogleAuth({
 });
 const client = await auth.getClient();
 
-// 1. List all card_instances
+// 1. List all card_instances + JOIN cards.stamp_count for the balance.string
 const res = await fetch(
-  `${SB_URL}/rest/v1/card_instances?select=token,stamps_collected,rewards_available&status=eq.active`,
+  `${SB_URL}/rest/v1/card_instances?select=token,stamps_collected,rewards_available,stamps_total:cards(stamp_count)&status=eq.active`,
   { headers: { apikey: SR_KEY, Authorization: `Bearer ${SR_KEY}` } },
 );
-const instances = await res.json();
+const raw = await res.json();
+const instances = raw.map((i) => ({
+  ...i,
+  stamps_total: i.stamps_total?.stamp_count ?? null,
+}));
 console.log(`Found ${instances.length} active card_instances\n`);
 
 let synced = 0;
@@ -52,17 +56,60 @@ for (const inst of instances) {
   const url = `${BASE_URL}/loyaltyObject/${objId}`;
   const bannerUri = `${APP_URL}/api/wallet/banner/${inst.token}/${inst.stamps_collected}`;
 
+  // We don't have stamps_total here (we'd have to JOIN cards). Try to fetch
+  // it inline if not yet known.
+  const stampsTotal = inst.stamps_total ?? null;
+  const balanceString =
+    typeof stampsTotal === "number"
+      ? `${inst.stamps_collected} / ${stampsTotal}`
+      : `${inst.stamps_collected}`;
+  const remaining =
+    typeof stampsTotal === "number"
+      ? Math.max(0, stampsTotal - inst.stamps_collected)
+      : 0;
+  const progressBody =
+    typeof stampsTotal === "number"
+      ? remaining > 0
+        ? `${remaining} tampons restants`
+        : "Récompense disponible !"
+      : `${inst.stamps_collected} tampons`;
+
   const body = {
-    loyaltyPoints: { balance: { int: inst.stamps_collected }, label: "Tampons" },
-    secondaryLoyaltyPoints: {
-      balance: { int: inst.rewards_available },
-      label: "Récompenses",
+    // Clear l'ancien int + ancien secondaryLoyaltyPoints pour migrer au format
+    // string. Sinon Google refuse "More than one type of loyalty point
+    // balances cannot be set".
+    loyaltyPoints: {
+      balance: { string: balanceString, int: null },
+      label: "Tampons",
     },
+    secondaryLoyaltyPoints: null,
     heroImage: {
       sourceUri: { uri: bannerUri },
       contentDescription: { defaultValue: { language: "fr", value: "Progression" } },
     },
-    // Triggering message bumps Google's push so the user's phone refreshes.
+    imageModulesData: [
+      {
+        id: "stamps-grid",
+        mainImage: {
+          sourceUri: { uri: bannerUri },
+          contentDescription: {
+            defaultValue: { language: "fr", value: `Progression: ${balanceString}` },
+          },
+        },
+      },
+    ],
+    textModulesData: [
+      { id: "progress", header: "Prochaine récompense", body: progressBody },
+      ...(inst.rewards_available > 0
+        ? [
+            {
+              id: "rewards-available",
+              header: "Récompenses disponibles",
+              body: String(inst.rewards_available),
+            },
+          ]
+        : []),
+    ],
     messages: [
       {
         id: `force-resync-${Date.now()}`,
