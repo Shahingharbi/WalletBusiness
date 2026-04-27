@@ -72,38 +72,55 @@ function buildLoyaltyObject(p: PassParams) {
   const accountName = (p.customerName ?? "").trim() || "Client";
   const rewardText = (p.rewardText ?? "").trim();
 
+  const stampsBannerUri = bannerUri(
+    p.appUrl,
+    p.customerInstanceToken,
+    p.stampsCollected,
+  );
+
   const obj: Record<string, unknown> = {
     id: objectId(p.customerInstanceToken),
     classId: classId(p.cardId),
     state: "ACTIVE",
     accountId: p.customerInstanceToken,
     accountName,
-    // Per-user heroImage: dynamic PNG with the visual stamp grid only
-    // (no business name, no card name, no counter — those are rendered
-    // by Google Wallet's own fields). URL includes the stamp count for
-    // cache-busting so Google re-fetches when the count changes.
+    // Per-user heroImage: dynamic PNG with the visual stamp grid only.
+    // Visible quand la carte est ouverte plein écran sur Android.
     heroImage: {
-      sourceUri: {
-        uri: bannerUri(
-          p.appUrl,
-          p.customerInstanceToken,
-          p.stampsCollected,
-        ),
-      },
+      sourceUri: { uri: stampsBannerUri },
       contentDescription: {
         defaultValue: { language: "fr", value: "Progression" },
       },
     },
+    // Même image dans imageModulesData -> visible aussi sur la preview web,
+    // dans la liste des cartes Wallet et sur les vues détail. Google rend les
+    // image modules au-dessus / en plus du barcode et du heroImage. C'est la
+    // technique utilisée par Boomerangme/CaptainWallet pour que la grille de
+    // tampons soit toujours visible peu importe la vue.
+    imageModulesData: [
+      {
+        id: "stamps-grid",
+        mainImage: {
+          sourceUri: { uri: stampsBannerUri },
+          contentDescription: {
+            defaultValue: {
+              language: "fr",
+              value: `Progression: ${p.stampsCollected} sur ${p.stampsTotal} tampons`,
+            },
+          },
+        },
+      },
+    ],
     // "X / Y" string instead of a raw count: clearer than a single big
     // number, and matches the Apple headerFields value.
     loyaltyPoints: {
       balance: { string: `${p.stampsCollected} / ${p.stampsTotal}` },
       label: "Tampons",
     },
-    secondaryLoyaltyPoints: {
-      balance: { int: p.rewardsAvailable },
-      label: "Récompenses",
-    },
+    // PAS de secondaryLoyaltyPoints — Google les rend comme une rangée de
+    // ronds génériques en bas de la carte (catastrophique visuellement vu
+    // qu'on a déjà notre grille custom dans heroImage/imageModules). Le compte
+    // de récompenses est mis en avant dans textModulesData ci-dessous.
     barcode: {
       type: p.barcodeType === "pdf417" ? "PDF_417" : "QR_CODE",
       value: p.customerInstanceToken,
@@ -120,17 +137,27 @@ function buildLoyaltyObject(p: PassParams) {
     },
   };
 
-  // Skip the textModule entirely when the merchant left rewardText empty:
-  // an empty block looks broken in Google Wallet.
+  // textModulesData : récompense + nb de récompenses dispo + tampons restants.
+  // C'est rendu propre et lisible par Google Wallet, sans la rangée de ronds
+  // moches de secondaryLoyaltyPoints.
+  const remaining = Math.max(0, p.stampsTotal - p.stampsCollected);
+  const modules: Array<{ id: string; header: string; body: string }> = [];
   if (rewardText) {
-    obj.textModulesData = [
-      {
-        header: "Récompense",
-        body: rewardText,
-        id: "reward",
-      },
-    ];
+    modules.push({ id: "reward", header: "Récompense", body: rewardText });
   }
+  modules.push({
+    id: "progress",
+    header: "Prochaine récompense",
+    body: remaining > 0 ? `${remaining} tampons restants` : "Récompense disponible !",
+  });
+  if (p.rewardsAvailable > 0) {
+    modules.push({
+      id: "rewards-available",
+      header: "Récompenses disponibles",
+      body: String(p.rewardsAvailable),
+    });
+  }
+  obj.textModulesData = modules;
 
   return obj;
 }
@@ -182,21 +209,56 @@ export async function syncLoyaltyObject(
     typeof stampsTotal === "number"
       ? `${stampsCollected} / ${stampsTotal}`
       : `${stampsCollected}`;
+  const stampsBannerUri = bannerUri(appUrl, instanceToken, stampsCollected);
+  const remaining =
+    typeof stampsTotal === "number"
+      ? Math.max(0, stampsTotal - stampsCollected)
+      : 0;
+  const progressBody =
+    typeof stampsTotal === "number"
+      ? remaining > 0
+        ? `${remaining} tampons restants`
+        : "Récompense disponible !"
+      : `${stampsCollected} tampons`;
+
   const body: Record<string, unknown> = {
     loyaltyPoints: { balance: { string: balanceString }, label: "Tampons" },
-    secondaryLoyaltyPoints: {
-      balance: { int: rewardsAvailable },
-      label: "Récompenses",
-    },
-    // New stamp count in the URL path → Google re-fetches the image.
+    // Pas de secondaryLoyaltyPoints (cf. buildLoyaltyObject).
+    textModulesData: [
+      { id: "progress", header: "Prochaine récompense", body: progressBody },
+      ...(rewardsAvailable > 0
+        ? [
+            {
+              id: "rewards-available",
+              header: "Récompenses disponibles",
+              body: String(rewardsAvailable),
+            },
+          ]
+        : []),
+    ],
+    // Même URL dans heroImage et imageModulesData -> Google refetch les deux
+    // emplacements pour que la grille soit visible aussi bien dans la preview
+    // que dans la liste et plein écran.
     heroImage: {
-      sourceUri: {
-        uri: bannerUri(appUrl, instanceToken, stampsCollected),
-      },
+      sourceUri: { uri: stampsBannerUri },
       contentDescription: {
         defaultValue: { language: "fr", value: "Progression" },
       },
     },
+    imageModulesData: [
+      {
+        id: "stamps-grid",
+        mainImage: {
+          sourceUri: { uri: stampsBannerUri },
+          contentDescription: {
+            defaultValue: {
+              language: "fr",
+              value: `Progression: ${balanceString}`,
+            },
+          },
+        },
+      },
+    ],
   };
 
   if (message && message.trim()) {
