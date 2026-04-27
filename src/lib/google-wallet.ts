@@ -222,8 +222,15 @@ export async function syncLoyaltyObject(
       : `${stampsCollected} tampons`;
 
   const body: Record<string, unknown> = {
-    loyaltyPoints: { balance: { string: balanceString }, label: "Tampons" },
-    // Pas de secondaryLoyaltyPoints (cf. buildLoyaltyObject).
+    // balance.int explicitement null -> on clear l'ancien format si l'objet
+    // existant l'avait, sinon Google refuse "More than one type of loyalty
+    // point balances cannot be set".
+    loyaltyPoints: {
+      balance: { string: balanceString, int: null },
+      label: "Tampons",
+    },
+    // Clear l'ancien secondaryLoyaltyPoints si l'objet existant en avait.
+    secondaryLoyaltyPoints: null,
     textModulesData: [
       { id: "progress", header: "Prochaine récompense", body: progressBody },
       ...(rewardsAvailable > 0
