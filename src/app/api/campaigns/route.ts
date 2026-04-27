@@ -147,7 +147,7 @@ export async function POST(request: Request) {
     // Vérifie que la carte appartient bien au commerce.
     const { data: card } = await supabase
       .from("cards")
-      .select("id, business_id")
+      .select("id, business_id, stamp_count")
       .eq("id", cardId)
       .eq("business_id", profile.business_id)
       .single();
@@ -183,7 +183,8 @@ export async function POST(request: Request) {
             t.stamps_collected,
             t.rewards_available,
             appUrl,
-            message
+            message,
+            card.stamp_count
           )
         )
       );

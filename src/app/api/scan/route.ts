@@ -159,7 +159,14 @@ export async function POST(request: Request) {
     // Sync count to Google Wallet if the user previously added the pass.
     // Swallow errors so scan never fails because of a Wallet hiccup.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
-    await syncLoyaltyObject(instance.token, newStamps, newRewards, appUrl);
+    await syncLoyaltyObject(
+      instance.token,
+      newStamps,
+      newRewards,
+      appUrl,
+      undefined,
+      card.stamp_count
+    );
 
     // Notify customer if a new reward was just earned. Fire-and-forget.
     if (rewardEarned) {

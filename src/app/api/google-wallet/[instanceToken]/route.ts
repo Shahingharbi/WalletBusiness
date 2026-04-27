@@ -51,8 +51,13 @@ export async function GET(
     const design = { ...DEFAULT_CARD_DESIGN, ...(card.design ?? {}) };
 
     const businessName = card.businesses?.name ?? "Commerce";
+    // Google Wallet's accountName renders prominently — prefer just the
+    // first name (matches Apple's secondaryFields personalization style),
+    // fall back to "first last", then "Client".
+    const firstName = (client?.first_name ?? "").trim();
+    const lastName = (client?.last_name ?? "").trim();
     const customerName =
-      `${client?.first_name ?? ""} ${client?.last_name ?? ""}`.trim() || "Client";
+      firstName || `${firstName} ${lastName}`.trim() || "Client";
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
 
     const url = generateGoogleWalletPassUrl({

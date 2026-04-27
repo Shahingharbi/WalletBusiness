@@ -40,6 +40,8 @@ function objectId(instanceToken: string): string {
 
 function buildLoyaltyClass(p: PassParams) {
   const logoUri = p.logoUrl ?? FALLBACK_LOGO_URL;
+  // No class-level heroImage: the per-object heroImage (dynamic stamp grid)
+  // is always set, so a class fallback would only add noise.
   return {
     id: classId(p.cardId),
     issuerName: p.businessName,
@@ -50,14 +52,6 @@ function buildLoyaltyClass(p: PassParams) {
         defaultValue: { language: "fr", value: p.businessName },
       },
     },
-    heroImage: p.bannerUrl
-      ? {
-          sourceUri: { uri: p.bannerUrl },
-          contentDescription: {
-            defaultValue: { language: "fr", value: p.cardName },
-          },
-        }
-      : undefined,
     hexBackgroundColor: p.bgColor,
     countryCode: "FR",
     reviewStatus: "UNDER_REVIEW",
@@ -75,16 +69,19 @@ function bannerUri(appUrl: string, token: string, stamps: number): string {
 
 function buildLoyaltyObject(p: PassParams) {
   const homepageUri = `${p.appUrl}/c/${p.cardId}/status/${p.customerInstanceToken}`;
+  const accountName = (p.customerName ?? "").trim() || "Client";
+  const rewardText = (p.rewardText ?? "").trim();
 
-  return {
+  const obj: Record<string, unknown> = {
     id: objectId(p.customerInstanceToken),
     classId: classId(p.cardId),
     state: "ACTIVE",
     accountId: p.customerInstanceToken,
-    accountName: p.customerName,
-    // Per-user heroImage: dynamic PNG with the visual stamp grid.
-    // URL includes the stamp count for cache-busting so Google re-fetches
-    // when the count changes. Overrides any class-level heroImage.
+    accountName,
+    // Per-user heroImage: dynamic PNG with the visual stamp grid only
+    // (no business name, no card name, no counter — those are rendered
+    // by Google Wallet's own fields). URL includes the stamp count for
+    // cache-busting so Google re-fetches when the count changes.
     heroImage: {
       sourceUri: {
         uri: bannerUri(
@@ -97,13 +94,15 @@ function buildLoyaltyObject(p: PassParams) {
         defaultValue: { language: "fr", value: "Progression" },
       },
     },
+    // "X / Y" string instead of a raw count: clearer than a single big
+    // number, and matches the Apple headerFields value.
     loyaltyPoints: {
-      balance: { int: p.stampsCollected },
+      balance: { string: `${p.stampsCollected} / ${p.stampsTotal}` },
       label: "Tampons",
     },
     secondaryLoyaltyPoints: {
       balance: { int: p.rewardsAvailable },
-      label: "Recompenses",
+      label: "Récompenses",
     },
     barcode: {
       type: p.barcodeType === "pdf417" ? "PDF_417" : "QR_CODE",
@@ -119,14 +118,21 @@ function buildLoyaltyObject(p: PassParams) {
         },
       ],
     },
-    textModulesData: [
+  };
+
+  // Skip the textModule entirely when the merchant left rewardText empty:
+  // an empty block looks broken in Google Wallet.
+  if (rewardText) {
+    obj.textModulesData = [
       {
-        header: "Recompense",
-        body: p.rewardText,
+        header: "Récompense",
+        body: rewardText,
         id: "reward",
       },
-    ],
-  };
+    ];
+  }
+
+  return obj;
 }
 
 export function generateGoogleWalletPassUrl(p: PassParams): string {
@@ -162,17 +168,25 @@ export async function syncLoyaltyObject(
   stampsCollected: number,
   rewardsAvailable: number,
   appUrl: string,
-  message?: string
+  message?: string,
+  stampsTotal?: number
 ): Promise<{ ok: boolean; status?: number }> {
   if (!isGoogleWalletConfigured()) return { ok: false };
 
   const objId = objectId(instanceToken);
   const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${objId}`;
+  // Mirror the buildLoyaltyObject shape: balance.string "X / Y" so the
+  // wallet card stays consistent across initial save and subsequent
+  // PATCHes. When stampsTotal is unknown, fall back to a bare number.
+  const balanceString =
+    typeof stampsTotal === "number"
+      ? `${stampsCollected} / ${stampsTotal}`
+      : `${stampsCollected}`;
   const body: Record<string, unknown> = {
-    loyaltyPoints: { balance: { int: stampsCollected }, label: "Tampons" },
+    loyaltyPoints: { balance: { string: balanceString }, label: "Tampons" },
     secondaryLoyaltyPoints: {
       balance: { int: rewardsAvailable },
-      label: "Recompenses",
+      label: "Récompenses",
     },
     // New stamp count in the URL path → Google re-fetches the image.
     heroImage: {
