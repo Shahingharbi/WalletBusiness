@@ -27,6 +27,7 @@ export async function GET(
       .from("card_instances")
       .select(`
         id, token, stamps_collected, rewards_available, status,
+        clients(first_name),
         cards(id, name, stamp_count, reward_text, design, businesses(name, logo_url))
       `)
       .eq("token", instanceToken)
@@ -51,6 +52,9 @@ export async function GET(
       design: Record<string, unknown>;
       businesses: { name: string; logo_url: string | null } | null;
     };
+    const client = instance.clients as unknown as {
+      first_name: string | null;
+    } | null;
     const design = { ...DEFAULT_CARD_DESIGN, ...(card.design ?? {}) };
     const businessName = card.businesses?.name ?? "Commerce";
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
@@ -60,6 +64,7 @@ export async function GET(
       cardName: card.name,
       businessName,
       customerInstanceToken: instance.token,
+      customerFirstName: client?.first_name ?? null,
       stampsCollected: instance.stamps_collected,
       stampsTotal: card.stamp_count,
       rewardsAvailable: instance.rewards_available,

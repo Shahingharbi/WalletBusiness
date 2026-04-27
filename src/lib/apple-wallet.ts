@@ -7,6 +7,7 @@ interface ApplePassParams {
   cardName: string;
   businessName: string;
   customerInstanceToken: string;
+  customerFirstName?: string | null;
   stampsCollected: number;
   stampsTotal: number;
   rewardsAvailable: number;
@@ -119,28 +120,61 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
     }
   );
 
-  // Type "storeCard" = carte de fidélité Apple Wallet (avec strip image visuelle)
+  // Type "storeCard" = carte de fidélité Apple Wallet (avec strip image visuelle).
+  // Stratégie de mise en page (référence: KFC, Boomerangme):
+  //  - logoText (top-left, à côté du logo)            -> nom du commerce
+  //  - headerFields (top-right)                        -> compteur "X / Y"
+  //  - primaryFields (par-dessus le strip)             -> VIDE (le strip image
+  //                                                       contient déjà la grille
+  //                                                       de tampons; on évite
+  //                                                       toute superposition)
+  //  - secondaryFields (entre primary et auxiliary)    -> "Bonjour <prénom>"
+  //  - auxiliaryFields (sous le strip)                 -> prochaine récompense
+  //                                                       + récompenses dispo
+  //  - backFields (verso, accessible via "...")        -> détails complets
   pass.type = "storeCard";
+
   pass.headerFields.push({
-    key: "stamps",
+    key: "points",
     label: "Tampons",
     value: `${p.stampsCollected} / ${p.stampsTotal}`,
   });
-  pass.primaryFields.push({
-    key: "reward",
-    label: "Récompense",
-    value: p.rewardText,
-  });
-  pass.secondaryFields.push({
-    key: "rewards-available",
-    label: "Récompenses disponibles",
-    value: String(p.rewardsAvailable),
-  });
+
+  // primaryFields volontairement VIDE — le strip image porte déjà la grille de
+  // tampons et toute autre info textuelle créerait un chevauchement visuel.
+
+  if (p.customerFirstName && p.customerFirstName.trim().length > 0) {
+    pass.secondaryFields.push({
+      key: "card",
+      label: "Bonjour",
+      value: p.customerFirstName.trim(),
+    });
+  }
+
+  const remaining = Math.max(0, p.stampsTotal - p.stampsCollected);
+  pass.auxiliaryFields.push(
+    {
+      key: "till-reward",
+      label: "Prochaine récompense",
+      value: `${remaining} tampons`,
+    },
+    {
+      key: "rewards-available",
+      label: "Récompenses dispo",
+      value: String(p.rewardsAvailable),
+    },
+  );
+
   pass.backFields.push(
     {
       key: "card-name",
       label: "Carte",
       value: p.cardName,
+    },
+    {
+      key: "reward-text",
+      label: "Récompense",
+      value: p.rewardText,
     },
     {
       key: "view-online",

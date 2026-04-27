@@ -4,7 +4,11 @@ import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
 
 export const runtime = "nodejs";
 
-// Google Wallet heroImage 3:1, Apple Wallet strip 3:1 (we reuse same endpoint).
+// Image utilisée à la fois pour Apple Wallet (strip image) et Google Wallet
+// (heroImage). Ratio ~3:1. On NE rend QUE la grille de tampons, centrée, sur
+// fond accent_color. Aucun texte, aucun nom de commerce, aucun compteur.
+// Toutes les autres infos (logo commerce, points, prochaine récompense...) sont
+// rendues par le wallet lui-même via les fields du pass.json.
 const WIDTH = 1032;
 const HEIGHT = 336;
 
@@ -159,8 +163,6 @@ export async function GET(
       (design.stamp_shape as string) ||
       (design.stamp_active_icon === "square" ? "squircle" : "circle");
     const radius = shapeRadius(shape);
-    const businessName = card.businesses?.name ?? "Commerce";
-    const cardName = card.name ?? "Carte de fidélité";
 
     const stampsTotal = Math.max(1, Math.min(20, card.stamp_count));
     const stampsCollected = Math.max(
@@ -170,13 +172,14 @@ export async function GET(
 
     const { cols, rows } = pickGrid(stampsTotal);
 
-    // Compute stamp size to fit perfectly in right panel.
-    const rightPanelW = Math.floor(WIDTH * 0.6);
-    const padding = 28;
-    const gap = 14;
-    const maxByW = (rightPanelW - padding * 2 - gap * (cols - 1)) / cols;
+    // La grille occupe maintenant la TOTALITÉ de l'image. Pas de panneau gauche.
+    // On laisse une marge confortable pour respirer (Apple/Google rajoutent
+    // ensuite leurs propres champs autour).
+    const padding = 36;
+    const gap = 18;
+    const maxByW = (WIDTH - padding * 2 - gap * (cols - 1)) / cols;
     const maxByH = (HEIGHT - padding * 2 - gap * (rows - 1)) / rows;
-    const stampSize = Math.max(36, Math.min(86, Math.floor(Math.min(maxByW, maxByH))));
+    const stampSize = Math.max(48, Math.min(140, Math.floor(Math.min(maxByW, maxByH))));
     const iconFontSize = Math.floor(stampSize * 0.55);
 
     const stamps: Array<{ filled: boolean; idx: number }> = [];
@@ -195,113 +198,46 @@ export async function GET(
             width: "100%",
             height: "100%",
             display: "flex",
-            flexDirection: "row",
-            background: `linear-gradient(135deg, ${accent} 0%, ${darken(accent, 0.25)} 100%)`,
+            alignItems: "center",
+            justifyContent: "center",
+            background: `linear-gradient(135deg, ${accent} 0%, ${darken(accent, 0.18)} 100%)`,
             fontFamily: "system-ui, -apple-system, sans-serif",
             color: "white",
+            padding: `${padding}px`,
           }}
         >
-          {/* LEFT PANEL: 40% — branding */}
           <div
             style={{
-              width: `${WIDTH * 0.4}px`,
-              height: "100%",
               display: "flex",
               flexDirection: "column",
-              justifyContent: "center",
-              padding: "28px 32px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                fontSize: 18,
-                color: "rgba(255,255,255,0.78)",
-                marginBottom: 10,
-                textTransform: "uppercase",
-                letterSpacing: 1.5,
-                fontWeight: 600,
-              }}
-            >
-              {truncate(businessName, 28)}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                fontSize: 38,
-                fontWeight: 800,
-                lineHeight: 1.1,
-                marginBottom: 14,
-              }}
-            >
-              {truncate(cardName, 30)}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                fontSize: 16,
-                color: "rgba(255,255,255,0.78)",
-                lineHeight: 1.35,
-              }}
-            >
-              {truncate(card.reward_text ?? "", 60)}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                marginTop: "auto",
-                fontSize: 22,
-                fontWeight: 700,
-                color: "white",
-              }}
-            >
-              {stampsCollected} / {stampsTotal} tampons
-            </div>
-          </div>
-
-          {/* RIGHT PANEL: 60% — stamps grid */}
-          <div
-            style={{
-              width: `${WIDTH * 0.6}px`,
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
+              gap: `${gap}px`,
               alignItems: "center",
               justifyContent: "center",
-              padding: `${padding}px`,
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: `${gap}px`,
-              }}
-            >
-              {rowsArr.map((row, rIdx) => (
-                <div
-                  key={rIdx}
-                  style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    gap: `${gap}px`,
-                    justifyContent: "center",
-                  }}
-                >
-                  {row.map((s) => renderStamp({
-                    filled: s.filled,
-                    size: stampSize,
-                    iconFontSize,
-                    radius,
-                    accent,
-                    activeUrl: stampActiveUrl,
-                    inactiveUrl: stampInactiveUrl,
-                    iconGlyph: pickIcon(design, s.filled),
-                    key: s.idx,
-                  }))}
-                </div>
-              ))}
-            </div>
+            {rowsArr.map((row, rIdx) => (
+              <div
+                key={rIdx}
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  gap: `${gap}px`,
+                  justifyContent: "center",
+                }}
+              >
+                {row.map((s) => renderStamp({
+                  filled: s.filled,
+                  size: stampSize,
+                  iconFontSize,
+                  radius,
+                  accent,
+                  activeUrl: stampActiveUrl,
+                  inactiveUrl: stampInactiveUrl,
+                  iconGlyph: pickIcon(design, s.filled),
+                  key: s.idx,
+                }))}
+              </div>
+            ))}
           </div>
         </div>
       ),
@@ -382,11 +318,6 @@ function renderStamp(p: StampProps) {
       {p.iconGlyph}
     </div>
   );
-}
-
-function truncate(s: string, n: number): string {
-  if (!s) return "";
-  return s.length <= n ? s : s.slice(0, n - 1).trimEnd() + "…";
 }
 
 // Darken a hex color by a fraction (0..1).
