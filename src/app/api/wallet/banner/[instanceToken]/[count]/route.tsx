@@ -151,6 +151,7 @@ export async function GET(
 
     // Visual config — accept multiple field naming conventions for forward compat.
     const accent = (design.accent_color as string) || "#10b981";
+    const bannerUrl = (design.banner_url as string | null) || null;
     const stampActiveUrl =
       (design.stamp_active_url as string | null) ||
       (design.activeImageUrl as string | null) ||
@@ -175,11 +176,13 @@ export async function GET(
     // La grille occupe maintenant la TOTALITÉ de l'image. Pas de panneau gauche.
     // On laisse une marge confortable pour respirer (Apple/Google rajoutent
     // ensuite leurs propres champs autour).
-    const padding = 36;
+    // Tampons gros et blancs comme Boomerangme : on accepte d'aller jusqu'à
+    // 200px pour qu'ils dominent le strip, comme dans la capture KFC/Boomerang.
+    const padding = 28;
     const gap = 18;
     const maxByW = (WIDTH - padding * 2 - gap * (cols - 1)) / cols;
     const maxByH = (HEIGHT - padding * 2 - gap * (rows - 1)) / rows;
-    const stampSize = Math.max(48, Math.min(140, Math.floor(Math.min(maxByW, maxByH))));
+    const stampSize = Math.max(60, Math.min(200, Math.floor(Math.min(maxByW, maxByH))));
     const iconFontSize = Math.floor(stampSize * 0.55);
 
     const stamps: Array<{ filled: boolean; idx: number }> = [];
@@ -200,12 +203,35 @@ export async function GET(
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: `linear-gradient(135deg, ${accent} 0%, ${darken(accent, 0.18)} 100%)`,
+            // Si le commerçant a uploadé une bannière, on l'utilise en
+            // background avec un overlay sombre pour la lisibilité (style
+            // Boomerangme avec photo de plantes/desk en fond).
+            // Sinon, gradient accent plus dynamique.
+            backgroundImage: bannerUrl ? `url(${bannerUrl})` : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundColor: bannerUrl ? "transparent" : accent,
             fontFamily: "system-ui, -apple-system, sans-serif",
             color: "white",
             padding: `${padding}px`,
+            position: "relative",
           }}
         >
+          {/* Overlay : sombre si photo, gradient subtil sinon */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: "flex",
+              backgroundImage: bannerUrl
+                ? "linear-gradient(135deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.45) 100%)"
+                : `linear-gradient(135deg, ${accent} 0%, ${darken(accent, 0.22)} 100%)`,
+            }}
+          />
+
           <div
             style={{
               display: "flex",
@@ -213,6 +239,8 @@ export async function GET(
               gap: `${gap}px`,
               alignItems: "center",
               justifyContent: "center",
+              position: "relative",
+              zIndex: 1,
             }}
           >
             {rowsArr.map((row, rIdx) => (
@@ -280,9 +308,12 @@ function renderStamp(p: StampProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          opacity: p.filled ? 1 : 0.35,
+          opacity: p.filled ? 1 : 0.6,
           borderRadius: p.radius,
           overflow: "hidden",
+          backgroundColor: "#ffffff",
+          border: `${Math.max(2, Math.round(p.size * 0.04))}px solid #ffffff`,
+          boxShadow: "0 6px 16px rgba(0,0,0,0.22)",
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -296,6 +327,13 @@ function renderStamp(p: StampProps) {
       </div>
     );
   }
+
+  // Style Boomerangme : TOUJOURS un cercle blanc plein avec une icône
+  // dedans. L'icône est saturée en accent quand "filled", grisée (faible
+  // opacity de l'accent) quand vide. Donne un look pro même sans photo
+  // de fond et garantit que les tampons sont toujours visibles, sans se
+  // fondre dans le fond brun de la carte.
+  const borderWidth = Math.max(2, Math.round(p.size * 0.04));
   return (
     <div
       key={p.key}
@@ -305,11 +343,13 @@ function renderStamp(p: StampProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: p.filled ? "#ffffff" : "rgba(255,255,255,0.10)",
-        border: p.filled ? "none" : "2.5px solid rgba(255,255,255,0.55)",
+        backgroundColor: "#ffffff",
+        border: `${borderWidth}px solid #ffffff`,
         borderRadius: p.radius,
-        boxShadow: p.filled ? "0 4px 12px rgba(0,0,0,0.18)" : "none",
-        color: p.filled ? p.accent : "rgba(255,255,255,0.85)",
+        boxShadow: p.filled
+          ? "0 6px 18px rgba(0,0,0,0.28)"
+          : "0 3px 10px rgba(0,0,0,0.18)",
+        color: p.filled ? p.accent : "#9ca3af",
         fontSize: `${p.iconFontSize}px`,
         fontWeight: 700,
         lineHeight: 1,
