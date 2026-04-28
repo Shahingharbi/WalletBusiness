@@ -14,6 +14,8 @@ interface ApplePassParams {
   rewardText: string;
   bgColor: string; // hex like "#10b981"
   appUrl: string;
+  /** Merchant's logo (carré idéalement) — affiché top-left du pass Apple. */
+  logoUrl?: string | null;
 }
 
 const TEAM_ID = process.env.APPLE_TEAM_ID ?? "";
@@ -54,6 +56,41 @@ function hexToRgb(hex: string): string {
   return `rgb(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)})`;
 }
 
+// Récupère le logo du commerçant et le pousse comme logo.png Apple Wallet
+// (top-left du pass). Si pas de logo merchant, on garde le logo aswallet
+// générique de loadIconBuffers(). Apple accepte n'importe quelle taille tant
+// que le PNG est valide — il scalera.
+async function fetchMerchantLogo(
+  logoUrl: string | null | undefined,
+): Promise<{ "logo.png"?: Buffer; "logo@2x.png"?: Buffer; "logo@3x.png"?: Buffer; "icon.png"?: Buffer; "icon@2x.png"?: Buffer; "icon@3x.png"?: Buffer }> {
+  if (!logoUrl) return {};
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(logoUrl, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) return {};
+    const ct = res.headers.get("content-type") ?? "";
+    // Apple n'accepte que PNG. Si le merchant a uploadé du JPEG/SVG, on
+    // skip le fetch (le pass utilisera le logo aswallet par défaut).
+    if (!ct.includes("png") && !ct.includes("image/")) return {};
+    const buf = Buffer.from(await res.arrayBuffer());
+    // Si c'est du JPEG, on skip — sinon Apple Wallet refuse le pass.
+    if (ct.includes("jpeg") || ct.includes("jpg")) return {};
+    return {
+      "logo.png": buf,
+      "logo@2x.png": buf,
+      "logo@3x.png": buf,
+      "icon.png": buf,
+      "icon@2x.png": buf,
+      "icon@3x.png": buf,
+    };
+  } catch (err) {
+    console.warn("[apple-wallet] failed to fetch merchant logo:", err);
+    return {};
+  }
+}
+
 // Récupère le strip dynamique (PNG avec grille de tampons) depuis l'endpoint
 // /api/wallet/banner — même image que pour Google Wallet, embed dans le .pkpass.
 // Apple Wallet attend strip.png (320x123), strip@2x.png (640x246), strip@3x.png (960x369).
@@ -90,12 +127,13 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
     throw new Error("Apple Wallet not configured");
   }
 
-  const stripBuffers = await fetchStrip(
-    p.appUrl,
-    p.customerInstanceToken,
-    p.stampsCollected,
-  );
-  const buffers = { ...loadIconBuffers(), ...stripBuffers };
+  // Parallel fetch : merchant logo + strip image (gain de temps).
+  const [merchantLogo, stripBuffers] = await Promise.all([
+    fetchMerchantLogo(p.logoUrl),
+    fetchStrip(p.appUrl, p.customerInstanceToken, p.stampsCollected),
+  ]);
+  // Order matters: defaults first, merchant logo overrides them, strip last.
+  const buffers = { ...loadIconBuffers(), ...merchantLogo, ...stripBuffers };
   const bgColor = hexToRgb(p.bgColor);
 
   const pass = new PKPass(

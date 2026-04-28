@@ -59,6 +59,11 @@ export async function GET(
     const businessName = card.businesses?.name ?? "Commerce";
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
 
+    const merchantLogoUrl =
+      (design.logo_url as string | null) ??
+      card.businesses?.logo_url ??
+      null;
+
     const buffer = await generateApplePassBuffer({
       cardId: card.id,
       cardName: card.name,
@@ -71,6 +76,7 @@ export async function GET(
       rewardText: card.reward_text,
       bgColor: (design.accent_color as string) || "#10b981",
       appUrl,
+      logoUrl: merchantLogoUrl,
     });
 
     return new NextResponse(new Uint8Array(buffer), {
