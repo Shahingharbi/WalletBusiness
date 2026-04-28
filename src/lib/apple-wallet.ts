@@ -12,7 +12,10 @@ interface ApplePassParams {
   stampsTotal: number;
   rewardsAvailable: number;
   rewardText: string;
-  bgColor: string; // hex like "#10b981"
+  /** Couleur de FOND du pass (la couleur dominante derrière tout le contenu). */
+  backgroundColor: string;
+  /** Couleur d'accent (texte secondaire, icônes des tampons remplis). */
+  accentColor?: string;
   appUrl: string;
   /** Merchant's logo (carré idéalement) — affiché top-left du pass Apple. */
   logoUrl?: string | null;
@@ -70,13 +73,22 @@ async function fetchMerchantLogo(
     const res = await fetch(logoUrl, { signal: ctrl.signal });
     clearTimeout(timer);
     if (!res.ok) return {};
-    const ct = res.headers.get("content-type") ?? "";
-    // Apple n'accepte que PNG. Si le merchant a uploadé du JPEG/SVG, on
-    // skip le fetch (le pass utilisera le logo aswallet par défaut).
-    if (!ct.includes("png") && !ct.includes("image/")) return {};
     const buf = Buffer.from(await res.arrayBuffer());
-    // Si c'est du JPEG, on skip — sinon Apple Wallet refuse le pass.
-    if (ct.includes("jpeg") || ct.includes("jpg")) return {};
+    // Apple Wallet exige du PNG dans le .pkpass. On vérifie la signature
+    // PNG (0x89 0x50 0x4E 0x47) sur les premiers bytes du buffer plutôt
+    // que de se fier au content-type (souvent inexact côté Supabase Storage).
+    const isPng =
+      buf.length >= 8 &&
+      buf[0] === 0x89 &&
+      buf[1] === 0x50 &&
+      buf[2] === 0x4e &&
+      buf[3] === 0x47;
+    if (!isPng) {
+      console.warn(
+        "[apple-wallet] merchant logo is not PNG — ignoring (uploadez un PNG pour personnaliser le logo Apple Wallet)",
+      );
+      return {};
+    }
     return {
       "logo.png": buf,
       "logo@2x.png": buf,
@@ -134,7 +146,11 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   ]);
   // Order matters: defaults first, merchant logo overrides them, strip last.
   const buffers = { ...loadIconBuffers(), ...merchantLogo, ...stripBuffers };
-  const bgColor = hexToRgb(p.bgColor);
+  // Apple attend `backgroundColor` (la teinte dominante du pass) et
+  // `labelColor` (couleur des labels des fields). Le bg = la couleur que le
+  // merchant a explicitement choisie pour fond. labelColor = blanc forcé
+  // pour rester lisible sur tous fonds (Apple ajuste foregroundColor seul).
+  const bgColor = hexToRgb(p.backgroundColor);
 
   const pass = new PKPass(
     buffers,

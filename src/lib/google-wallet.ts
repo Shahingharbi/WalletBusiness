@@ -11,6 +11,7 @@ interface PassParams {
   stampsTotal: number;
   rewardsAvailable: number;
   rewardText: string;
+  /** Couleur de FOND du pass (hex). */
   bgColor: string;
   logoUrl?: string | null;
   bannerUrl?: string | null;
@@ -59,7 +60,9 @@ function buildLoyaltyClass(p: PassParams) {
     rewardsTierLabel: "Programme",
     accountIdLabel: "Client",
     accountNameLabel: "Nom",
-    programDetails: p.rewardText,
+    // programDetails apparaît au verso de la carte Google Wallet — on y met
+    // la récompense + un footer "Powered by aswallet" (style Boomerangme).
+    programDetails: `${p.rewardText}\n\nPowered by aswallet`,
   };
 }
 

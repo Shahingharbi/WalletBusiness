@@ -46,20 +46,98 @@ function pickIcon(design: Record<string, unknown>, filled: boolean): string {
   return ICON_GLYPH[key] ?? (filled ? "✓" : "●");
 }
 
-// Clip a stamp container to a recognizable shape via border-radius. Satori
-// supports border-radius as %.
-function shapeRadius(shape: string): string {
+type StampShape = "circle" | "squircle" | "shield" | "star" | "hex";
+
+function normalizeShape(s: unknown): StampShape {
+  const valid: StampShape[] = ["circle", "squircle", "shield", "star", "hex"];
+  return typeof s === "string" && (valid as string[]).includes(s)
+    ? (s as StampShape)
+    : "circle";
+}
+
+// Renvoie un <svg> top-level avec la forme demandée (path/circle/rect/polygon).
+// Pas de SVG nested, pas de clip-path — pur path SVG, supporté par Satori.
+function ShapeSvg({
+  shape,
+  size,
+  fill,
+  stroke,
+  strokeWidth,
+}: {
+  shape: StampShape;
+  size: number;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+}) {
+  const sw = strokeWidth;
   switch (shape) {
     case "squircle":
-      return "30%";
+      return (
+        <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "flex" }}>
+          <rect
+            x={2}
+            y={2}
+            width={44}
+            height={44}
+            rx={12}
+            ry={12}
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={sw}
+          />
+        </svg>
+      );
     case "shield":
-    case "hex":
-      return "20%"; // approximated; true polygons aren't reliably renderable in Satori
+      return (
+        <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "flex" }}>
+          <path
+            d="M24 3 L43 9 V24 C43 34 34 42 24 45 C14 42 5 34 5 24 V9 Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={sw}
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
     case "star":
-      return "50%"; // we'll add a halo to evoke a "star" feel in fallback
+      return (
+        <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "flex" }}>
+          <path
+            d="M24 3 L29.5 18.5 L45.5 19 L32.8 29 L37.5 44.5 L24 35 L10.5 44.5 L15.2 29 L2.5 19 L18.5 18.5 Z"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={sw}
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "hex":
+      return (
+        <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "flex" }}>
+          <polygon
+            points="24,3 43,13.5 43,34.5 24,45 5,34.5 5,13.5"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={sw}
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
     case "circle":
     default:
-      return "50%";
+      return (
+        <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "flex" }}>
+          <circle
+            cx={24}
+            cy={24}
+            r={22}
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={sw}
+          />
+        </svg>
+      );
   }
 }
 
@@ -151,6 +229,8 @@ export async function GET(
 
     // Visual config — accept multiple field naming conventions for forward compat.
     const accent = (design.accent_color as string) || "#10b981";
+    const background =
+      (design.background_color as string) || darken(accent, 0.0);
     const bannerUrl = (design.banner_url as string | null) || null;
     const stampActiveUrl =
       (design.stamp_active_url as string | null) ||
@@ -160,10 +240,7 @@ export async function GET(
       (design.stamp_inactive_url as string | null) ||
       (design.inactiveImageUrl as string | null) ||
       null;
-    const shape =
-      (design.stamp_shape as string) ||
-      (design.stamp_active_icon === "square" ? "squircle" : "circle");
-    const radius = shapeRadius(shape);
+    const shape = normalizeShape(design.stamp_shape);
 
     const stampsTotal = Math.max(1, Math.min(20, card.stamp_count));
     const stampsCollected = Math.max(
@@ -203,34 +280,34 @@ export async function GET(
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            // Si le commerçant a uploadé une bannière, on l'utilise en
-            // background avec un overlay sombre pour la lisibilité (style
-            // Boomerangme avec photo de plantes/desk en fond).
-            // Sinon, gradient accent plus dynamique.
+            // Banner photo si le merchant l'a uploadée. Sinon, un fond uni en
+            // background_color (la couleur de fond choisie par le merchant
+            // dans le designer) avec un léger gradient pour la profondeur.
             backgroundImage: bannerUrl ? `url(${bannerUrl})` : undefined,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            backgroundColor: bannerUrl ? "transparent" : accent,
+            backgroundColor: bannerUrl ? "transparent" : background,
             fontFamily: "system-ui, -apple-system, sans-serif",
             color: "white",
             padding: `${padding}px`,
             position: "relative",
           }}
         >
-          {/* Overlay : sombre si photo, gradient subtil sinon */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              display: "flex",
-              backgroundImage: bannerUrl
-                ? "linear-gradient(135deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.45) 100%)"
-                : `linear-gradient(135deg, ${accent} 0%, ${darken(accent, 0.22)} 100%)`,
-            }}
-          />
+          {/* Overlay : sombre si photo (lisibilité), discret sinon */}
+          {bannerUrl && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                backgroundImage:
+                  "linear-gradient(135deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.45) 100%)",
+              }}
+            />
+          )}
 
           <div
             style={{
@@ -257,7 +334,7 @@ export async function GET(
                   filled: s.filled,
                   size: stampSize,
                   iconFontSize,
-                  radius,
+                  shape,
                   accent,
                   activeUrl: stampActiveUrl,
                   inactiveUrl: stampInactiveUrl,
@@ -266,6 +343,23 @@ export async function GET(
                 }))}
               </div>
             ))}
+          </div>
+
+          {/* Footer "Powered by aswallet" — style Boomerangme */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 8,
+              right: 14,
+              display: "flex",
+              fontSize: 13,
+              color: bannerUrl ? "rgba(255,255,255,0.85)" : pickFooterColor(background),
+              fontWeight: 500,
+              letterSpacing: 0.3,
+              zIndex: 2,
+            }}
+          >
+            Powered by aswallet
           </div>
         </div>
       ),
@@ -288,7 +382,7 @@ interface StampProps {
   filled: boolean;
   size: number;
   iconFontSize: number;
-  radius: string;
+  shape: StampShape;
   accent: string;
   activeUrl: string | null;
   inactiveUrl: string | null;
@@ -299,6 +393,10 @@ interface StampProps {
 function renderStamp(p: StampProps) {
   const url = p.filled ? p.activeUrl : p.inactiveUrl;
   if (url) {
+    // Image custom uploadée par le merchant — on garde le ratio sans masquage,
+    // mais on respecte la shape via border-radius (compromis pratique).
+    const radiusForImg =
+      p.shape === "circle" ? "50%" : p.shape === "squircle" ? "30%" : "12%";
     return (
       <div
         key={p.key}
@@ -309,10 +407,9 @@ function renderStamp(p: StampProps) {
           alignItems: "center",
           justifyContent: "center",
           opacity: p.filled ? 1 : 0.6,
-          borderRadius: p.radius,
+          borderRadius: radiusForImg,
           overflow: "hidden",
           backgroundColor: "#ffffff",
-          border: `${Math.max(2, Math.round(p.size * 0.04))}px solid #ffffff`,
           boxShadow: "0 6px 16px rgba(0,0,0,0.22)",
         }}
       >
@@ -328,12 +425,13 @@ function renderStamp(p: StampProps) {
     );
   }
 
-  // Style Boomerangme : TOUJOURS un cercle blanc plein avec une icône
-  // dedans. L'icône est saturée en accent quand "filled", grisée (faible
-  // opacity de l'accent) quand vide. Donne un look pro même sans photo
-  // de fond et garantit que les tampons sont toujours visibles, sans se
-  // fondre dans le fond brun de la carte.
-  const borderWidth = Math.max(2, Math.round(p.size * 0.04));
+  // Style Boomerangme avec VRAIE forme SVG (star, shield, hex, etc.) au lieu
+  // d'un simple rond avec border-radius. Le SVG porte la forme + le fond
+  // blanc, on superpose le glyphe icône au centre via un span absolu.
+  const fill = "#ffffff";
+  const stroke = p.filled ? p.accent : "rgba(255,255,255,0.55)";
+  const strokeWidth = p.filled ? 1.2 : 2;
+  const iconColor = p.filled ? p.accent : "#9ca3af";
   return (
     <div
       key={p.key}
@@ -343,21 +441,48 @@ function renderStamp(p: StampProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#ffffff",
-        border: `${borderWidth}px solid #ffffff`,
-        borderRadius: p.radius,
-        boxShadow: p.filled
-          ? "0 6px 18px rgba(0,0,0,0.28)"
-          : "0 3px 10px rgba(0,0,0,0.18)",
-        color: p.filled ? p.accent : "#9ca3af",
-        fontSize: `${p.iconFontSize}px`,
-        fontWeight: 700,
-        lineHeight: 1,
+        position: "relative",
       }}
     >
-      {p.iconGlyph}
+      <ShapeSvg
+        shape={p.shape}
+        size={p.size}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: `${p.size}px`,
+          height: `${p.size}px`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: iconColor,
+          fontSize: `${p.iconFontSize}px`,
+          fontWeight: 700,
+          lineHeight: 1,
+        }}
+      >
+        {p.iconGlyph}
+      </div>
     </div>
   );
+}
+
+// Choisit une couleur de footer lisible selon la luminance du fond.
+// Fond clair -> texte foncé ; fond sombre -> texte clair.
+function pickFooterColor(bgHex: string): string {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((bgHex ?? "").trim());
+  if (!m) return "rgba(255,255,255,0.85)";
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.85)";
 }
 
 // Darken a hex color by a fraction (0..1).

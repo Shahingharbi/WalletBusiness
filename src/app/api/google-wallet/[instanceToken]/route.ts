@@ -70,7 +70,11 @@ export async function GET(
       stampsTotal: card.stamp_count,
       rewardsAvailable: instance.rewards_available,
       rewardText: card.reward_text,
-      bgColor: (design.accent_color as string) || "#10b981",
+      // Bg du pass = couleur de fond explicitement choisie par le merchant.
+      bgColor:
+        (design.background_color as string) ||
+        (design.accent_color as string) ||
+        "#ffffff",
       logoUrl: (design.logo_url as string | null) ?? card.businesses?.logo_url ?? null,
       bannerUrl: (design.banner_url as string | null) ?? null,
       appUrl,

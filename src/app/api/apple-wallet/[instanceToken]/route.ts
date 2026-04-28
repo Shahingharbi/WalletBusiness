@@ -74,7 +74,13 @@ export async function GET(
       stampsTotal: card.stamp_count,
       rewardsAvailable: instance.rewards_available,
       rewardText: card.reward_text,
-      bgColor: (design.accent_color as string) || "#10b981",
+      // Bg du pass = couleur de fond explicitement choisie par le merchant.
+      // Si manquante, fallback sur l'accent (rare car DEFAULT_CARD_DESIGN.background_color = "#ffffff").
+      backgroundColor:
+        (design.background_color as string) ||
+        (design.accent_color as string) ||
+        "#ffffff",
+      accentColor: (design.accent_color as string) || "#10b981",
       appUrl,
       logoUrl: merchantLogoUrl,
     });
