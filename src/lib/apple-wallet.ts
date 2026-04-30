@@ -1,4 +1,5 @@
 import { PKPass } from "passkit-generator";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -27,6 +28,7 @@ const WWDR_B64 = process.env.APPLE_WALLET_WWDR_BASE64 ?? "";
 const SIGNER_CERT_B64 = process.env.APPLE_WALLET_SIGNER_CERT_BASE64 ?? "";
 const SIGNER_KEY_B64 = process.env.APPLE_WALLET_SIGNER_KEY_BASE64 ?? "";
 const SIGNER_KEY_PASSPHRASE = process.env.APPLE_WALLET_SIGNER_KEY_PASSPHRASE ?? "";
+const AUTH_SECRET = process.env.APPLE_WALLET_AUTH_SECRET ?? "";
 
 const ICONS_DIR = path.join(process.cwd(), "public", "apple-wallet");
 
@@ -34,6 +36,52 @@ export function isAppleWalletConfigured(): boolean {
   return Boolean(
     TEAM_ID && PASS_TYPE_ID && WWDR_B64 && SIGNER_CERT_B64 && SIGNER_KEY_B64
   );
+}
+
+export function getApplePassTypeId(): string {
+  return PASS_TYPE_ID;
+}
+
+/**
+ * Génère un authenticationToken déterministe pour un pass donné.
+ * HMAC-SHA256(serialNumber, APPLE_WALLET_AUTH_SECRET) -> on n'a pas besoin
+ * de stocker le token : on peut le re-calculer à la volée pour vérifier
+ * les requêtes signées par iOS (header `Authorization: ApplePass <token>`).
+ */
+export function computeApplePassAuthToken(serialNumber: string): string {
+  if (!AUTH_SECRET) {
+    throw new Error(
+      "APPLE_WALLET_AUTH_SECRET is not configured — cannot compute pass auth token"
+    );
+  }
+  return crypto
+    .createHmac("sha256", AUTH_SECRET)
+    .update(serialNumber)
+    .digest("hex");
+}
+
+/**
+ * Vérification timing-safe d'un authenticationToken reçu d'iOS.
+ * Le format attendu du header est `ApplePass <token>` (cf. PassKit Web Service spec).
+ */
+export function verifyApplePassAuthHeader(
+  authorizationHeader: string | null,
+  serialNumber: string
+): boolean {
+  if (!authorizationHeader) return false;
+  const m = /^ApplePass\s+(.+)$/i.exec(authorizationHeader.trim());
+  if (!m) return false;
+  const provided = m[1].trim();
+  let expected: string;
+  try {
+    expected = computeApplePassAuthToken(serialNumber);
+  } catch {
+    return false;
+  }
+  const a = Buffer.from(provided, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 function loadIconBuffers() {
@@ -152,6 +200,16 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   // pour rester lisible sur tous fonds (Apple ajuste foregroundColor seul).
   const bgColor = hexToRgb(p.backgroundColor);
 
+  // PassKit Web Service : si on a un AUTH_SECRET, on embarque le webServiceURL
+  // et un authenticationToken par-pass pour activer les live updates via APNs.
+  // Sans secret configuré, on retombe sur l'ancien comportement (pass figé).
+  const liveUpdateProps = AUTH_SECRET
+    ? {
+        webServiceURL: `${p.appUrl.replace(/\/$/, "")}/api/apple-wallet`,
+        authenticationToken: computeApplePassAuthToken(p.customerInstanceToken),
+      }
+    : {};
+
   const pass = new PKPass(
     buffers,
     {
@@ -171,6 +229,7 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
       backgroundColor: bgColor,
       labelColor: "rgb(255, 255, 255)",
       logoText: p.businessName,
+      ...liveUpdateProps,
     }
   );
 

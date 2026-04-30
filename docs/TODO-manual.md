@@ -99,6 +99,34 @@ Si tu veux distribuer une app scanner native (au lieu de la webapp `/scanner`) :
 - Google Play Console (25 USD une fois)
 - Réécrire le scanner en React Native ou utiliser Capacitor pour wrapper la webapp
 
+## Apple Wallet — Live updates (PassKit Web Service + APNs)
+
+**Statut code** : entièrement implémenté.
+- Migration `005_apple_pass_devices.sql` appliquée (table `apple_pass_devices`).
+- 4 endpoints PassKit sous `/api/apple-wallet/v1/*` (register / unregister / list-updates / get-pass / log).
+- `pushAppleWalletUpdate()` (`src/lib/apple-wallet-push.ts`) appelé fire-and-forget depuis `/api/scan` après `syncLoyaltyObject`.
+- Env `APPLE_WALLET_AUTH_SECRET` ajouté sur Vercel (production/preview/development).
+
+**Hypothèse de cert APNs** : ce code suppose que le `.p12` Pass Type ID actuel
+(`APPLE_WALLET_SIGNER_CERT_BASE64` / `APPLE_WALLET_SIGNER_KEY_BASE64`) peut être
+réutilisé tel quel comme cert client TLS pour APNs (`api.push.apple.com:443`).
+C'est le comportement standard documenté par Apple : un Pass Type ID certificate
+est valable comme TLS cert pour les push notifications PassKit.
+
+**À vérifier en production** : déployer, ajouter un pass à un iPhone, scanner
+un tampon et observer les logs Vercel. Deux scénarios d'échec possibles :
+1. Si les logs montrent `[apple-wallet-push] APNs session error: ... DEPTH_ZERO_SELF_SIGNED_CERT` ou un handshake TLS qui échoue, c'est que le `.p12` actuel n'inclut pas la chaîne complète. Solution : régénérer le cert depuis le portail Apple Developer en exportant la **chaîne** (cert + intermédiaires Apple) dans le `.p12`.
+2. Si les logs montrent `status=403 reason=InvalidProviderToken` ou `BadCertificate`, c'est que ce cert n'est pas autorisé pour APNs. Solution : créer (gratuit, pas un cert séparé payant) un nouveau Pass Type ID dans le portail Apple Developer en cochant explicitement "APNs" — ou utiliser le mode token-based JWT (clé `.p8` au lieu de cert), à éviter ici car cela demande une refonte du push helper.
+
+**Pas d'env supplémentaire** : seuls les env existants + `APPLE_WALLET_AUTH_SECRET`
+(déjà en place) sont nécessaires.
+
+**Test end-to-end manuel à faire après déploiement** :
+1. Sur un iPhone (iOS 14+), ouvrir une carte client (`/c/{token}/status/{instanceToken}`), cliquer "Ajouter à Apple Wallet". Vérifier que le pass s'installe.
+2. Côté serveur (Supabase) : `SELECT * FROM apple_pass_devices` → la row doit apparaître quelques secondes après l'install (iOS POST register).
+3. Depuis le scanner web, scanner un tampon. Le pass sur l'iPhone doit se mettre à jour automatiquement (compteur "X / Y" et strip image rafraîchis) en quelques secondes.
+4. Si KO : ouvrir Console.app sur Mac avec l'iPhone branché et filtrer par "PassKit" ; les erreurs `Apple` (e.g. signing, web service unreachable) y apparaissent.
+
 ## 9. Google OAuth ("Continuer avec Google")
 
 **Pourquoi** : le code a un bouton "Continuer avec Google" sur `/login` et `/register` (flow PKCE via `@supabase/ssr`, callback sur `/auth/callback`). Pour qu'il fonctionne il faut activer le provider Google côté Supabase et créer les credentials OAuth côté Google Cloud.

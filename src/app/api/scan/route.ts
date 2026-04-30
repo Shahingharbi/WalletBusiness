@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncLoyaltyObject } from "@/lib/google-wallet";
+import { pushAppleWalletUpdate } from "@/lib/apple-wallet-push";
 import { sendEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
@@ -167,6 +168,12 @@ export async function POST(request: Request) {
       undefined,
       card.stamp_count
     );
+
+    // Push Apple Wallet (live update via APNs). Fire-and-forget : tout
+    // problème APNs ne doit jamais faire échouer le scan.
+    void pushAppleWalletUpdate(instance.token).catch((err) => {
+      console.error("[scan] pushAppleWalletUpdate failed:", err);
+    });
 
     // Notify customer if a new reward was just earned. Fire-and-forget.
     if (rewardEarned) {
