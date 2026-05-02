@@ -88,6 +88,7 @@ export async function GET(
         (design.background_color as string) ||
         (design.accent_color as string) ||
         "#ffffff",
+      textColor: (design.text_color as string | undefined) || undefined,
       accentColor: (design.accent_color as string) || "#10b981",
       appUrl,
       logoUrl: merchantLogoUrl,

@@ -11,6 +11,21 @@ interface InstallFormProps {
   businessName: string;
 }
 
+/**
+ * Choisit la couleur de texte la plus lisible sur un fond hex donné.
+ * Fond clair (luminance > 0.6) -> texte noir ; sinon blanc.
+ * Empêche les "boutons invisibles" quand l'accent_color est blanc / pastel.
+ */
+function pickContrast(bgHex: string): string {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((bgHex ?? "").trim());
+  if (!m) return "#ffffff";
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "#141414" : "#ffffff";
+}
+
 export function InstallForm({ cardId, accentColor, businessName }: InstallFormProps) {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
@@ -121,7 +136,14 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
         loading={loading}
         disabled={!consent || !firstName.trim()}
         className="w-full text-base font-semibold"
-        style={{ backgroundColor: accentColor }}
+        style={{
+          backgroundColor: accentColor,
+          // Auto-contraste : si l'accent est trop clair (luminance > 0.6),
+          // on force le texte foncé pour rester lisible. Évite "bouton blanc
+          // avec texte blanc invisible" quand le merchant choisit un accent
+          // pâle (ex: pastel, blanc).
+          color: pickContrast(accentColor),
+        }}
       >
         Obtenir ma carte de fidélité
       </Button>

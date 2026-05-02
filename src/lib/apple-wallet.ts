@@ -38,6 +38,8 @@ interface ApplePassParams {
   rewardSubtitle?: string | null;
   /** Couleur de FOND du pass (la couleur dominante derrière tout le contenu). */
   backgroundColor: string;
+  /** Couleur du TEXTE principal (valeurs des fields). */
+  textColor?: string;
   /** Couleur d'accent (texte secondaire, icônes des tampons remplis). */
   accentColor?: string;
   appUrl: string;
@@ -133,6 +135,26 @@ function hexToRgb(hex: string): string {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
   if (!m) return "rgb(16, 185, 129)";
   return `rgb(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)})`;
+}
+
+// Calcule la luminance perçue d'une couleur hex (0..1). >0.6 = couleur claire.
+// Sert au choix automatique de contraste pour le texte sur le pass.
+function luminance(hex: string): number {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((hex ?? "").trim());
+  if (!m) return 0;
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+// Choisit la couleur de texte la plus lisible sur un fond donné.
+// - Fond clair (luminance > 0.6) -> texte noir
+// - Fond sombre -> texte blanc
+function autoForeground(bgHex: string): string {
+  return luminance(bgHex) > 0.6
+    ? "rgb(20, 20, 20)"
+    : "rgb(255, 255, 255)";
 }
 
 // Récupère le logo du commerçant et le pousse comme logo.png Apple Wallet
@@ -234,11 +256,30 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   ]);
   // Order matters: defaults first, merchant logo overrides them, strip last.
   const buffers = { ...loadIconBuffers(), ...merchantLogo, ...stripBuffers };
-  // Apple attend `backgroundColor` (la teinte dominante du pass) et
-  // `labelColor` (couleur des labels des fields). Le bg = la couleur que le
-  // merchant a explicitement choisie pour fond. labelColor = blanc forcé
-  // pour rester lisible sur tous fonds (Apple ajuste foregroundColor seul).
+  // Apple Wallet : 3 couleurs pilotables via pass.json :
+  //  - backgroundColor : fond du pass (couleur dominante derrière le contenu)
+  //  - foregroundColor : texte des VALEURS des fields (gros, central)
+  //  - labelColor      : texte des LABELS au-dessus des valeurs (petit, uppercase)
+  //
+  // Stratégie : si le merchant a choisi un text_color explicite, on l'utilise
+  // pour foregroundColor. Sinon on auto-contraste selon le fond (texte noir
+  // sur fond clair, blanc sur fond sombre). labelColor suit le même choix
+  // mais avec une opacité visuelle réduite (Apple gère le rendu).
+  //
+  // Cas user "fond blanc + texte blanc" -> auto-fix : on force foreground
+  // noir car luminance(white) > 0.6.
   const bgColor = hexToRgb(p.backgroundColor);
+  const textColorHex =
+    p.textColor && p.textColor.trim().length > 0
+      ? p.textColor.trim()
+      : null;
+  const fgColor = textColorHex
+    ? hexToRgb(textColorHex)
+    : autoForeground(p.backgroundColor);
+  // labelColor : on prend la même teinte que foreground mais légèrement
+  // dégradée (Apple les rend en uppercase + plus petit, donc on doit garantir
+  // qu'ils restent lisibles). Pour simplicité on les garde identiques au fg.
+  const labelColor = fgColor;
 
   // PassKit Web Service : si on a un AUTH_SECRET, on embarque le webServiceURL
   // et un authenticationToken par-pass pour activer les live updates via APNs.
@@ -265,9 +306,9 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
       serialNumber: p.customerInstanceToken,
       description: `${p.cardName} — ${p.businessName}`,
       organizationName: p.businessName,
-      foregroundColor: "rgb(255, 255, 255)",
+      foregroundColor: fgColor,
       backgroundColor: bgColor,
-      labelColor: "rgb(255, 255, 255)",
+      labelColor,
       // Top-left du pass : par défaut on affiche le NOM DE LA CARTE (Suprême
       // Tacos, Carte café, etc.) car c'est ce que les merchants attendent —
       // c'est leur marque produit. Le nom du business interne n'apparaît plus
