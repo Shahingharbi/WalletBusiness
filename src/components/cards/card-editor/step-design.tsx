@@ -86,11 +86,6 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
     values.accent_color
   );
   const [advancedOpen, setAdvancedOpen] = useState(!matchedPreset);
-  // État local pour le toggle "Supprimer le fond blanc du logo". Coché par
-  // défaut (cas le plus courant : logo PNG sur fond blanc plein). Le merchant
-  // peut le décocher si son logo a du blanc intérieur (texte blanc sur fond
-  // coloré) qu'il ne veut pas perdre.
-  const [removeLogoWhiteBg, setRemoveLogoWhiteBg] = useState(true);
 
   const applyPreset = (preset: (typeof COLOR_PRESETS)[number]) => {
     onChange({
@@ -237,27 +232,24 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
             folder="logos"
             aspect="square"
             kind="logo"
-            removeWhiteBg={removeLogoWhiteBg}
             hint={
               values.logo_url
-                ? "Carré, fond transparent recommandé"
-                : "Recommandé : carré, PNG, 200×200 minimum. Affiché en haut à gauche du wallet."
+                ? "Pour un rendu pro : utilisez un PNG sans fond."
+                : "PNG carré 200×200 minimum. Pour un rendu pro, fond transparent."
             }
           />
-          <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={removeLogoWhiteBg}
-              onChange={(e) => setRemoveLogoWhiteBg(e.target.checked)}
-              className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
-            />
-            <span>
-              Supprimer le fond blanc du logo
-              <span className="block text-[10px] text-gray-400 leading-tight">
-                Recommandé. Décochez si votre logo contient du texte blanc à l&apos;intérieur.
-              </span>
-            </span>
-          </label>
+          <p className="text-[11px] text-gray-500 leading-snug">
+            💡 Pas de logo sans fond ? Rendez le vôtre transparent gratuitement sur{" "}
+            <a
+              href="https://www.remove.bg/upload"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-black underline underline-offset-2"
+            >
+              remove.bg
+            </a>{" "}
+            puis re-uploadez ici.
+          </p>
         </div>
         <ImageUpload
           label="Bannière / image de fond"

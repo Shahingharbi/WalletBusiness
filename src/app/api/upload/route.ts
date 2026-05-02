@@ -64,18 +64,14 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File | null;
     const bucket = (formData.get("bucket") as string) || "card-assets";
     const folder = (formData.get("folder") as string) || "uploads";
-    // `kind` distingue le type d'asset uploadé. Pour `kind=logo` on active par
-    // défaut le retrait du fond blanc (très courant chez les merchants qui
-    // exportent un logo PNG depuis Word/Canva avec fond blanc).
+    // `kind` distingue le type d'asset (logo / banner / stamp).
+    // Note historique : on a tenté un retrait auto du fond blanc côté serveur
+    // (seuil naïf RGB ≥ 240) — ça baveait trop sur les logos avec dégradés ou
+    // texte intérieur. Désactivé. Le merchant doit fournir un PNG transparent
+    // (outil gratuit recommandé : remove.bg). Voir hint dans step-design.tsx.
     const kind = (formData.get("kind") as string) || "";
-    // Le merchant peut désactiver explicitement le retrait du fond blanc via
-    // `removeBg=0` (utile pour un logo avec texte blanc à l'intérieur d'un
-    // fond coloré, sinon le seuil naïf strip aussi le texte intérieur).
-    const removeBgRaw = (formData.get("removeBg") as string) || "";
-    const removeBgFlag = removeBgRaw === "1" || removeBgRaw === "true";
-    const removeBgDisabled = removeBgRaw === "0" || removeBgRaw === "false";
-    const shouldRemoveWhiteBg =
-      kind === "logo" ? !removeBgDisabled : removeBgFlag;
+    void kind; // gardé pour compat upload component, plus utilisé serveur-side
+    const shouldRemoveWhiteBg = false;
 
     if (!file) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
