@@ -184,22 +184,30 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
         </button>
 
         {advancedOpen && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-gray-100">
-            <ColorField
-              label="Couleur de fond"
-              value={values.background_color}
-              onChange={(v) => update("background_color", v)}
-            />
-            <ColorField
-              label="Couleur du texte"
-              value={values.text_color}
-              onChange={(v) => update("text_color", v)}
-            />
-            <ColorField
-              label="Couleur d'accent"
-              value={values.accent_color}
-              onChange={(v) => update("accent_color", v)}
-            />
+          <div className="space-y-2 pt-2 border-t border-gray-100">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <ColorField
+                label="Couleur de fond"
+                value={values.background_color}
+                onChange={(v) => update("background_color", v)}
+              />
+              <ColorField
+                label="Couleur du texte"
+                value={values.text_color}
+                onChange={(v) => update("text_color", v)}
+              />
+              <ColorField
+                label="Couleur d'accent"
+                value={values.accent_color}
+                onChange={(v) => update("accent_color", v)}
+              />
+            </div>
+            <p className="text-[11px] text-gray-500 leading-snug">
+              Astuce : Google Wallet adapte automatiquement la couleur du texte
+              selon le fond. Avec un fond très clair, certains éléments peuvent
+              rester en blanc — préférez un fond bien contrasté (foncé ou
+              vif).
+            </p>
           </div>
         )}
       </div>

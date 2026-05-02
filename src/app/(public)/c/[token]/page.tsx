@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
+import { pickContrast } from "@/lib/utils";
 import { InstallForm } from "./install-form";
 
 export async function generateMetadata({
@@ -86,6 +87,12 @@ export default async function CardInstallPage({
   const business = card.businesses as unknown as { id: string; name: string; logo_url: string | null; slug: string } | null;
   const businessName = business?.name ?? "Commerce";
   const logoUrl = (design.logo_url as string | null) ?? business?.logo_url ?? null;
+  // Auto-contraste : sans banner image, le titre apparaît sur l'accent_color
+  // pur. Si l'accent est très clair (blanc, pastel), du texte blanc devient
+  // illisible. On bascule sur du texte foncé.
+  const hasBanner = Boolean(design.banner_url);
+  const headerTextColor = hasBanner ? "#ffffff" : pickContrast(design.accent_color as string);
+  const headerSubTextColor = hasBanner ? "rgba(255,255,255,0.8)" : (headerTextColor === "#ffffff" ? "rgba(255,255,255,0.8)" : "rgba(20,20,20,0.7)");
 
   return (
     <div className="min-h-[80vh] flex flex-col">
@@ -99,7 +106,9 @@ export default async function CardInstallPage({
           backgroundPosition: "center",
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+        {hasBanner && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+        )}
         <div className="relative z-10 px-4 sm:px-6 pb-5 w-full">
           <div className="flex items-center gap-3">
             {logoUrl ? (
@@ -116,8 +125,8 @@ export default async function CardInstallPage({
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-white/80 text-sm font-medium truncate">{businessName}</p>
-              <h1 className="text-white text-lg sm:text-xl font-bold break-words">{card.name}</h1>
+              <p className="text-sm font-medium truncate" style={{ color: headerSubTextColor }}>{businessName}</p>
+              <h1 className="text-lg sm:text-xl font-bold break-words" style={{ color: headerTextColor }}>{card.name}</h1>
             </div>
           </div>
         </div>
@@ -136,7 +145,17 @@ export default async function CardInstallPage({
           <p className="text-sm text-gray-600 mb-1">
             Collectez <span className="font-bold text-gray-900">{card.max_stamps} tampons</span> et gagnez :
           </p>
-          <p className="text-base font-semibold" style={{ color: design.accent_color as string }}>
+          <p
+            className="text-base font-semibold"
+            style={{
+              // Garde la couleur accent quand elle est lisible sur fond gris
+              // clair, sinon (accent quasi-blanc) fallback sur du texte foncé.
+              color:
+                pickContrast(design.accent_color as string) === "#ffffff"
+                  ? (design.accent_color as string)
+                  : "#111827",
+            }}
+          >
             {card.reward_text}
           </p>
         </div>

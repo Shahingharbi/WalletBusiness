@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
 import { StampDisplay } from "@/components/cards/stamp-display";
-import { formatRelative } from "@/lib/utils";
+import { formatRelative, pickContrast } from "@/lib/utils";
 import { isGoogleWalletConfigured } from "@/lib/google-wallet";
 import { isAppleWalletConfigured } from "@/lib/apple-wallet";
 import { WalletButtons } from "@/components/public/wallet-buttons";
@@ -77,6 +77,15 @@ export default async function CardStatusPage({
   const googleWalletAvailable = isGoogleWalletConfigured();
   const appleWalletAvailable = isAppleWalletConfigured();
 
+  // Auto-contraste : si pas de banner image, le texte du header est posé sur
+  // l'accent_color pur. On bascule sur du texte foncé quand l'accent est clair
+  // (sinon "Suprême Tacos" en blanc sur fond blanc = invisible).
+  const hasBanner = Boolean(design.banner_url);
+  const headerTextColor = hasBanner ? "#ffffff" : pickContrast(design.accent_color as string);
+  const headerSubTextColor = hasBanner
+    ? "rgba(255,255,255,0.85)"
+    : (headerTextColor === "#ffffff" ? "rgba(255,255,255,0.85)" : "rgba(20,20,20,0.7)");
+
   return (
     <div className="min-h-[80vh] flex flex-col">
       {/* Header with optional banner + overlay */}
@@ -91,14 +100,14 @@ export default async function CardStatusPage({
           backgroundPosition: "center",
         }}
       >
-        <div
-          className="absolute inset-0"
-          style={{
-            background: (design.banner_url as string | null)
-              ? `linear-gradient(135deg, ${design.accent_color}cc 0%, rgba(0,0,0,0.35) 100%)`
-              : `linear-gradient(135deg, transparent 0%, rgba(0,0,0,0.18) 100%)`,
-          }}
-        />
+        {hasBanner && (
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(135deg, ${design.accent_color}cc 0%, rgba(0,0,0,0.35) 100%)`,
+            }}
+          />
+        )}
         <div className="relative flex items-center gap-3">
           {logoUrl ? (
             <img
@@ -114,8 +123,8 @@ export default async function CardStatusPage({
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-white/85 text-xs font-medium drop-shadow-sm truncate">{businessName}</p>
-            <h1 className="text-white text-lg font-bold drop-shadow-sm break-words">{card.name}</h1>
+            <p className="text-xs font-medium truncate" style={{ color: headerSubTextColor }}>{businessName}</p>
+            <h1 className="text-lg font-bold break-words" style={{ color: headerTextColor }}>{card.name}</h1>
           </div>
         </div>
       </div>

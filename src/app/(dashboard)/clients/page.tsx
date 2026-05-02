@@ -226,7 +226,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                   <th className="px-5 py-3 font-medium">Tampons</th>
                   <th className="px-5 py-3 font-medium">Récompenses</th>
                   <th className="px-5 py-3 font-medium">Dernier scan</th>
-                  <th className="px-5 py-3 font-medium">Statut</th>
+                  <th className="px-5 py-3 font-medium">Segment</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

@@ -85,7 +85,7 @@ export function KpiCard({
                       ? `${delta}`
                       : "0"}
               </span>
-              <span className="text-muted-foreground">vs periode precedente</span>
+              <span className="text-muted-foreground">vs période précédente</span>
             </div>
           )}
         </div>

@@ -21,6 +21,22 @@ export function formatDate(date: string | Date, style: "short" | "long" = "short
   });
 }
 
+/**
+ * Choisit la couleur de texte la plus lisible sur un fond hex donné.
+ * Fond clair (luminance > 0.6) -> texte noir ; sinon blanc.
+ * Empêche les "boutons invisibles" / "titres invisibles" quand un merchant
+ * choisit un accent_color trop pâle (blanc, pastel…).
+ */
+export function pickContrast(bgHex: string): string {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((bgHex ?? "").trim());
+  if (!m) return "#ffffff";
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "#141414" : "#ffffff";
+}
+
 export function formatRelative(date: string | Date): string {
   const now = new Date();
   const d = new Date(date);
