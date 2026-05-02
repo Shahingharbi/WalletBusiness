@@ -26,7 +26,7 @@ export async function GET(
       .from("card_instances")
       .select(`
         id, token, business_id, stamps_collected, rewards_available, status,
-        cards(id, name, stamp_count, reward_text, design, barcode_type, wallet_business_name, businesses(name, logo_url)),
+        cards(id, name, stamp_count, reward_text, design, barcode_type, wallet_business_name, reward_subtitle, businesses(name, logo_url)),
         clients(first_name, last_name)
       `)
       .eq("token", instanceToken)
@@ -44,6 +44,7 @@ export async function GET(
       design: Record<string, unknown>;
       barcode_type: "qr" | "pdf417" | null;
       wallet_business_name: string | null;
+      reward_subtitle: string | null;
       businesses: { name: string; logo_url: string | null } | null;
     };
     const client = instance.clients as unknown as {
@@ -76,6 +77,7 @@ export async function GET(
       stampsTotal: card.stamp_count,
       rewardsAvailable: instance.rewards_available,
       rewardText: card.reward_text,
+      rewardSubtitle: card.reward_subtitle,
       // Bg du pass = couleur de fond explicitement choisie par le merchant.
       bgColor:
         (design.background_color as string) ||

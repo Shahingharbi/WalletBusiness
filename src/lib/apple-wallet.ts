@@ -30,6 +30,12 @@ interface ApplePassParams {
   stampsTotal: number;
   rewardsAvailable: number;
   rewardText: string;
+  /**
+   * Phrase courte décrivant l'offre, affichée à la place du compteur
+   * "X tampons" dans les auxiliaryFields du pass. Ex: "12 tampons = 1 sandwich".
+   * Vide / null => fallback sur le calcul automatique.
+   */
+  rewardSubtitle?: string | null;
   /** Couleur de FOND du pass (la couleur dominante derrière tout le contenu). */
   backgroundColor: string;
   /** Couleur d'accent (texte secondaire, icônes des tampons remplis). */
@@ -262,10 +268,14 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
       foregroundColor: "rgb(255, 255, 255)",
       backgroundColor: bgColor,
       labelColor: "rgb(255, 255, 255)",
-      // Le merchant peut surcharger le nom affiché en haut du pass via
-      // wallet_business_name. À défaut, on garde le nom du commerce.
+      // Top-left du pass : par défaut on affiche le NOM DE LA CARTE (Suprême
+      // Tacos, Carte café, etc.) car c'est ce que les merchants attendent —
+      // c'est leur marque produit. Le nom du business interne n'apparaît plus
+      // que si l'utilisateur force via wallet_business_name (ex: franchise
+      // qui veut afficher le nom de l'enseigne sur toutes ses cartes).
       logoText:
         (p.walletBusinessName && p.walletBusinessName.trim()) ||
+        p.cardName ||
         p.businessName,
       // Apple Wallet : un pass peut embarquer jusqu'à 10 locations. iOS
       // déclenche une notification sur l'écran verrouillé quand le porteur
@@ -317,12 +327,23 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   }
 
   const remaining = Math.max(0, p.stampsTotal - p.stampsCollected);
+  // Si le merchant a renseigné un "Texte de l'offre" (ex: "12 tampons = 1 sandwich"),
+  // on l'affiche en label "Notre offre" à la place du compteur générique.
+  // Sinon fallback historique sur "{remaining} tampons" sous le label
+  // "Prochaine récompense".
+  const subtitle = (p.rewardSubtitle ?? "").trim();
   pass.auxiliaryFields.push(
-    {
-      key: "till-reward",
-      label: "Prochaine récompense",
-      value: `${remaining} tampons`,
-    },
+    subtitle.length > 0
+      ? {
+          key: "till-reward",
+          label: "Notre offre",
+          value: subtitle,
+        }
+      : {
+          key: "till-reward",
+          label: "Prochaine récompense",
+          value: `${remaining} tampons`,
+        },
     {
       key: "rewards-available",
       label: "Récompenses dispo",
@@ -341,6 +362,17 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
       label: "Récompense",
       value: p.rewardText,
     },
+    // Le texte d'offre est aussi mis au verso : auxiliaryFields tronque parfois
+    // les longues phrases, le verso garantit la version complète.
+    ...(subtitle.length > 0
+      ? [
+          {
+            key: "offer-subtitle",
+            label: "Notre offre",
+            value: subtitle,
+          },
+        ]
+      : []),
     {
       key: "view-online",
       label: "Voir ma carte en ligne",

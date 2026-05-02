@@ -64,6 +64,18 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File | null;
     const bucket = (formData.get("bucket") as string) || "card-assets";
     const folder = (formData.get("folder") as string) || "uploads";
+    // `kind` distingue le type d'asset uploadé. Pour `kind=logo` on active par
+    // défaut le retrait du fond blanc (très courant chez les merchants qui
+    // exportent un logo PNG depuis Word/Canva avec fond blanc).
+    const kind = (formData.get("kind") as string) || "";
+    // Le merchant peut désactiver explicitement le retrait du fond blanc via
+    // `removeBg=0` (utile pour un logo avec texte blanc à l'intérieur d'un
+    // fond coloré, sinon le seuil naïf strip aussi le texte intérieur).
+    const removeBgRaw = (formData.get("removeBg") as string) || "";
+    const removeBgFlag = removeBgRaw === "1" || removeBgRaw === "true";
+    const removeBgDisabled = removeBgRaw === "0" || removeBgRaw === "false";
+    const shouldRemoveWhiteBg =
+      kind === "logo" ? !removeBgDisabled : removeBgFlag;
 
     if (!file) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
@@ -109,11 +121,44 @@ export async function POST(request: Request) {
       // Convertir ici garantit que tous les logos/bannières/tampons fonctionnent
       // dans le wallet, indépendamment de la source (mobile vs desktop, iPhone vs Android).
       try {
-        const converted = await sharp(inputBuf, { failOn: "none" })
-          .rotate() // applique l'EXIF orientation (sinon photo iPhone tournée 90°)
-          .png({ compressionLevel: 9, adaptiveFiltering: true })
-          .toBuffer();
-        outBuf = Buffer.from(converted);
+        if (shouldRemoveWhiteBg) {
+          // Retrait du fond blanc : on bascule en raw RGBA, on parcourt chaque
+          // pixel, et on rend transparent ceux dont les 3 canaux dépassent le
+          // seuil "blanc" (240/255). C'est l'approche naïve — elle suffit dans
+          // 95% des cas (logos exportés sur fond blanc plein), au prix de
+          // strip aussi les blancs intérieurs (texte blanc, etc.). Le merchant
+          // peut désactiver via removeBg=0 pour ces cas.
+          const pipeline = sharp(inputBuf, { failOn: "none" })
+            .rotate()
+            .ensureAlpha();
+          const { data, info } = await pipeline
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+          const { width, height, channels } = info; // 4 (RGBA) garanti par ensureAlpha()
+          const out = Buffer.from(data);
+          const THRESHOLD = 240;
+          for (let i = 0; i < out.length; i += channels) {
+            if (
+              out[i] >= THRESHOLD &&
+              out[i + 1] >= THRESHOLD &&
+              out[i + 2] >= THRESHOLD
+            ) {
+              out[i + 3] = 0;
+            }
+          }
+          const finalPng = await sharp(out, {
+            raw: { width, height, channels: channels as 3 | 4 },
+          })
+            .png({ compressionLevel: 9, adaptiveFiltering: true })
+            .toBuffer();
+          outBuf = Buffer.from(finalPng);
+        } else {
+          const converted = await sharp(inputBuf, { failOn: "none" })
+            .rotate() // applique l'EXIF orientation (sinon photo iPhone tournée 90°)
+            .png({ compressionLevel: 9, adaptiveFiltering: true })
+            .toBuffer();
+          outBuf = Buffer.from(converted);
+        }
       } catch (err) {
         console.error("[upload] sharp PNG conversion failed:", err);
         return NextResponse.json(

@@ -23,6 +23,13 @@ export interface CardSettings {
    * Vide => fallback sur le nom du commerce (`businesses.name`).
    */
   walletBusinessName: string;
+  /**
+   * Phrase courte affichée à la place du compteur "X tampons restants" dans
+   * le pass wallet. Permet au merchant de communiquer l'offre concrète :
+   * "12 tampons = 1 sandwich offert à 6,50€". Vide => fallback sur le calcul
+   * automatique "{remaining} tampons".
+   */
+  rewardSubtitle: string;
 }
 
 interface StepSettingsProps {
@@ -156,6 +163,17 @@ export function StepSettings({ values, onChange, errors, cardType = "stamp", bus
             ? "Soyez court et concret. Le texte s'affiche en gros sur la carte du client."
             : undefined
         }
+      />
+
+      {/* Texte de l'offre (court, optionnel) — remplace le compteur générique
+          "X tampons" dans le pass wallet par une phrase plus parlante. */}
+      <Input
+        label="Texte de l'offre (court, max 60 caractères)"
+        placeholder="Ex: 12 tampons = 1 sandwich offert"
+        value={values.rewardSubtitle}
+        maxLength={60}
+        onChange={(e) => update("rewardSubtitle", e.target.value.slice(0, 60))}
+        hint="Optionnel — affiché à la place de « X tampons » sur la carte du wallet pour expliquer l'offre d'un coup d'œil."
       />
 
       {/* Barcode type */}

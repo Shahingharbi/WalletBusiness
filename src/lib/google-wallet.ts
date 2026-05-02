@@ -17,6 +17,11 @@ interface PassParams {
   stampsTotal: number;
   rewardsAvailable: number;
   rewardText: string;
+  /**
+   * Phrase courte décrivant l'offre, ajoutée en première position des
+   * `textModulesData` (header "Notre offre"). Ex: "12 tampons = 1 sandwich".
+   */
+  rewardSubtitle?: string | null;
   /** Couleur de FOND du pass (hex). */
   bgColor: string;
   logoUrl?: string | null;
@@ -52,9 +57,14 @@ function objectId(instanceToken: string): string {
 
 function buildLoyaltyClass(p: PassParams) {
   const logoUri = p.logoUrl ?? FALLBACK_LOGO_URL;
-  // Display name in the wallet (top of the pass) — merchant override wins.
+  // Display name au top du pass : on prend le nom de la carte par défaut
+  // (Suprême Tacos, Carte café…) car c'est la marque produit que les merchants
+  // veulent afficher. Le nom du business interne ("Demo aswallet") ne fuite
+  // plus que si l'utilisateur le force via wallet_business_name.
   const displayName =
-    (p.walletBusinessName && p.walletBusinessName.trim()) || p.businessName;
+    (p.walletBusinessName && p.walletBusinessName.trim()) ||
+    p.cardName ||
+    p.businessName;
   // No class-level heroImage: the per-object heroImage (dynamic stamp grid)
   // is always set, so a class fallback would only add noise.
   // Google Wallet `locations` : array d'objets {latitude, longitude}.
@@ -172,6 +182,12 @@ function buildLoyaltyObject(p: PassParams) {
   // moches de secondaryLoyaltyPoints.
   const remaining = Math.max(0, p.stampsTotal - p.stampsCollected);
   const modules: Array<{ id: string; header: string; body: string }> = [];
+  // Si le merchant a renseigné un "Texte de l'offre", on le met EN PREMIER —
+  // c'est la phrase la plus parlante pour le client (ex: "12 tampons = 1 sandwich").
+  const subtitle = (p.rewardSubtitle ?? "").trim();
+  if (subtitle.length > 0) {
+    modules.push({ id: "subtitle", header: "Notre offre", body: subtitle });
+  }
   if (rewardText) {
     modules.push({ id: "reward", header: "Récompense", body: rewardText });
   }

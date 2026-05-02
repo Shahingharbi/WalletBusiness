@@ -145,11 +145,18 @@ export async function GET(
     // ensuite leurs propres champs autour).
     // Tampons gros et blancs comme Boomerangme : on accepte d'aller jusqu'à
     // 200px pour qu'ils dominent le strip, comme dans la capture KFC/Boomerang.
-    const padding = 28;
-    const gap = 18;
+    // Padding adaptatif : on respire plus quand on a peu de tampons (gros stamps),
+    // mais on resserre la marge horizontale quand on en a 12+ (sinon les bords
+    // de l'iPhone collent les tampons et c'est moche). On limite aussi la
+    // taille max d'un tampon à 110px en grille dense pour éviter les "boutons"
+    // géants qui mangent toute l'image.
+    const dense = stampsTotal >= 12;
+    const padding = dense ? 56 : 28;
+    const gap = dense ? 14 : 18;
     const maxByW = (WIDTH - padding * 2 - gap * (cols - 1)) / cols;
     const maxByH = (HEIGHT - padding * 2 - gap * (rows - 1)) / rows;
-    const stampSize = Math.max(60, Math.min(200, Math.floor(Math.min(maxByW, maxByH))));
+    const upperCap = dense ? 110 : 200;
+    const stampSize = Math.max(60, Math.min(upperCap, Math.floor(Math.min(maxByW, maxByH))));
 
     const stamps: Array<{ filled: boolean; idx: number }> = [];
     for (let i = 0; i < stampsTotal; i++) {

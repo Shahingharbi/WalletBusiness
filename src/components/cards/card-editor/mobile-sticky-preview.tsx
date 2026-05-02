@@ -17,6 +17,8 @@ interface MobileStickyPreviewProps {
   topOffset?: number;
   businessName?: string;
   walletBusinessName?: string | null;
+  /** Phrase courte qui remplace "X tampons restants" dans le preview détaillé. */
+  rewardSubtitle?: string | null;
 }
 
 /**
@@ -38,6 +40,7 @@ export function MobileStickyPreview({
   topOffset = 0,
   businessName,
   walletBusinessName,
+  rewardSubtitle,
 }: MobileStickyPreviewProps) {
   const [open, setOpen] = useState(false);
 
@@ -218,6 +221,7 @@ export function MobileStickyPreview({
                 barcodeType={barcodeType}
                 businessName={businessName || undefined}
                 walletBusinessName={walletBusinessName ?? null}
+                rewardSubtitle={rewardSubtitle ?? null}
               />
             </div>
           </div>

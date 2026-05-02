@@ -56,6 +56,7 @@ export default async function EditCardPage({
           : "",
         expirationDays: card.expiration_days ?? 30,
         walletBusinessName: card.wallet_business_name ?? "",
+        rewardSubtitle: card.reward_subtitle ?? "",
       }}
       initialDesign={design}
       status={card.status}

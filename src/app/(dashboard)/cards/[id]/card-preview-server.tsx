@@ -10,6 +10,8 @@ interface CardPreviewServerProps {
     reward_text: string;
     card_type?: CardType;
     barcode_type?: "qr" | "pdf417";
+    wallet_business_name?: string | null;
+    reward_subtitle?: string | null;
   };
   design: Record<string, unknown>;
   businessName?: string;
@@ -32,6 +34,8 @@ export function CardPreviewServer({ card, design, businessName }: CardPreviewSer
         cardType={card.card_type ?? "stamp"}
         barcodeType={card.barcode_type ?? "qr"}
         businessName={businessName}
+        walletBusinessName={card.wallet_business_name ?? null}
+        rewardSubtitle={card.reward_subtitle ?? null}
       />
     </div>
   );

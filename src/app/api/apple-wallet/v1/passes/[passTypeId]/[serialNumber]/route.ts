@@ -48,7 +48,7 @@ export async function GET(request: Request, ctx: RouteCtx) {
       `
         id, token, stamps_collected, rewards_available, status, updated_at,
         clients(first_name),
-        cards(id, name, stamp_count, reward_text, design, businesses(name, logo_url))
+        cards(id, name, stamp_count, reward_text, design, wallet_business_name, reward_subtitle, businesses(name, logo_url))
       `
     )
     .eq("token", serialNumber)
@@ -82,6 +82,8 @@ export async function GET(request: Request, ctx: RouteCtx) {
     stamp_count: number;
     reward_text: string;
     design: Record<string, unknown>;
+    wallet_business_name: string | null;
+    reward_subtitle: string | null;
     businesses: { name: string; logo_url: string | null } | null;
   };
   const client = instance.clients as unknown as {
@@ -97,12 +99,14 @@ export async function GET(request: Request, ctx: RouteCtx) {
     cardId: card.id,
     cardName: card.name,
     businessName,
+    walletBusinessName: card.wallet_business_name,
     customerInstanceToken: instance.token,
     customerFirstName: client?.first_name ?? null,
     stampsCollected: instance.stamps_collected,
     stampsTotal: card.stamp_count,
     rewardsAvailable: instance.rewards_available,
     rewardText: card.reward_text,
+    rewardSubtitle: card.reward_subtitle,
     backgroundColor:
       (design.background_color as string) ||
       (design.accent_color as string) ||

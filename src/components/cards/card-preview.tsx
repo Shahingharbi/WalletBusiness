@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Percent, Crown, CircleDollarSign, Wifi, Signal, BatteryFull } from "lucide-react";
+import { Wifi, Signal, BatteryFull, Percent, Crown, CircleDollarSign } from "lucide-react";
 import QRCode from "qrcode";
-import { StampDisplay } from "@/components/cards/stamp-display";
 import { DEFAULT_CARD_DESIGN, type CardType } from "@/lib/constants";
+import {
+  getIconPath,
+  getShapePath,
+  normalizeIconKey,
+  normalizeShape,
+} from "@/lib/stamp-render";
 import { cn } from "@/lib/utils";
 
 interface CardPreviewProps {
@@ -21,33 +26,23 @@ interface CardPreviewProps {
    * dans l'aperçu si fourni.
    */
   walletBusinessName?: string | null;
+  /**
+   * Phrase courte affichée à la place du compteur "X tampons restants" dans
+   * la zone des auxiliaryFields. Doit refléter exactement ce que le wallet
+   * affichera (logique de fallback identique à apple-wallet.ts /
+   * google-wallet.ts).
+   */
+  rewardSubtitle?: string | null;
   barcodeType?: "qr" | "pdf417";
+  /** Prénom client simulé pour la zone "Bonjour {firstName}". */
+  customerFirstName?: string;
 }
 
 type Device = "ios" | "android";
 
-function hexToRgb(hex: string) {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!m) return { r: 255, g: 255, b: 255 };
-  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
-}
-
-function luminance(hex: string) {
-  const { r, g, b } = hexToRgb(hex);
-  const [R, G, B] = [r, g, b].map((c) => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  });
-  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
-}
-
-function bestContrastTextColor(bg: string): string {
-  return luminance(bg) > 0.55 ? "#1a1a1a" : "#ffffff";
-}
-
 /**
- * Deterministic PDF417-style visualization (not a real encoder — for mockup preview only).
- * Renders a dense SVG grid with guard bars, start/stop patterns, centered in the container.
+ * PDF417-style placeholder visualization (not a real encoder — preview only).
+ * Renders a dense SVG grid that LOOKS like a PDF417 in the same way the wallet does.
  */
 function Pdf417Visual({ value }: { value: string }) {
   const rows = 6;
@@ -60,18 +55,15 @@ function Pdf417Visual({ value }: { value: string }) {
     for (let r = 0; r < rows; r++) {
       const row: boolean[] = [];
       for (let c = 0; c < cols; c++) {
-        // Start / stop guard patterns
         if (c <= 1 || c >= cols - 2) {
           row.push((c + r) % 2 === 0 || c === 0 || c === cols - 1);
           continue;
         }
-        // Row-indicator columns
         if (c === 2 || c === cols - 3) {
           row.push((r + (c === 2 ? 0 : 1)) % 2 === 0);
           continue;
         }
         s = (s * 1103515245 + 12345 + r * 7 + c) & 0x7fffffff;
-        // Bias toward ~48% density (denser than random for a PDF417 look)
         row.push(s % 100 < 48);
       }
       grid.push(row);
@@ -83,7 +75,7 @@ function Pdf417Visual({ value }: { value: string }) {
     <div className="flex justify-center w-full">
       <svg
         viewBox={`0 0 ${cols} ${rows}`}
-        className="w-[85%] h-10 rounded-sm"
+        className="w-[80%] h-9 rounded-sm"
         preserveAspectRatio="none"
         shapeRendering="crispEdges"
       >
@@ -107,6 +99,107 @@ function Pdf417Visual({ value }: { value: string }) {
   );
 }
 
+/**
+ * Same pickGrid logic as src/app/api/wallet/banner/.../route.tsx — must stay
+ * in sync so the preview matches the actual strip image generated for the wallet.
+ */
+function pickGrid(total: number): { cols: number; rows: number } {
+  const map: Record<number, [number, number]> = {
+    5: [5, 1],
+    6: [3, 2],
+    7: [4, 2],
+    8: [4, 2],
+    9: [3, 3],
+    10: [5, 2],
+    11: [4, 3],
+    12: [6, 2],
+    13: [5, 3],
+    14: [5, 3],
+    15: [5, 3],
+    16: [4, 4],
+    18: [6, 3],
+    20: [5, 4],
+  };
+  if (map[total]) return { cols: map[total][0], rows: map[total][1] };
+  if (total <= 4) return { cols: total, rows: 1 };
+  const cols = total > 12 ? 5 : 4;
+  return { cols, rows: Math.ceil(total / cols) };
+}
+
+interface StripStampProps {
+  filled: boolean;
+  size: number;
+  shape: ReturnType<typeof normalizeShape>;
+  iconKey: string;
+  accent: string;
+  activeUrl: string | null;
+  inactiveUrl: string | null;
+}
+
+function StripStamp({
+  filled,
+  size,
+  shape,
+  iconKey,
+  accent,
+  activeUrl,
+  inactiveUrl,
+}: StripStampProps) {
+  const url = filled ? activeUrl : inactiveUrl;
+  if (url) {
+    const radius =
+      shape === "circle" ? "50%" : shape === "squircle" ? "30%" : "12%";
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: radius,
+          overflow: "hidden",
+          opacity: filled ? 1 : 0.6,
+          backgroundColor: "#ffffff",
+          boxShadow: "0 4px 10px rgba(0,0,0,0.18)",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt=""
+          width={size}
+          height={size}
+          style={{ width: size, height: size, objectFit: "cover" }}
+        />
+      </div>
+    );
+  }
+
+  const shapePath = getShapePath(shape);
+  const iconPath = getIconPath(iconKey);
+  const shapeFill = "#ffffff";
+  const shapeStroke = filled ? accent : "rgba(255,255,255,0.55)";
+  const shapeStrokeWidth = filled ? 0.5 : 0.8;
+  const iconFill = filled ? accent : "#9ca3af";
+  const iconOpacity = filled ? 1 : 0.3;
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      style={{ display: "block" }}
+    >
+      <path
+        d={shapePath}
+        fill={shapeFill}
+        stroke={shapeStroke}
+        strokeWidth={shapeStrokeWidth}
+        strokeLinejoin="round"
+      />
+      <path d={iconPath} fill={iconFill} opacity={iconOpacity} />
+    </svg>
+  );
+}
+
 export function CardPreview({
   cardName,
   stampCount,
@@ -114,24 +207,53 @@ export function CardPreview({
   collectedStamps = 3,
   design,
   cardType = "stamp",
-  businessName = "Votre commerce",
+  businessName,
   walletBusinessName,
+  rewardSubtitle,
   barcodeType = "qr",
+  customerFirstName = "Sophie",
 }: CardPreviewProps) {
-  // Le merchant peut surcharger le nom affiché dans le wallet (logoText
-  // Apple / issuerName Google) sans toucher au nom interne du commerce.
-  // Aperçu et wallet doivent afficher EXACTEMENT la même chaîne.
-  const displayedBusinessName =
-    (walletBusinessName && walletBusinessName.trim()) || businessName;
+  // Le wallet réel utilise `walletBusinessName` (logoText Apple / issuerName
+  // Google) en priorité, sinon retombe sur `cardName`. L'aperçu doit appliquer
+  // EXACTEMENT la même logique pour rester fidèle à ce que verra le client.
+  const headerTitle =
+    (walletBusinessName && walletBusinessName.trim()) ||
+    cardName ||
+    businessName ||
+    "Ma carte";
+
   const [device, setDevice] = useState<Device>("ios");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
+  // Couleur scheme — on suit le wallet : foregroundColor blanc forcé,
+  // backgroundColor = la couleur que le merchant a choisie.
+  const cardBg = design.background_color || "#1a1a1a";
   const accentColor = design.accent_color || "#e53e3e";
-  const cardBg = design.background_color || "#ffffff";
-  const onCardText = design.text_color || bestContrastTextColor(cardBg);
-  const onAccentText = bestContrastTextColor(accentColor);
+  const onCardText = "#ffffff";
+  const labelColor = "rgba(255,255,255,0.7)";
 
-  // Sample token for preview (stable per card preview session)
+  const stampsTotal = Math.max(1, Math.min(20, stampCount));
+  const stampsCollected = Math.max(0, Math.min(collectedStamps, stampsTotal));
+  const remaining = Math.max(0, stampsTotal - stampsCollected);
+
+  const shape = normalizeShape(design.stamp_shape);
+  const iconKey = normalizeIconKey(
+    (design.stamp_active_icon as string | undefined) ||
+      (design.stamp_icon as string | undefined) ||
+      "check",
+    "check"
+  );
+
+  // Phrase d'offre à afficher dans la zone auxiliaryFields. Logique IDENTIQUE
+  // à celle de apple-wallet.ts (label "Notre offre") et google-wallet.ts
+  // (textModulesData id="subtitle"). Si vide => fallback "{remaining} tampons".
+  const subtitleTrimmed = (rewardSubtitle ?? "").trim();
+  const auxOfferLabel =
+    subtitleTrimmed.length > 0 ? "Notre offre" : "Prochaine récompense";
+  const auxOfferValue =
+    subtitleTrimmed.length > 0 ? subtitleTrimmed : `${remaining} tampons`;
+
+  // Token QR stable côté preview.
   const sampleToken = useMemo(
     () => `preview-${Math.random().toString(36).slice(2, 10)}`,
     []
@@ -144,7 +266,7 @@ export function CardPreview({
     }
     let cancelled = false;
     QRCode.toDataURL(sampleToken, {
-      width: 260,
+      width: 240,
       margin: 1,
       color: { dark: "#000000", light: "#ffffff" },
     })
@@ -159,7 +281,28 @@ export function CardPreview({
     };
   }, [sampleToken, barcodeType]);
 
-  const isWalletStyleCard = true; // future: toggle styles
+  // Grille de tampons — même logique que la route /api/wallet/banner.
+  const { cols, rows } = pickGrid(stampsTotal);
+  // Taille adaptée au format réduit (preview ~280px de large) — on contraint
+  // pour respecter le ratio 3:1 du strip d'origine. La largeur dispo dans la
+  // zone strip est environ 280 - 2*16 = 248px.
+  const stripWidth = 280;
+  const stripHorizontalPadding = stampsTotal >= 12 ? 14 : 16;
+  const stripGap = stampsTotal >= 12 ? 6 : 8;
+  const availableW = stripWidth - stripHorizontalPadding * 2 - stripGap * (cols - 1);
+  const availableH = 92 - 16 - stripGap * (rows - 1);
+  const stampSize = Math.max(
+    16,
+    Math.floor(Math.min(availableW / cols, availableH / rows))
+  );
+
+  const stamps = Array.from({ length: stampsTotal }, (_, i) => i < stampsCollected);
+  const rowsArr: boolean[][] = [];
+  for (let r = 0; r < rows; r++) {
+    rowsArr.push(stamps.slice(r * cols, (r + 1) * cols));
+  }
+
+  const isStampLikeCard = cardType === "stamp" || cardType === "cashback";
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -169,7 +312,7 @@ export function CardPreview({
           type="button"
           onClick={() => setDevice("ios")}
           className={cn(
-            "px-3 py-1 rounded-full transition-colors",
+            "px-3 py-1 rounded-full transition-colors cursor-pointer",
             device === "ios" ? "bg-black text-white" : "text-gray-500 hover:text-gray-800"
           )}
         >
@@ -179,7 +322,7 @@ export function CardPreview({
           type="button"
           onClick={() => setDevice("android")}
           className={cn(
-            "px-3 py-1 rounded-full transition-colors",
+            "px-3 py-1 rounded-full transition-colors cursor-pointer",
             device === "android" ? "bg-black text-white" : "text-gray-500 hover:text-gray-800"
           )}
         >
@@ -188,7 +331,7 @@ export function CardPreview({
       </div>
 
       {/* Phone frame */}
-      <div className="relative w-full max-w-[290px]">
+      <div className="relative w-full max-w-[300px]">
         <div
           className={cn(
             "relative p-3 shadow-2xl",
@@ -210,8 +353,9 @@ export function CardPreview({
           <div
             className={cn(
               "relative overflow-hidden flex flex-col",
-              device === "ios" ? "rounded-[32px] min-h-[540px]" : "rounded-[22px] min-h-[540px]",
-              device === "ios" ? "bg-neutral-100" : "bg-[#0f1115]"
+              device === "ios" ? "rounded-[32px]" : "rounded-[22px]",
+              device === "ios" ? "bg-neutral-100" : "bg-[#0f1115]",
+              "min-h-[560px]"
             )}
           >
             {/* Status bar */}
@@ -242,198 +386,237 @@ export function CardPreview({
               <div className="text-[11px] opacity-50">...</div>
             </div>
 
-            {/* Card */}
+            {/* === The pass itself, rebuilt to match Apple StoreCard layout === */}
             <div className="px-3 pb-5 flex-1">
               <div
-                className={cn(
-                  "rounded-[20px] overflow-hidden shadow-xl relative",
-                  device === "android" && "shadow-2xl"
-                )}
-                style={{ backgroundColor: cardBg }}
+                className="rounded-[18px] overflow-hidden shadow-xl relative"
+                style={{ backgroundColor: cardBg, color: onCardText }}
               >
-                {/* Top row: logo + business/program name */}
-                <div className="flex items-center gap-2.5 px-4 pt-3 pb-2">
+                {/* 1. Header band : logo + (logoText/cardName) on left, headerField "TAMPONS X / Y" on right.
+                    bg = backgroundColor, text white, label uppercase + small. */}
+                <div className="flex items-center gap-2 px-3.5 pt-3 pb-2.5">
                   {design.logo_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={design.logo_url}
-                      alt="Logo"
-                      className="w-9 h-9 rounded-lg object-cover bg-white shadow-sm border border-black/5"
+                      alt=""
+                      className="w-8 h-8 rounded-md object-contain bg-transparent shrink-0"
                     />
                   ) : (
                     <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold border border-black/5"
-                      style={{ backgroundColor: accentColor, color: onAccentText }}
+                      className="w-8 h-8 rounded-md flex items-center justify-center text-[13px] font-bold shrink-0"
+                      style={{
+                        backgroundColor: "rgba(255,255,255,0.18)",
+                        color: onCardText,
+                      }}
                     >
-                      {(displayedBusinessName || cardName || "F").charAt(0).toUpperCase()}
+                      {(headerTitle || "F").charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
                     <p
-                      className="text-[10px] font-medium truncate opacity-60"
+                      className="text-[12px] font-semibold leading-tight truncate"
                       style={{ color: onCardText }}
                     >
-                      {displayedBusinessName}
-                    </p>
-                    <p
-                      className="text-[12px] font-bold truncate"
-                      style={{ color: onCardText }}
-                    >
-                      {cardName || "Nom de la carte"}
+                      {headerTitle}
                     </p>
                   </div>
-                </div>
-
-                {/* Hero / strip image */}
-                {design.banner_url && (
-                  <div className="relative h-24 overflow-hidden">
-                    <img
-                      src={design.banner_url}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                    {/* Double-overlay for guaranteed text contrast */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-black/15" />
-                  </div>
-                )}
-
-                {/* Body */}
-                <div
-                  className="px-4 pt-3 pb-4"
-                  style={{
-                    background: `linear-gradient(180deg, ${cardBg} 0%, ${cardBg}f5 100%)`,
-                    color: onCardText,
-                  }}
-                >
-                  {isWalletStyleCard && (cardType === "stamp" || cardType === "cashback") && (
-                    <>
-                      <div className="flex items-baseline justify-between mb-2">
-                        <span className="text-[9px] uppercase tracking-wider font-semibold opacity-55">
-                          {cardType === "cashback"
-                            ? design.label_stamps || "Visites"
-                            : design.label_stamps || "Tampons"}
-                        </span>
-                        <span className="text-[11px] font-semibold">
-                          {Math.min(collectedStamps, stampCount)} / {stampCount}
-                        </span>
-                      </div>
-
-                      <StampDisplay
-                        total={stampCount}
-                        collected={Math.min(collectedStamps, stampCount)}
-                        accentColor={accentColor}
-                        size="sm"
-                        iconKey={design.stamp_icon}
-                        activeImageUrl={design.stamp_active_url}
-                        inactiveImageUrl={design.stamp_inactive_url}
-                        shape={design.stamp_shape ?? "circle"}
-                      />
-
-                      {/* Reward pill */}
-                      <div
-                        className="mt-3 rounded-xl px-3 py-2 flex items-center gap-2"
-                        style={{
-                          backgroundColor: `${accentColor}18`,
-                          border: `1px solid ${accentColor}35`,
-                        }}
+                  {isStampLikeCard && (
+                    <div className="text-right shrink-0">
+                      <p
+                        className="text-[8px] font-semibold tracking-wider uppercase leading-none"
+                        style={{ color: labelColor }}
                       >
-                        <div
-                          className="h-1.5 w-1.5 rounded-full"
-                          style={{ backgroundColor: accentColor }}
-                        />
-                        <div className="min-w-0">
-                          <p className="text-[8px] uppercase tracking-wider font-semibold opacity-55">
-                            {design.label_rewards || "Récompense"}
-                          </p>
-                          <p
-                            className="text-[11px] font-bold truncate"
-                            style={{ color: accentColor }}
-                          >
-                            {rewardText || "À définir"}
-                          </p>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {isWalletStyleCard && cardType === "discount" && (
-                    <div className="flex items-center gap-3 py-2">
-                      <div
-                        className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${accentColor}18` }}
+                        {cardType === "cashback"
+                          ? design.label_stamps || "Visites"
+                          : design.label_stamps || "Tampons"}
+                      </p>
+                      <p
+                        className="text-[12px] font-bold mt-0.5"
+                        style={{ color: onCardText }}
                       >
-                        <Percent className="h-7 w-7" style={{ color: accentColor }} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[9px] uppercase tracking-wider font-semibold opacity-55">
-                          Avantage
-                        </p>
-                        <p className="text-[13px] font-bold truncate" style={{ color: accentColor }}>
-                          {rewardText || "À définir"}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {isWalletStyleCard && cardType === "membership" && (
-                    <div className="flex items-center gap-3 py-2">
-                      <div
-                        className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${accentColor}18` }}
-                      >
-                        <Crown className="h-7 w-7" style={{ color: accentColor }} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[9px] uppercase tracking-wider font-semibold opacity-55">
-                          Statut
-                        </p>
-                        <p className="text-[13px] font-bold truncate" style={{ color: accentColor }}>
-                          {rewardText || "Membre"}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {!["stamp", "cashback", "discount", "membership"].includes(cardType) && (
-                    <div className="flex items-center gap-3 py-2">
-                      <div
-                        className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${accentColor}18` }}
-                      >
-                        <CircleDollarSign className="h-7 w-7" style={{ color: accentColor }} />
-                      </div>
-                      <p className="text-[13px] font-bold truncate" style={{ color: accentColor }}>
-                        {rewardText || "À définir"}
+                        {stampsCollected} / {stampsTotal}
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Barcode block */}
-                <div className="bg-white px-4 py-3 flex flex-col items-center gap-1 border-t border-black/5">
-                  {barcodeType === "qr" ? (
-                    <>
-                      {qrDataUrl ? (
-                        <img src={qrDataUrl} alt="QR" className="w-24 h-24" />
-                      ) : (
-                        <div className="w-24 h-24 bg-gray-100 rounded animate-pulse" />
-                      )}
-                      {/* On remplace le serial number (chaîne aléatoire) par
-                          un crédit clair, identique à l'altText du barcode
-                          dans Apple/Google Wallet. */}
-                      <span className="text-[9px] text-gray-500 tracking-wide">
-                        Signé par aswallet
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-full">
-                        <Pdf417Visual value={sampleToken} />
+                {/* 2. Strip image : grille de tampons rendue inline avec les MÊMES
+                    paths SVG que la route /api/wallet/banner (source-of-truth
+                    src/lib/stamp-render.ts). Bg = banner_url ou backgroundColor. */}
+                {isStampLikeCard ? (
+                  <div
+                    className="relative w-full"
+                    style={{ height: 92 }}
+                  >
+                    {/* Background layer : photo banner si fournie sinon couleur de fond. */}
+                    {design.banner_url ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={design.banner_url}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-br from-black/30 to-black/45" />
+                      </>
+                    ) : (
+                      <div
+                        className="absolute inset-0"
+                        style={{ backgroundColor: cardBg, filter: "brightness(0.92)" }}
+                      />
+                    )}
+
+                    {/* Stamps grid — centred. */}
+                    <div className="relative z-10 h-full flex items-center justify-center">
+                      <div
+                        className="flex flex-col items-center justify-center"
+                        style={{
+                          gap: stripGap,
+                          paddingLeft: stripHorizontalPadding,
+                          paddingRight: stripHorizontalPadding,
+                        }}
+                      >
+                        {rowsArr.map((row, r) => (
+                          <div
+                            key={r}
+                            className="flex items-center justify-center"
+                            style={{ gap: stripGap }}
+                          >
+                            {row.map((filled, idx) => (
+                              <StripStamp
+                                key={idx}
+                                filled={filled}
+                                size={stampSize}
+                                shape={shape}
+                                iconKey={iconKey}
+                                accent={accentColor}
+                                activeUrl={design.stamp_active_url ?? null}
+                                inactiveUrl={design.stamp_inactive_url ?? null}
+                              />
+                            ))}
+                          </div>
+                        ))}
                       </div>
-                      <span className="text-[9px] text-gray-500 tracking-wide mt-1">
-                        Signé par aswallet
-                      </span>
-                    </>
+                    </div>
+                  </div>
+                ) : (
+                  /* Cartes non-tampons (discount/membership/...) : on remplace le
+                     strip par un encart visuel cohérent avec le pass généré. */
+                  <div
+                    className="relative w-full flex items-center gap-3 px-4 py-4"
+                    style={{
+                      backgroundColor: cardBg,
+                      filter: design.banner_url ? undefined : "brightness(0.95)",
+                    }}
+                  >
+                    {design.banner_url && (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={design.banner_url}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-br from-black/35 to-black/55" />
+                      </>
+                    )}
+                    <div
+                      className="relative z-10 h-12 w-12 rounded-2xl flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
+                    >
+                      {cardType === "discount" ? (
+                        <Percent className="h-6 w-6" style={{ color: onCardText }} />
+                      ) : cardType === "membership" ? (
+                        <Crown className="h-6 w-6" style={{ color: onCardText }} />
+                      ) : (
+                        <CircleDollarSign
+                          className="h-6 w-6"
+                          style={{ color: onCardText }}
+                        />
+                      )}
+                    </div>
+                    <p
+                      className="relative z-10 text-[13px] font-bold truncate"
+                      style={{ color: onCardText }}
+                    >
+                      {rewardText || "À définir"}
+                    </p>
+                  </div>
+                )}
+
+                {/* 3. Auxiliary fields row : 3 colonnes "Bonjour" / "Notre offre"
+                    (ou "Prochaine récompense") / "Récompenses dispo".
+                    Style identique aux auxiliaryFields Apple : label uppercase
+                    petit + value blanche en gras juste en-dessous. */}
+                {isStampLikeCard && (
+                  <div
+                    className="grid grid-cols-3 gap-2 px-3.5 pt-2 pb-3"
+                    style={{ backgroundColor: cardBg }}
+                  >
+                    <div className="min-w-0">
+                      <p
+                        className="text-[8px] font-semibold tracking-wider uppercase leading-none"
+                        style={{ color: labelColor }}
+                      >
+                        Bonjour
+                      </p>
+                      <p
+                        className="text-[11px] font-bold mt-1 truncate"
+                        style={{ color: onCardText }}
+                      >
+                        {customerFirstName}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p
+                        className="text-[8px] font-semibold tracking-wider uppercase leading-none truncate"
+                        style={{ color: labelColor }}
+                      >
+                        {auxOfferLabel}
+                      </p>
+                      <p
+                        className="text-[11px] font-bold mt-1 truncate"
+                        style={{ color: onCardText }}
+                        title={auxOfferValue}
+                      >
+                        {auxOfferValue}
+                      </p>
+                    </div>
+                    <div className="min-w-0 text-right">
+                      <p
+                        className="text-[8px] font-semibold tracking-wider uppercase leading-none"
+                        style={{ color: labelColor }}
+                      >
+                        Récompenses dispo
+                      </p>
+                      <p
+                        className="text-[11px] font-bold mt-1 truncate"
+                        style={{ color: onCardText }}
+                      >
+                        0
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. White card section : QR + "Signé par aswallet" caption. */}
+                <div className="bg-white px-4 py-3 flex flex-col items-center gap-1.5 border-t border-black/5">
+                  {barcodeType === "qr" ? (
+                    qrDataUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={qrDataUrl} alt="QR" className="w-24 h-24" />
+                    ) : (
+                      <div className="w-24 h-24 bg-gray-100 rounded animate-pulse" />
+                    )
+                  ) : (
+                    <div className="w-full">
+                      <Pdf417Visual value={sampleToken} />
+                    </div>
                   )}
+                  <span className="text-[9px] text-gray-500 tracking-wide">
+                    Signé par aswallet
+                  </span>
                 </div>
               </div>
 

@@ -12,6 +12,19 @@ interface ImageUploadProps {
   folder?: string;
   hint?: string;
   aspect?: "square" | "wide";
+  /**
+   * Catégorie sémantique de l'asset (logo, banner, stamp...). Permet au backend
+   * d'appliquer des traitements spécifiques (ex: retrait du fond blanc auto pour
+   * `kind=logo`). Optionnel — sans valeur, l'upload est traité comme un PNG basique.
+   */
+  kind?: "logo" | "banner" | "stamp" | "other";
+  /**
+   * Quand `true`, ajoute `removeBg=1` à l'upload — force le retrait du fond
+   * blanc même pour des kinds qui ne l'activent pas par défaut.
+   * Quand `false` ET `kind="logo"`, ajoute `removeBg=0` pour le DÉSACTIVER
+   * (logos avec texte blanc intérieur sur fond coloré).
+   */
+  removeWhiteBg?: boolean;
 }
 
 export function ImageUpload({
@@ -22,6 +35,8 @@ export function ImageUpload({
   folder = "uploads",
   hint = "PNG, JPG, WEBP, HEIC (max 8 Mo)",
   aspect = "square",
+  kind,
+  removeWhiteBg,
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -35,6 +50,15 @@ export function ImageUpload({
       fd.append("file", file);
       fd.append("bucket", bucket);
       fd.append("folder", folder);
+      if (kind) fd.append("kind", kind);
+      // Pour les logos, removeWhiteBg défaut = true côté serveur. On envoie
+      // explicitement "0" si le merchant a désactivé l'option, sinon on laisse
+      // le serveur appliquer son défaut.
+      if (removeWhiteBg === false) {
+        fd.append("removeBg", "0");
+      } else if (removeWhiteBg === true && kind !== "logo") {
+        fd.append("removeBg", "1");
+      }
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Echec de l'upload");
