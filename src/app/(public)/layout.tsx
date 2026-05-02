@@ -30,7 +30,7 @@ export default function PublicLayout({
       <main id="main-content" className="flex-1" tabIndex={-1}>{children}</main>
       <footer className="py-4 text-center">
         <p className="text-xs text-gray-400">
-          Propulse par{" "}
+          Propulsé par{" "}
           <span className="font-semibold text-gray-500">aswallet</span>
         </p>
       </footer>

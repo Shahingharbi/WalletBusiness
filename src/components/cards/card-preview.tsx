@@ -15,6 +15,12 @@ interface CardPreviewProps {
   design: typeof DEFAULT_CARD_DESIGN;
   cardType?: CardType;
   businessName?: string;
+  /**
+   * Override optionnel pour le top-left du pass (équivalent du champ
+   * `wallet_business_name` côté DB). Affiché à la place de `businessName`
+   * dans l'aperçu si fourni.
+   */
+  walletBusinessName?: string | null;
   barcodeType?: "qr" | "pdf417";
 }
 
@@ -109,8 +115,14 @@ export function CardPreview({
   design,
   cardType = "stamp",
   businessName = "Votre commerce",
+  walletBusinessName,
   barcodeType = "qr",
 }: CardPreviewProps) {
+  // Le merchant peut surcharger le nom affiché dans le wallet (logoText
+  // Apple / issuerName Google) sans toucher au nom interne du commerce.
+  // Aperçu et wallet doivent afficher EXACTEMENT la même chaîne.
+  const displayedBusinessName =
+    (walletBusinessName && walletBusinessName.trim()) || businessName;
   const [device, setDevice] = useState<Device>("ios");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
@@ -252,7 +264,7 @@ export function CardPreview({
                       className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold border border-black/5"
                       style={{ backgroundColor: accentColor, color: onAccentText }}
                     >
-                      {(businessName || cardName || "F").charAt(0).toUpperCase()}
+                      {(displayedBusinessName || cardName || "F").charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
@@ -260,7 +272,7 @@ export function CardPreview({
                       className="text-[10px] font-medium truncate opacity-60"
                       style={{ color: onCardText }}
                     >
-                      {businessName}
+                      {displayedBusinessName}
                     </p>
                     <p
                       className="text-[12px] font-bold truncate"
@@ -405,8 +417,11 @@ export function CardPreview({
                       ) : (
                         <div className="w-24 h-24 bg-gray-100 rounded animate-pulse" />
                       )}
-                      <span className="text-[8px] text-gray-500 font-mono tracking-wider">
-                        {sampleToken.slice(-8).toUpperCase()}
+                      {/* On remplace le serial number (chaîne aléatoire) par
+                          un crédit clair, identique à l'altText du barcode
+                          dans Apple/Google Wallet. */}
+                      <span className="text-[9px] text-gray-500 tracking-wide">
+                        Signé par aswallet
                       </span>
                     </>
                   ) : (
@@ -414,8 +429,8 @@ export function CardPreview({
                       <div className="w-full">
                         <Pdf417Visual value={sampleToken} />
                       </div>
-                      <span className="text-[8px] text-gray-500 font-mono tracking-wider mt-1">
-                        {sampleToken.slice(-12).toUpperCase()}
+                      <span className="text-[9px] text-gray-500 tracking-wide mt-1">
+                        Signé par aswallet
                       </span>
                     </>
                   )}

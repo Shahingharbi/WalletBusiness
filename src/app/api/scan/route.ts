@@ -180,6 +180,7 @@ export async function POST(request: Request) {
       void notifyCustomerRewardEarned({
         clientId: client.id,
         businessId: instance.business_id,
+        cardId: card.id,
         instanceToken: instance.token,
         rewardText: card.reward_text,
         appUrl,
@@ -213,6 +214,7 @@ export async function POST(request: Request) {
 async function notifyCustomerRewardEarned(args: {
   clientId: string;
   businessId: string;
+  cardId: string;
   instanceToken: string;
   rewardText: string;
   appUrl: string;
@@ -239,7 +241,8 @@ async function notifyCustomerRewardEarned(args: {
         firstName: client.first_name ?? undefined,
         rewardText: args.rewardText,
         businessName: business?.name ?? "votre commerce",
-        walletUrl: `${args.appUrl}/c/wallet/${args.instanceToken}`,
+        // Status page: /c/[cardId]/status/[instanceToken].
+        walletUrl: `${args.appUrl}/c/${args.cardId}/status/${args.instanceToken}`,
       },
     });
   } catch (err) {

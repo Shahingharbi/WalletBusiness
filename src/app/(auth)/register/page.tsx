@@ -74,7 +74,18 @@ function RegisterForm() {
       });
 
       if (error) {
-        setGeneralError(error.message);
+        const friendlyMessage =
+          error.message.includes("already registered") ||
+          error.message.includes("already been registered") ||
+          error.message.includes("User already registered")
+            ? "Un compte existe déjà avec cet email. Connectez-vous."
+            : error.message.includes("Password should be") ||
+                error.message.includes("password")
+              ? "Le mot de passe doit contenir au moins 6 caractères."
+              : error.message.includes("rate limit") || error.status === 429
+                ? "Trop de tentatives. Réessayez dans quelques minutes."
+                : error.message;
+        setGeneralError(friendlyMessage);
         return;
       }
 

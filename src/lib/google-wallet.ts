@@ -5,6 +5,11 @@ interface PassParams {
   cardId: string;
   cardName: string;
   businessName: string;
+  /**
+   * Override optionnel du nom affiché en haut du pass (issuerName).
+   * Si fourni et non vide, remplace `businessName` pour le branding du wallet.
+   */
+  walletBusinessName?: string | null;
   customerName: string;
   customerInstanceToken: string;
   stampsCollected: number;
@@ -41,16 +46,19 @@ function objectId(instanceToken: string): string {
 
 function buildLoyaltyClass(p: PassParams) {
   const logoUri = p.logoUrl ?? FALLBACK_LOGO_URL;
+  // Display name in the wallet (top of the pass) — merchant override wins.
+  const displayName =
+    (p.walletBusinessName && p.walletBusinessName.trim()) || p.businessName;
   // No class-level heroImage: the per-object heroImage (dynamic stamp grid)
   // is always set, so a class fallback would only add noise.
   return {
     id: classId(p.cardId),
-    issuerName: p.businessName,
+    issuerName: displayName,
     programName: p.cardName,
     programLogo: {
       sourceUri: { uri: logoUri },
       contentDescription: {
-        defaultValue: { language: "fr", value: p.businessName },
+        defaultValue: { language: "fr", value: displayName },
       },
     },
     hexBackgroundColor: p.bgColor,
@@ -61,8 +69,8 @@ function buildLoyaltyClass(p: PassParams) {
     accountIdLabel: "Client",
     accountNameLabel: "Nom",
     // programDetails apparaît au verso de la carte Google Wallet — on y met
-    // la récompense + un footer "Powered by aswallet" (style Boomerangme).
-    programDetails: `${p.rewardText}\n\nPowered by aswallet`,
+    // la récompense + le footer "Signé par aswallet".
+    programDetails: `${p.rewardText}\n\nSigné par aswallet`,
   };
 }
 
@@ -127,7 +135,9 @@ function buildLoyaltyObject(p: PassParams) {
     barcode: {
       type: p.barcodeType === "pdf417" ? "PDF_417" : "QR_CODE",
       value: p.customerInstanceToken,
-      alternateText: p.customerInstanceToken.slice(0, 8),
+      // alternateText apparaît sous le code-barres dans Google Wallet.
+      // On remplace le serial number (chaîne aléatoire) par un crédit clair.
+      alternateText: "Signé par aswallet",
     },
     linksModuleData: {
       uris: [

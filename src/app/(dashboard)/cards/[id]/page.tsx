@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Pencil, BarChart3, Users, Info, Send } from "lucide-react";
+import { Pencil, BarChart3, Users, Info, Send, ExternalLink, Sparkles } from "lucide-react";
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -15,10 +15,14 @@ import { ActivateButton } from "./activate-button";
 
 export default async function CardDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ created?: string }>;
 }) {
   const { id } = await params;
+  const sp = (await searchParams) ?? {};
+  const justCreated = sp.created === "1";
   const supabase = await createClient();
 
   const {
@@ -88,6 +92,15 @@ export default async function CardDetailPage({
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {card.status === "draft" && <ActivateButton cardId={card.id} />}
+          <a
+            href={cardPublicUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 h-11 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:border-gray-400 transition-colors cursor-pointer"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Voir comme un client
+          </a>
           <Link href={`/cards/${card.id}/edit`}>
             <Button variant="secondary">
               <Pencil className="h-4 w-4 mr-2" />
@@ -96,6 +109,33 @@ export default async function CardDetailPage({
           </Link>
         </div>
       </div>
+
+      {justCreated && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-start sm:items-center gap-2 flex-1 min-w-0">
+              <Sparkles className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-emerald-900">
+                  Carte créée avec succès
+                </p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Testez l&apos;expérience client puis activez la carte pour la rendre disponible.
+                </p>
+              </div>
+            </div>
+            <a
+              href={cardPublicUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 px-4 h-10 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors cursor-pointer shrink-0"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Tester ma carte
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">

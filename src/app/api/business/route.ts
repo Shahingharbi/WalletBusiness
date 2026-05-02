@@ -1,6 +1,38 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export async function GET() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("business_id")
+      .eq("id", user.id)
+      .single();
+    if (!profile?.business_id) {
+      return NextResponse.json({ error: "Commerce introuvable" }, { status: 404 });
+    }
+
+    const { data: business } = await supabase
+      .from("businesses")
+      .select("id, name, slug, logo_url, category")
+      .eq("id", profile.business_id)
+      .single();
+
+    return NextResponse.json({ business });
+  } catch (err) {
+    console.error("GET /api/business error:", err);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     const supabase = await createClient();
@@ -9,7 +41,7 @@ export async function PATCH(request: Request) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
     const { data: profile } = await supabase
@@ -23,7 +55,7 @@ export async function PATCH(request: Request) {
     }
     if (profile.role !== "business_owner") {
       return NextResponse.json(
-        { error: "Seul le proprietaire peut modifier le commerce" },
+        { error: "Seul le propriétaire peut modifier le commerce" },
         { status: 403 }
       );
     }
@@ -40,7 +72,7 @@ export async function PATCH(request: Request) {
     if (typeof body.logo_url === "string" || body.logo_url === null) update.logo_url = body.logo_url || null;
 
     if (Object.keys(update).length === 0) {
-      return NextResponse.json({ error: "Aucun champ a mettre a jour" }, { status: 400 });
+      return NextResponse.json({ error: "Aucun champ à mettre à jour" }, { status: 400 });
     }
 
     const { error } = await supabase
@@ -50,7 +82,7 @@ export async function PATCH(request: Request) {
 
     if (error) {
       console.error("Business update error:", error);
-      return NextResponse.json({ error: "Erreur lors de la mise a jour" }, { status: 500 });
+      return NextResponse.json({ error: "Erreur lors de la mise à jour" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

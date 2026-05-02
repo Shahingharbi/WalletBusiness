@@ -20,7 +20,7 @@ export function ImageUpload({
   onChange,
   bucket = "card-assets",
   folder = "uploads",
-  hint = "PNG, JPG, WEBP (max 3 Mo)",
+  hint = "PNG, JPG, WEBP, HEIC (max 8 Mo)",
   aspect = "square",
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -108,10 +108,16 @@ export function ImageUpload({
         </div>
       )}
 
+      {/*
+        accept="image/*" : indispensable sur iOS pour proposer aussi les
+        photos HEIC/HEIF de la pellicule + l'appareil photo. Les autres
+        attributs explicites couvrent les MIME types desktop/Android. Le
+        serveur convertit ensuite tout en PNG via sharp pour le wallet.
+      */}
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        accept="image/*,image/heic,image/heif"
         className="hidden"
         onChange={onInputChange}
       />

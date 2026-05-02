@@ -32,12 +32,19 @@ export default async function EditCardPage({
 
   if (!card) notFound();
 
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("name")
+    .eq("id", profile.business_id)
+    .single();
+
   const design = { ...DEFAULT_CARD_DESIGN, ...(card.design || {}) };
 
   return (
     <EditCardForm
       cardId={card.id}
       cardType={card.card_type}
+      businessName={business?.name ?? ""}
       initialSettings={{
         name: card.name,
         stampCount: card.stamp_count,
@@ -48,6 +55,7 @@ export default async function EditCardPage({
           ? new Date(card.expiration_date).toISOString().slice(0, 10)
           : "",
         expirationDays: card.expiration_days ?? 30,
+        walletBusinessName: card.wallet_business_name ?? "",
       }}
       initialDesign={design}
       status={card.status}

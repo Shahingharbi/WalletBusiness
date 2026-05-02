@@ -167,3 +167,144 @@ un tampon et observer les logs Vercel. Deux scénarios d'échec possibles :
 6. **Test** :
    - Local : `npm run dev`, aller sur `http://localhost:3000/login`, cliquer "Continuer avec Google", vérifier redirect sur `/dashboard` et que `businesses` + `profiles` ont bien une row.
    - Prod : idem sur `https://aswallet.fr/login`.
+
+## QA findings 2026-05-02 (passe pré-démo)
+
+Audit complet avant la démo merchants. Les bugs critiques sont déjà corrigés
+en code (voir commit lié). Cette section liste ce qui reste à régler.
+
+### CRITIQUE — flow de réinitialisation de mot de passe cassé
+
+`/forgot-password` envoie l'email Supabase qui redirige vers `/api/auth/callback`
+puis `/dashboard`. Il n'existe **aucune page** où l'utilisateur peut saisir un
+nouveau mot de passe. Conséquence : un user qui clique sur "Mot de passe
+oublié" reçoit l'email, clique le lien, mais arrive sur le dashboard
+**toujours avec son ancien mot de passe oublié**.
+
+**Action** : créer `src/app/(auth)/reset-password/page.tsx` avec :
+- Champs `password` + `confirm_password` + bouton submit
+- `supabase.auth.updateUser({ password })` après vérification de la session
+- Au montage : si pas de session, rediriger vers `/login` avec message d'erreur
+- Côté `/forgot-password`, changer `redirectTo` pour `${origin}/reset-password`
+- Côté Supabase Dashboard → Auth → URL Configuration : ajouter
+  `https://aswallet.fr/reset-password` aux Redirect URLs.
+
+### CRITIQUE — pas d'i18n dans les messages d'erreur Supabase
+
+Les pages auth catchent maintenant les erreurs courantes (Invalid login,
+Email not confirmed, User already registered, rate limit) et les
+traduisent. Mais `forgot-password` et l'invitation `accept-form` retournent
+encore le message anglais brut de Supabase. Solution future : créer un
+helper `translateAuthError(err: AuthError): string` réutilisable dans
+`src/lib/auth-errors.ts`.
+
+### HIGH — Wizard de création de carte : étape "Type" après "Modèle"
+
+Sur `/cards/new`, l'ordre des étapes est `Modèle → Type → Paramètres → Design`.
+Quand on choisit un template à l'étape 1, le `card_type` du template est
+écrasé par l'étape 2 si l'utilisateur change. Pas un bug, mais
+contre-intuitif : on peut choisir un template "Café tampons" puis sélectionner
+"Cashback" à l'étape 2. À tester avec un merchant : confusion possible.
+
+### HIGH — pas de détection iOS/Android sur la page status
+
+`/c/[token]/status/[instanceToken]` affiche **les deux** boutons "Ajouter à
+Apple Wallet" + "Ajouter à Google Wallet" en parallèle. Les utilisateurs
+peuvent cliquer sur Apple Wallet depuis Android (échec : .pkpass
+incompatible) ou Google Wallet depuis iOS. Solution : détecter le UA
+côté serveur (`headers().get('user-agent')`) et masquer le bouton
+inadapté. Garder un fallback "Voir l'autre option" si le merchant veut
+tester l'autre plateforme.
+
+### HIGH — page `/admin` dans le matcher mais pas implémentée
+
+`src/middleware.ts` ligne 50 inclut `/admin` dans `protectedRoutes` mais
+le dossier `src/app/(admin)/admin/` est vide. Si un user tape
+`/admin` connecté, il reçoit un 404 (pas grave) mais le code mort
+laisse penser qu'il y a une fonctionnalité. À retirer du middleware.
+
+### HIGH — search dans `/clients` permet une injection .or()
+
+`src/app/(dashboard)/clients/page.tsx` ligne 44 :
+```ts
+query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%`);
+```
+Le `search` n'est pas escapé. Un user (authentifié, avec son business_id)
+pourrait casser le filtre avec une virgule ou un guillemet. Risque
+limité (RLS protège `business_id`) mais à corriger en escape via
+`%`-encoding ou en passant par 3 `.ilike()` séparés combinés
+manuellement. Document : pas critique pour la démo.
+
+### MEDIUM — JSON-LD Product offers pointe vers `/pricing` (corrigé en `/#pricing`)
+
+`src/app/page.tsx` exposait `${SITE_URL}/pricing` dans le schema.org
+Product, mais cette route n'existe pas. Corrigé pour pointer sur la
+section ancrée de la landing.
+
+### MEDIUM — emails reward-earned avec URL cassée (corrigé)
+
+`/api/scan/route.ts` envoyait `walletUrl: ${appUrl}/c/wallet/${instanceToken}`
+qui résolvait sur `/c/[token]` (token = "wallet") avec un suffixe orphelin
+→ 404. Corrigé pour `/c/[cardId]/status/[instanceToken]`. Idem dans
+`/api/install/[token]/route.ts` qui utilisait `businessId` au lieu de
+`cardId`.
+
+### MEDIUM — accents manquants dans tout le projet
+
+Une passe a été faite : tous les `Non authentifie`, `creation`, `mise a jour`,
+`Reessayez`, `Propulse par`, `Carte de fidelite`, etc. sont corrigés dans
+les API routes `business`, `cards`, `cards/[id]`, `cards/[id]/activate`,
+`profile`, `onboarding/answers`, `onboarding/complete`, `onboarding/poster`,
+`rate-limit.ts`, `(auth)/login/page.tsx`, `(auth)/register/page.tsx`,
+`google-auth-button.tsx`, `(public)/layout.tsx`. Le PDF `affiche-{nom}.pdf`
+généré par le poster route est désormais lisible avec accents (`fidélité`,
+`récompense`, `télécharger`, `téléphone`, `propulsé par`, etc.).
+
+Reste à vérifier : si un commerçant entre lui-même un nom avec accents
+dans `reward_text`, le PDF Helvetica de @react-pdf/renderer le supporte
+en WinAnsi. Tester `Café offert !` → doit s'afficher correctement.
+
+### MEDIUM — install/api 409 (déjà installée) renvoie maintenant l'utilisateur sur sa carte (corrigé)
+
+Avant : le user voyait juste un message d'erreur "Vous avez déjà cette carte".
+Maintenant : redirection automatique sur `/c/[cardId]/status/[instanceToken]`.
+
+### LOW — `setInterval` shadow dans PricingSection
+
+`src/components/landing/PricingSection.tsx` ligne 83 :
+```ts
+const [interval, setInterval] = useState<BillingInterval>("month");
+```
+Le setter `setInterval` masque le global `setInterval`. Pas de bug
+dans ce composant (on ne l'utilise pas) mais ESLint pourrait warner.
+Renommer `setBillingInterval` post-démo.
+
+### LOW — Avatar seed `Amelie` sans accent (HeroSection.tsx)
+
+Hero section utilise `["Karim", "Amelie", "Mehdi", ...]` pour les
+DiceBear avatars. Cosmétique, ne bloque pas.
+
+### LOW — TODO comments laissés dans le code
+
+- `src/lib/rate-limit.ts:13` : migration vers Upstash Redis post-MVP.
+- `src/components/landing/TestimonialsSection.tsx:3` : remplacer fake
+  testimonials par de vrais (10 premiers commerçants).
+- `src/components/landing/StickyMobileCTA.tsx:12` : exit-intent popup desktop.
+- `src/app/api/campaigns/route.ts:218` : APNs push pour campagnes (cert APNs
+  requis, prévu en phase 2).
+
+### LOW — fallback `localhost:3000` pour `NEXT_PUBLIC_APP_URL` non défini
+
+Trois endroits gardent `http://localhost:3000` en fallback si la variable
+n'est pas définie : `src/app/api/billing/portal/route.ts:51`,
+`src/app/api/billing/checkout/route.ts:88`, `src/app/(dashboard)/cards/[id]/page.tsx:54`.
+En prod sur Vercel la variable est forcément set, donc OK pour la démo.
+À durcir : `throw new Error("NEXT_PUBLIC_APP_URL not set")` dans `lib/env.ts`.
+
+### LOW — pages `(dashboard)/cards/[id]/edit/`, `(dashboard)/cards/[id]/clients/`, `(dashboard)/cards/[id]/stats/`, `(dashboard)/cards/[id]/campaigns/`, `(dashboard)/clients/[id]/`, `(auth)/invitation/[token]/` non auditées en détail dans cette passe
+
+Ces sous-pages compilent (build verte) et ont l'air conventionnelles
+mais n'ont pas été lues ligne par ligne. Si un bug se manifeste pendant
+la démo, regarder en priorité `cards/[id]/edit` (le merchant va sûrement
+modifier sa carte test).
+

@@ -2,11 +2,17 @@ import { PKPass } from "passkit-generator";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import sharp from "sharp";
 
 interface ApplePassParams {
   cardId: string;
   cardName: string;
   businessName: string;
+  /**
+   * Override optionnel du nom affiché en logoText (top-left du pass Apple).
+   * Si fourni et non vide, remplace `businessName` pour le branding du wallet.
+   */
+  walletBusinessName?: string | null;
   customerInstanceToken: string;
   customerFirstName?: string | null;
   stampsCollected: number;
@@ -121,7 +127,7 @@ async function fetchMerchantLogo(
     const res = await fetch(logoUrl, { signal: ctrl.signal });
     clearTimeout(timer);
     if (!res.ok) return {};
-    const buf = Buffer.from(await res.arrayBuffer());
+    let buf = Buffer.from(await res.arrayBuffer());
     // Apple Wallet exige du PNG dans le .pkpass. On vérifie la signature
     // PNG (0x89 0x50 0x4E 0x47) sur les premiers bytes du buffer plutôt
     // que de se fier au content-type (souvent inexact côté Supabase Storage).
@@ -132,10 +138,22 @@ async function fetchMerchantLogo(
       buf[2] === 0x4e &&
       buf[3] === 0x47;
     if (!isPng) {
-      console.warn(
-        "[apple-wallet] merchant logo is not PNG — ignoring (uploadez un PNG pour personnaliser le logo Apple Wallet)",
-      );
-      return {};
+      // Filet de sécurité : si un ancien logo (HEIC/JPEG/WEBP) existe encore
+      // dans le bucket avant la migration côté upload, on le convertit ici à la
+      // volée plutôt que de retomber sur l'icône aswallet générique.
+      try {
+        const converted = await sharp(buf, { failOn: "none" })
+          .rotate()
+          .png()
+          .toBuffer();
+        buf = Buffer.from(converted);
+      } catch (err) {
+        console.warn(
+          "[apple-wallet] merchant logo conversion failed, falling back to default icon:",
+          err,
+        );
+        return {};
+      }
     }
     return {
       "logo.png": buf,
@@ -228,7 +246,11 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
       foregroundColor: "rgb(255, 255, 255)",
       backgroundColor: bgColor,
       labelColor: "rgb(255, 255, 255)",
-      logoText: p.businessName,
+      // Le merchant peut surcharger le nom affiché en haut du pass via
+      // wallet_business_name. À défaut, on garde le nom du commerce.
+      logoText:
+        (p.walletBusinessName && p.walletBusinessName.trim()) ||
+        p.businessName,
       ...liveUpdateProps,
     }
   );
@@ -301,12 +323,14 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
     }
   );
 
-  // QR code lisible par l'app scanner du commerçant.
+  // QR code lisible par l'app scanner du commerçant. altText apparaît
+  // sous le QR — on remplace le serial number (chaîne aléatoire pas
+  // parlante) par un crédit "Signé par aswallet".
   pass.setBarcodes({
     message: p.customerInstanceToken,
     format: "PKBarcodeFormatQR",
     messageEncoding: "iso-8859-1",
-    altText: p.customerInstanceToken.slice(0, 8),
+    altText: "Signé par aswallet",
   });
 
   return pass.getAsBuffer();

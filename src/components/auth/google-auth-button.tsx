@@ -63,7 +63,7 @@ export function GoogleAuthButton({
       }
       // On success Supabase redirects the page, so we leave `loading` true.
     } catch {
-      setError("Impossible de lancer la connexion Google. Reessayez.");
+      setError("Impossible de lancer la connexion Google. Réessayez.");
       setLoading(false);
     }
   };

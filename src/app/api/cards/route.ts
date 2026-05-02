@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
     const { data: profile } = await supabase
@@ -73,6 +73,14 @@ export async function POST(request: Request) {
 
     const design = { ...DEFAULT_CARD_DESIGN, ...body.design };
 
+    // Optional override for the top-left of the wallet pass (Apple logoText /
+    // Google issuerName). NULL = fall back to businesses.name.
+    const walletBusinessName =
+      typeof body.wallet_business_name === "string" &&
+      body.wallet_business_name.trim().length > 0
+        ? body.wallet_business_name.trim()
+        : null;
+
     const { data: card, error: insertError } = await supabase
       .from("cards")
       .insert({
@@ -85,6 +93,7 @@ export async function POST(request: Request) {
         expiration_type: body.expiration_type || "unlimited",
         expiration_date: body.expiration_date || null,
         expiration_days: body.expiration_days || null,
+        wallet_business_name: walletBusinessName,
         design,
         status: "draft",
       })
@@ -94,7 +103,7 @@ export async function POST(request: Request) {
     if (insertError) {
       console.error("Card insert error:", insertError);
       return NextResponse.json(
-        { error: "Erreur lors de la creation: " + insertError.message },
+        { error: "Erreur lors de la création: " + insertError.message },
         { status: 500 }
       );
     }

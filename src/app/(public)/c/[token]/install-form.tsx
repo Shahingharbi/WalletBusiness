@@ -47,6 +47,13 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
 
       const data = await res.json();
 
+      // 409 = already installed — the API returns the existing instance_token
+      // so we can land the user directly on their status page.
+      if (res.status === 409 && data.instance_token) {
+        router.push(`/c/${cardId}/status/${data.instance_token}`);
+        return;
+      }
+
       if (!res.ok) {
         setError(data.error || "Une erreur est survenue");
         return;

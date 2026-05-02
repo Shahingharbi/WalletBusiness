@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CardPreview } from "@/components/cards/card-preview";
+import { MobileStickyPreview } from "@/components/cards/card-editor/mobile-sticky-preview";
 import { StepType } from "@/components/cards/card-editor/step-type";
 import { StepTemplate } from "@/components/cards/card-editor/step-template";
 import {
@@ -47,6 +48,7 @@ const initialState: FormState = {
     expirationType: "unlimited",
     expirationDate: "",
     expirationDays: 30,
+    walletBusinessName: "",
   },
   design: { ...DEFAULT_CARD_DESIGN },
   templateId: null,
@@ -83,6 +85,24 @@ function NewCardForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Nom du commerce — affiché en placeholder du champ "Nom dans le wallet"
+  // pour montrer ce qui sera utilisé par défaut si laissé vide.
+  const [businessName, setBusinessName] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/business")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.business?.name) {
+          setBusinessName(data.business.name as string);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleTemplate = (tpl: CardTemplate) => {
     setForm({
@@ -145,6 +165,7 @@ function NewCardForm() {
           expiration_type: form.settings.expirationType,
           expiration_date: form.settings.expirationDate || null,
           expiration_days: form.settings.expirationDays || null,
+          wallet_business_name: form.settings.walletBusinessName.trim() || null,
           design: form.design,
         }),
       });
@@ -169,7 +190,9 @@ function NewCardForm() {
       if (fromOnboarding) {
         router.push(`/onboarding?step=3&cardId=${data.card.id}`);
       } else {
-        router.push(`/cards/${data.card.id}`);
+        // Land on the detail page where the merchant can preview the
+        // public install page ("Voir comme un client") and activate.
+        router.push(`/cards/${data.card.id}?created=1`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue");
@@ -178,18 +201,24 @@ function NewCardForm() {
     }
   };
 
+  // Show the sticky mobile preview only when there's something to preview
+  // (template chosen) AND we're past step 1, so the template grid stays
+  // unobstructed on the first screen.
+  const showMobilePreview = step >= 2 && form.templateId !== null;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28 lg:pb-0">
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={() => router.push("/cards")}
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+          aria-label="Retour"
         >
           <ArrowLeft className="h-5 w-5 text-gray-600" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Nouvelle carte</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Nouvelle carte</h1>
       </div>
 
       {/* Step indicator */}
@@ -236,6 +265,20 @@ function NewCardForm() {
         </div>
       )}
 
+      {/* Mobile sticky preview (lg:hidden inside) */}
+      {showMobilePreview && (
+        <MobileStickyPreview
+          cardName={form.settings.name || "Ma carte"}
+          stampCount={form.settings.stampCount}
+          rewardText={form.settings.rewardText || "Votre récompense"}
+          design={form.design}
+          cardType={form.type}
+          barcodeType={form.settings.barcodeType}
+          businessName={businessName}
+          walletBusinessName={form.settings.walletBusinessName}
+        />
+      )}
+
       {/* Content: form + preview */}
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
         {/* Form area */}
@@ -259,6 +302,7 @@ function NewCardForm() {
                 onChange={(settings) => setForm({ ...form, settings })}
                 errors={errors}
                 cardType={form.type}
+                businessName={businessName}
               />
             )}
             {step === 4 && (
@@ -268,8 +312,8 @@ function NewCardForm() {
               />
             )}
 
-            {/* Navigation buttons */}
-            <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
+            {/* Navigation buttons (desktop) */}
+            <div className="hidden lg:flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
               <Button
                 variant="ghost"
                 onClick={handleBack}
@@ -296,8 +340,8 @@ function NewCardForm() {
           </div>
         </div>
 
-        {/* Preview area */}
-        <div className="lg:w-[40%] flex justify-center">
+        {/* Desktop preview area */}
+        <div className="hidden lg:flex lg:w-[40%] justify-center">
           <div className="lg:sticky lg:top-6 w-full max-w-sm">
             <p className="text-sm font-medium text-gray-500 text-center mb-4">
               Aperçu en direct
@@ -309,8 +353,50 @@ function NewCardForm() {
               design={form.design}
               cardType={form.type}
               barcodeType={form.settings.barcodeType}
+              businessName={businessName || undefined}
+              walletBusinessName={form.settings.walletBusinessName}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Sticky bottom action bar (mobile only) */}
+      <div
+        className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md px-4 pt-3"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
+      >
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={handleBack}
+            disabled={step === 1}
+            className="flex-1"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Retour
+          </Button>
+
+          {step < 4 ? (
+            <Button
+              onClick={handleNext}
+              disabled={!canProceed()}
+              className="flex-[1.4]"
+            >
+              Suivant
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="flex-[1.4]"
+            >
+              {submitting && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Créer la carte
+            </Button>
+          )}
         </div>
       </div>
     </div>

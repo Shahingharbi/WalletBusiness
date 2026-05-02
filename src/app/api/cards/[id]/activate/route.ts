@@ -17,7 +17,7 @@ export async function POST(
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: "Non authentifie" },
+        { error: "Non authentifié" },
         { status: 401 }
       );
     }
@@ -38,7 +38,7 @@ export async function POST(
 
     if (profile.role !== "business_owner") {
       return NextResponse.json(
-        { error: "Seul le proprietaire peut activer une carte" },
+        { error: "Seul le propriétaire peut activer une carte" },
         { status: 403 }
       );
     }
@@ -66,7 +66,7 @@ export async function POST(
 
     if (card.status !== "draft") {
       return NextResponse.json(
-        { error: "Seule une carte en brouillon peut etre activee" },
+        { error: "Seule une carte en brouillon peut être activée" },
         { status: 400 }
       );
     }
@@ -87,7 +87,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: "Carte activee avec succes",
+      message: "Carte activée avec succès",
     });
   } catch (err) {
     console.error("POST /api/cards/[id]/activate error:", err);

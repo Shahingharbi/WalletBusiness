@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardPreview } from "@/components/cards/card-preview";
+import { MobileStickyPreview } from "@/components/cards/card-editor/mobile-sticky-preview";
 import {
   StepSettings,
   type CardSettings,
@@ -22,6 +23,8 @@ interface EditCardFormProps {
   initialSettings: CardSettings;
   initialDesign: CardDesign;
   status: string;
+  /** Nom du commerce — placeholder du champ "Nom dans le wallet". */
+  businessName?: string;
 }
 
 export function EditCardForm({
@@ -30,6 +33,7 @@ export function EditCardForm({
   initialSettings,
   initialDesign,
   status,
+  businessName,
 }: EditCardFormProps) {
   const router = useRouter();
   const toast = useToast();
@@ -52,6 +56,7 @@ export function EditCardForm({
           expiration_type: settings.expirationType,
           expiration_date: settings.expirationDate || null,
           expiration_days: settings.expirationDays || null,
+          wallet_business_name: settings.walletBusinessName.trim() || null,
           design,
         }),
       });
@@ -82,16 +87,17 @@ export function EditCardForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28 lg:pb-0">
       <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={() => router.push(`/cards/${cardId}`)}
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+          aria-label="Retour"
         >
           <ArrowLeft className="h-5 w-5 text-gray-600" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Modifier la carte</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Modifier la carte</h1>
       </div>
 
       {status === "active" && (
@@ -101,6 +107,18 @@ export function EditCardForm({
         </div>
       )}
 
+      {/* Mobile sticky preview */}
+      <MobileStickyPreview
+        cardName={settings.name || "Ma carte"}
+        stampCount={settings.stampCount}
+        rewardText={settings.rewardText || "Votre récompense"}
+        design={design}
+        cardType={cardType}
+        barcodeType={settings.barcodeType}
+        businessName={businessName}
+        walletBusinessName={settings.walletBusinessName}
+      />
+
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
         <div className="flex-1 lg:w-[60%] min-w-0 space-y-6">
           <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
@@ -108,13 +126,15 @@ export function EditCardForm({
               values={settings}
               onChange={setSettings}
               cardType={cardType}
+              businessName={businessName}
             />
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <StepDesign values={design} onChange={setDesign} />
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between gap-3">
+          {/* Desktop action row */}
+          <div className="hidden lg:flex items-center justify-between gap-3">
             <Button
               variant="ghost"
               onClick={archive}
@@ -143,8 +163,32 @@ export function EditCardForm({
               design={design}
               cardType={cardType}
               barcodeType={settings.barcodeType}
+              businessName={businessName || undefined}
+              walletBusinessName={settings.walletBusinessName}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Sticky bottom action bar (mobile only) */}
+      <div
+        className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md px-4 pt-3"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
+      >
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={archive}
+            disabled={archiving || status === "archived"}
+            className="text-red-600 hover:bg-red-50 flex-1"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {archiving ? "..." : "Archiver"}
+          </Button>
+          <Button onClick={save} disabled={saving} className="flex-[1.4]">
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Enregistrer
+          </Button>
         </div>
       </div>
     </div>

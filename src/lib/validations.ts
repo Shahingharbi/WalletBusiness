@@ -21,6 +21,7 @@ export const cardSettingsSchema = z.object({
   expirationType: z.enum(["unlimited", "fixed_date", "days_after_install"]),
   expirationDate: z.string().optional(),
   expirationDays: z.number().int().min(1).optional(),
+  walletBusinessName: z.string().max(100).optional().default(""),
 });
 
 export const cardDesignSchema = z.object({

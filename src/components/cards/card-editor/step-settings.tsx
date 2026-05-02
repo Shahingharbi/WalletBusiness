@@ -18,6 +18,11 @@ export interface CardSettings {
   expirationType: "unlimited" | "fixed_date" | "days_after_install";
   expirationDate: string;
   expirationDays: number;
+  /**
+   * Nom à afficher dans le wallet (top-left du pass Apple/Google).
+   * Vide => fallback sur le nom du commerce (`businesses.name`).
+   */
+  walletBusinessName: string;
 }
 
 interface StepSettingsProps {
@@ -25,6 +30,8 @@ interface StepSettingsProps {
   onChange: (values: CardSettings) => void;
   errors?: Partial<Record<keyof CardSettings, string>>;
   cardType?: CardType;
+  /** Nom du commerce, utilisé comme placeholder du champ walletBusinessName. */
+  businessName?: string;
 }
 
 const TYPE_COPY: Record<CardType, {
@@ -66,7 +73,7 @@ const TYPE_COPY: Record<CardType, {
   multipass: { namePlaceholder: "", rewardLabel: "", rewardPlaceholder: "", showCount: false },
 };
 
-export function StepSettings({ values, onChange, errors, cardType = "stamp" }: StepSettingsProps) {
+export function StepSettings({ values, onChange, errors, cardType = "stamp", businessName }: StepSettingsProps) {
   const copy = TYPE_COPY[cardType];
   const update = <K extends keyof CardSettings>(
     key: K,
@@ -91,6 +98,20 @@ export function StepSettings({ values, onChange, errors, cardType = "stamp" }: S
         value={values.name}
         onChange={(e) => update("name", e.target.value)}
         error={errors?.name}
+        hint={
+          values.name.trim().length === 0
+            ? "Ce nom est visible par le client dans son wallet."
+            : undefined
+        }
+      />
+
+      {/* Wallet display name (top-left of Apple/Google pass) */}
+      <Input
+        label="Nom affiché dans le wallet (optionnel)"
+        placeholder={businessName || "Nom du commerce"}
+        value={values.walletBusinessName}
+        onChange={(e) => update("walletBusinessName", e.target.value)}
+        hint={`Par défaut : ${businessName ?? "le nom de votre commerce"}. Apparaît en haut à gauche du pass Apple Wallet / Google Wallet.`}
       />
 
       {/* Stamp count - only for stamp/cashback */}
@@ -130,6 +151,11 @@ export function StepSettings({ values, onChange, errors, cardType = "stamp" }: S
         value={values.rewardText}
         onChange={(e) => update("rewardText", e.target.value)}
         error={errors?.rewardText}
+        hint={
+          values.rewardText.trim().length === 0
+            ? "Soyez court et concret. Le texte s'affiche en gros sur la carte du client."
+            : undefined
+        }
       />
 
       {/* Barcode type */}

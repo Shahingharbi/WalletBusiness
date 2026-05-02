@@ -53,18 +53,22 @@ export default function LoginPage() {
       });
 
       if (error) {
-        setGeneralError(
+        const friendlyMessage =
           error.message === "Invalid login credentials"
             ? "Email ou mot de passe incorrect"
-            : error.message
-        );
+            : error.message === "Email not confirmed"
+              ? "Veuillez confirmer votre email avant de vous connecter"
+              : error.message.includes("rate limit") || error.status === 429
+                ? "Trop de tentatives. Réessayez dans quelques minutes."
+                : error.message;
+        setGeneralError(friendlyMessage);
         return;
       }
 
       router.push("/dashboard");
       router.refresh();
     } catch {
-      setGeneralError("Une erreur inattendue est survenue. Veuillez reessayer.");
+      setGeneralError("Une erreur inattendue est survenue. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }
@@ -110,7 +114,7 @@ export default function LoginPage() {
             href="/forgot-password"
             className="text-sm text-gray-600 hover:text-black transition-colors"
           >
-            Mot de passe oublie ?
+            Mot de passe oublié ?
           </Link>
         </div>
 

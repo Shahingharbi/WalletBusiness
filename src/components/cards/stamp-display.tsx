@@ -1,9 +1,15 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { STAMP_ICONS, getStampIcon } from "@/lib/stamp-icons";
+import {
+  getIconPath,
+  getShapePath,
+  normalizeIconKey,
+  normalizeShape,
+  type StampShape as RenderShape,
+} from "@/lib/stamp-render";
 
-export type StampShape = "circle" | "squircle" | "shield" | "star" | "hex";
+export type StampShape = RenderShape;
 
 interface StampDisplayProps {
   total: number;
@@ -17,30 +23,18 @@ interface StampDisplayProps {
 }
 
 const SIZE = {
-  sm: { box: "h-7 w-7", icon: "h-3.5 w-3.5", gap: "gap-1.5" },
-  md: { box: "h-9 w-9", icon: "h-4.5 w-4.5", gap: "gap-2" },
-  lg: { box: "h-11 w-11", icon: "h-5.5 w-5.5", gap: "gap-2.5" },
+  sm: { box: "h-7 w-7", gap: "gap-1.5" },
+  md: { box: "h-9 w-9", gap: "gap-2" },
+  lg: { box: "h-11 w-11", gap: "gap-2.5" },
 };
 
-const SHAPE_CLASS: Record<StampShape, string> = {
-  circle: "rounded-full",
-  squircle: "rounded-[35%]",
-  shield: "rounded-t-full rounded-b-lg",
-  star: "",
-  hex: "",
-};
-
-// Star / hex rely on clip-path
-const SHAPE_STYLE: Partial<Record<StampShape, React.CSSProperties>> = {
-  star: {
-    clipPath:
-      "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)",
-  },
-  hex: {
-    clipPath: "polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0% 50%)",
-  },
-};
-
+/**
+ * Rendu d'une grille de tampons IDENTIQUE à celle utilisée dans le wallet
+ * (cf. `src/lib/stamp-render.ts`). On utilise les mêmes path SVG pour la
+ * forme et pour l'icône, dans un unique <svg viewBox="0 0 24 24"> — ce qui
+ * garantit la pixel-parity entre l'aperçu in-app et la strip image embarquée
+ * dans Apple/Google Wallet.
+ */
 export function StampDisplay({
   total,
   collected,
@@ -52,24 +46,37 @@ export function StampDisplay({
   shape = "circle",
 }: StampDisplayProps) {
   const sz = SIZE[size];
-  const { Icon } = STAMP_ICONS[getStampIcon(iconKey)];
-  const shapeCls = SHAPE_CLASS[shape];
-  const shapeStyle = SHAPE_STYLE[shape];
-  const hasClip = Boolean(shapeStyle);
+  const normalizedShape = normalizeShape(shape);
+  const normalizedIcon = normalizeIconKey(iconKey ?? null, "check");
+  const shapePath = getShapePath(normalizedShape);
+  const iconPath = getIconPath(normalizedIcon);
 
   return (
     <div className={cn("flex flex-wrap justify-center", sz.gap)}>
       {Array.from({ length: total }, (_, i) => {
         const isFilled = i < collected;
 
-        // Custom image overrides icon
+        // Custom image overrides icon — on garde le ratio sans masquage,
+        // border-radius pour approximer la shape (compromis pratique, identique
+        // à la logique côté banner route).
         if (isFilled && activeImageUrl) {
           return (
             <div
               key={i}
-              className={cn("flex items-center justify-center overflow-hidden shadow-sm", sz.box, !hasClip && shapeCls)}
-              style={hasClip ? shapeStyle : undefined}
+              className={cn(
+                "flex items-center justify-center overflow-hidden shadow-sm",
+                sz.box,
+              )}
+              style={{
+                borderRadius:
+                  normalizedShape === "circle"
+                    ? "50%"
+                    : normalizedShape === "squircle"
+                      ? "30%"
+                      : "12%",
+              }}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={activeImageUrl}
                 alt=""
@@ -82,9 +89,20 @@ export function StampDisplay({
           return (
             <div
               key={i}
-              className={cn("flex items-center justify-center overflow-hidden opacity-60", sz.box, !hasClip && shapeCls)}
-              style={hasClip ? shapeStyle : undefined}
+              className={cn(
+                "flex items-center justify-center overflow-hidden opacity-60",
+                sz.box,
+              )}
+              style={{
+                borderRadius:
+                  normalizedShape === "circle"
+                    ? "50%"
+                    : normalizedShape === "squircle"
+                      ? "30%"
+                      : "12%",
+              }}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={inactiveImageUrl}
                 alt=""
@@ -94,41 +112,36 @@ export function StampDisplay({
           );
         }
 
-        if (isFilled) {
-          return (
-            <div
-              key={i}
-              className={cn(
-                "flex items-center justify-center shadow-sm animate-stamp-pop text-white",
-                sz.box,
-                !hasClip && shapeCls
-              )}
-              style={{
-                backgroundColor: accentColor,
-                ...(shapeStyle ?? {}),
-              }}
-            >
-              <Icon className={sz.icon} />
-            </div>
-          );
-        }
+        // SVG identique à `stamp-render.getShapePath/getIconPath` — c'est
+        // littéralement le même rendu que côté wallet, à la taille près.
+        const shapeStroke = isFilled ? accentColor : `${accentColor}55`;
+        const shapeStrokeWidth = isFilled ? 0.5 : 0.8;
+        const iconFill = isFilled ? accentColor : accentColor;
+        const iconOpacity = isFilled ? 1 : 0.3;
 
         return (
           <div
             key={i}
             className={cn(
-              "flex items-center justify-center border-2 border-dashed",
+              "flex items-center justify-center",
               sz.box,
-              !hasClip && shapeCls
+              isFilled && "animate-stamp-pop",
             )}
-            style={{
-              borderColor: `${accentColor}55`,
-              backgroundColor: `${accentColor}10`,
-              color: accentColor,
-              ...(shapeStyle ?? {}),
-            }}
           >
-            <Icon className={cn(sz.icon, "opacity-30")} />
+            <svg
+              viewBox="0 0 24 24"
+              className="w-full h-full"
+              role="presentation"
+            >
+              <path
+                d={shapePath}
+                fill="#ffffff"
+                stroke={shapeStroke}
+                strokeWidth={shapeStrokeWidth}
+                strokeLinejoin="round"
+              />
+              <path d={iconPath} fill={iconFill} opacity={iconOpacity} />
+            </svg>
           </div>
         );
       })}

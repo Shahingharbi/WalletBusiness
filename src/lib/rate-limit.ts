@@ -87,7 +87,7 @@ export async function rateLimit(
     const oldest = fresh[0] ?? now;
     const retryAfterSec = Math.max(1, Math.ceil((windowMs - (now - oldest)) / 1000));
     return NextResponse.json(
-      { error: "Trop de requetes. Veuillez reessayer plus tard." },
+      { error: "Trop de requêtes. Veuillez réessayer plus tard." },
       {
         status: 429,
         headers: {

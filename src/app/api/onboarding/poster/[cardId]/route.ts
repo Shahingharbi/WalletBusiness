@@ -194,7 +194,7 @@ function PosterDocument({
       React.createElement(
         Text,
         { style: styles.badge },
-        "Carte de fidelite"
+        "Carte de fidélité"
       ),
       React.createElement(
         View,
@@ -207,12 +207,12 @@ function PosterDocument({
       React.createElement(
         Text,
         { style: styles.title },
-        "Scannez pour recevoir\nvotre carte de fidelite"
+        "Scannez pour recevoir\nvotre carte de fidélité"
       ),
       React.createElement(
         Text,
         { style: styles.subtitle },
-        `Ajoutez ${cardName || "votre carte"} a Apple Wallet ou Google Wallet en 2 clics. Aucune appli a telecharger.`
+        `Ajoutez ${cardName || "votre carte"} à Apple Wallet ou Google Wallet en 2 clics. Aucune appli à télécharger.`
       ),
       React.createElement(
         View,
@@ -221,7 +221,7 @@ function PosterDocument({
         React.createElement(
           Text,
           { style: styles.qrCaption },
-          "Pointez l'appareil photo de votre telephone ici"
+          "Pointez l'appareil photo de votre téléphone ici"
         )
       ),
       React.createElement(
@@ -235,12 +235,12 @@ function PosterDocument({
         React.createElement(
           Text,
           { style: [styles.rewardLabel, { color: accentColor }] },
-          "Votre recompense"
+          "Votre récompense"
         ),
         React.createElement(
           Text,
           { style: [styles.rewardText, { color: accentColor }] },
-          rewardText || "A definir"
+          rewardText || "À définir"
         )
       ),
       React.createElement(
@@ -259,7 +259,7 @@ function PosterDocument({
       React.createElement(
         Text,
         { style: styles.footer },
-        `Propulse par aswallet · ${businessName}`
+        `Propulsé par aswallet · ${businessName}`
       )
     )
   );
@@ -277,7 +277,7 @@ export async function GET(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
     const { data: profile } = await supabase
@@ -356,7 +356,7 @@ export async function GET(
   } catch (err) {
     console.error("poster error", err);
     return NextResponse.json(
-      { error: "Erreur lors de la generation du PDF" },
+      { error: "Erreur lors de la génération du PDF" },
       { status: 500 }
     );
   }

@@ -172,6 +172,7 @@ export async function POST(
         supabase,
         instanceToken: instance.token,
         clientId,
+        cardId: card.id,
         cardName: card.name,
         businessId: card.business_id,
         welcomeReward,
@@ -201,6 +202,7 @@ async function deliverWelcomeOffer(args: {
   supabase: ReturnType<typeof createAdminClient>;
   instanceToken: string;
   clientId: string;
+  cardId: string;
   cardName: string;
   businessId: string;
   welcomeReward: string;
@@ -210,6 +212,7 @@ async function deliverWelcomeOffer(args: {
     supabase,
     instanceToken,
     clientId,
+    cardId,
     cardName,
     businessId,
     welcomeReward,
@@ -252,7 +255,8 @@ async function deliverWelcomeOffer(args: {
         firstName: client.first_name ?? undefined,
         rewardText: welcomeReward,
         businessName: business?.name ?? cardName,
-        walletUrl: `${appUrl}/c/${businessId}/status/${instanceToken}`,
+        // Status page lives at /c/[cardId]/status/[instanceToken].
+        walletUrl: `${appUrl}/c/${cardId}/status/${instanceToken}`,
       },
     });
   } catch (err) {

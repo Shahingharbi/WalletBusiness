@@ -7,7 +7,7 @@ async function getOwnedCard(id: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Non authentifie", status: 401 } as const;
+  if (!user) return { error: "Non authentifié", status: 401 } as const;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -19,7 +19,7 @@ async function getOwnedCard(id: string) {
     return { error: "Commerce introuvable", status: 400 } as const;
   }
   if (profile.role !== "business_owner") {
-    return { error: "Acces refuse", status: 403 } as const;
+    return { error: "Accès refusé", status: 403 } as const;
   }
 
   const { data: card } = await supabase
@@ -65,6 +65,14 @@ export async function PATCH(
     }
     if (body.expiration_date !== undefined) update.expiration_date = body.expiration_date || null;
     if (body.expiration_days !== undefined) update.expiration_days = body.expiration_days || null;
+    if (body.wallet_business_name !== undefined) {
+      // Empty/whitespace -> NULL = fallback to businesses.name in wallet pass.
+      update.wallet_business_name =
+        typeof body.wallet_business_name === "string" &&
+        body.wallet_business_name.trim().length > 0
+          ? body.wallet_business_name.trim()
+          : null;
+    }
     if (body.design && typeof body.design === "object") {
       update.design = { ...DEFAULT_CARD_DESIGN, ...body.design };
     }
@@ -83,7 +91,7 @@ export async function PATCH(
 
     if (error) {
       console.error("Card update error:", error);
-      return NextResponse.json({ error: "Erreur lors de la mise a jour" }, { status: 500 });
+      return NextResponse.json({ error: "Erreur lors de la mise à jour" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

@@ -1,6 +1,13 @@
 import { ImageResponse } from "next/og";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
+import {
+  getIconPath,
+  getShapePath,
+  normalizeIconKey,
+  normalizeShape,
+  type StampShape,
+} from "@/lib/stamp-render";
 
 export const runtime = "nodejs";
 
@@ -11,135 +18,6 @@ export const runtime = "nodejs";
 // rendues par le wallet lui-même via les fields du pass.json.
 const WIDTH = 1032;
 const HEIGHT = 336;
-
-// Map of icon keys -> emoji (rendered via Twemoji-friendly font fallback in Satori).
-// These read clean as glyphs in `system-ui` and most rendering pipelines support
-// them out of the box. No nested <svg> needed → much more robust in Satori.
-const ICON_GLYPH: Record<string, string> = {
-  check: "✓",
-  star: "★",
-  heart: "♥",
-  coffee: "☕",
-  pizza: "🍕",
-  flower: "✿",
-  scissors: "✂",
-  crown: "♛",
-  leaf: "❦",
-  gift: "🎁",
-  baguette: "🥖",
-  kebab: "🥙",
-  diamond: "♦",
-  sparkle: "✦",
-  circle: "●",
-  square: "■",
-};
-
-function pickIcon(design: Record<string, unknown>, filled: boolean): string {
-  // Field naming has evolved in DB — accept all variants.
-  const key = filled
-    ? (design.stamp_active_icon as string) ??
-      (design.stamp_icon as string) ??
-      "check"
-    : (design.stamp_inactive_icon as string) ??
-      (design.stamp_icon as string) ??
-      "circle";
-  return ICON_GLYPH[key] ?? (filled ? "✓" : "●");
-}
-
-type StampShape = "circle" | "squircle" | "shield" | "star" | "hex";
-
-function normalizeShape(s: unknown): StampShape {
-  const valid: StampShape[] = ["circle", "squircle", "shield", "star", "hex"];
-  return typeof s === "string" && (valid as string[]).includes(s)
-    ? (s as StampShape)
-    : "circle";
-}
-
-// Renvoie un <svg> top-level avec la forme demandée (path/circle/rect/polygon).
-// Pas de SVG nested, pas de clip-path — pur path SVG, supporté par Satori.
-function ShapeSvg({
-  shape,
-  size,
-  fill,
-  stroke,
-  strokeWidth,
-}: {
-  shape: StampShape;
-  size: number;
-  fill: string;
-  stroke: string;
-  strokeWidth: number;
-}) {
-  const sw = strokeWidth;
-  switch (shape) {
-    case "squircle":
-      return (
-        <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "flex" }}>
-          <rect
-            x={2}
-            y={2}
-            width={44}
-            height={44}
-            rx={12}
-            ry={12}
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={sw}
-          />
-        </svg>
-      );
-    case "shield":
-      return (
-        <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "flex" }}>
-          <path
-            d="M24 3 L43 9 V24 C43 34 34 42 24 45 C14 42 5 34 5 24 V9 Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={sw}
-            strokeLinejoin="round"
-          />
-        </svg>
-      );
-    case "star":
-      return (
-        <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "flex" }}>
-          <path
-            d="M24 3 L29.5 18.5 L45.5 19 L32.8 29 L37.5 44.5 L24 35 L10.5 44.5 L15.2 29 L2.5 19 L18.5 18.5 Z"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={sw}
-            strokeLinejoin="round"
-          />
-        </svg>
-      );
-    case "hex":
-      return (
-        <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "flex" }}>
-          <polygon
-            points="24,3 43,13.5 43,34.5 24,45 5,34.5 5,13.5"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={sw}
-            strokeLinejoin="round"
-          />
-        </svg>
-      );
-    case "circle":
-    default:
-      return (
-        <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: "flex" }}>
-          <circle
-            cx={24}
-            cy={24}
-            r={22}
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={sw}
-          />
-        </svg>
-      );
-  }
-}
 
 function pickGrid(total: number): { cols: number; rows: number } {
   const map: Record<number, [number, number]> = {
@@ -241,6 +119,18 @@ export async function GET(
       (design.inactiveImageUrl as string | null) ||
       null;
     const shape = normalizeShape(design.stamp_shape);
+    // L'icône intérieure : on accepte plusieurs conventions de nommage et on
+    // tombe sur le legacy `stamp_icon` si jamais `stamp_active_icon` est vide.
+    const filledIconKey = normalizeIconKey(
+      (design.stamp_active_icon as string) ||
+        (design.stamp_icon as string) ||
+        "check",
+      "check",
+    );
+    // Pour les tampons vides, on AFFICHE LA MÊME ICÔNE (à faible opacité)
+    // plutôt qu'une silhouette générique : c'est plus clair pour le client de
+    // voir la même forme partout, juste fanée tant qu'elle n'est pas obtenue.
+    const emptyIconKey = filledIconKey;
 
     const stampsTotal = Math.max(1, Math.min(20, card.stamp_count));
     const stampsCollected = Math.max(
@@ -260,7 +150,6 @@ export async function GET(
     const maxByW = (WIDTH - padding * 2 - gap * (cols - 1)) / cols;
     const maxByH = (HEIGHT - padding * 2 - gap * (rows - 1)) / rows;
     const stampSize = Math.max(60, Math.min(200, Math.floor(Math.min(maxByW, maxByH))));
-    const iconFontSize = Math.floor(stampSize * 0.55);
 
     const stamps: Array<{ filled: boolean; idx: number }> = [];
     for (let i = 0; i < stampsTotal; i++) {
@@ -330,37 +219,25 @@ export async function GET(
                   justifyContent: "center",
                 }}
               >
-                {row.map((s) => renderStamp({
-                  filled: s.filled,
-                  size: stampSize,
-                  iconFontSize,
-                  shape,
-                  accent,
-                  activeUrl: stampActiveUrl,
-                  inactiveUrl: stampInactiveUrl,
-                  iconGlyph: pickIcon(design, s.filled),
-                  key: s.idx,
-                }))}
+                {row.map((s) =>
+                  renderStamp({
+                    filled: s.filled,
+                    size: stampSize,
+                    shape,
+                    accent,
+                    activeUrl: stampActiveUrl,
+                    inactiveUrl: stampInactiveUrl,
+                    iconKey: s.filled ? filledIconKey : emptyIconKey,
+                    key: s.idx,
+                  }),
+                )}
               </div>
             ))}
           </div>
 
-          {/* Footer "Powered by aswallet" — style Boomerangme */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 8,
-              right: 14,
-              display: "flex",
-              fontSize: 13,
-              color: bannerUrl ? "rgba(255,255,255,0.85)" : pickFooterColor(background),
-              fontWeight: 500,
-              letterSpacing: 0.3,
-              zIndex: 2,
-            }}
-          >
-            Powered by aswallet
-          </div>
+          {/* Footer "Powered by aswallet" supprimé — on ne signe plus la
+              strip image. Le crédit "Signé par aswallet" est désormais affiché
+              sous le code-barres (altText du barcode Apple/Google). */}
         </div>
       ),
       {
@@ -381,12 +258,11 @@ export async function GET(
 interface StampProps {
   filled: boolean;
   size: number;
-  iconFontSize: number;
   shape: StampShape;
   accent: string;
   activeUrl: string | null;
   inactiveUrl: string | null;
-  iconGlyph: string;
+  iconKey: string;
   key: number;
 }
 
@@ -425,13 +301,21 @@ function renderStamp(p: StampProps) {
     );
   }
 
-  // Style Boomerangme avec VRAIE forme SVG (star, shield, hex, etc.) au lieu
-  // d'un simple rond avec border-radius. Le SVG porte la forme + le fond
-  // blanc, on superpose le glyphe icône au centre via un span absolu.
-  const fill = "#ffffff";
-  const stroke = p.filled ? p.accent : "rgba(255,255,255,0.55)";
-  const strokeWidth = p.filled ? 1.2 : 2;
-  const iconColor = p.filled ? p.accent : "#9ca3af";
+  // Style Boomerangme avec VRAIE forme SVG (star, shield, hex, etc.) ET icône
+  // intérieure rendue dans le MÊME SVG (path enfant), ce qui évite tout SVG
+  // nested (incompatible Satori) et garantit que la forme + l'icône changent
+  // ensemble selon les choix du merchant.
+  const shapeFill = "#ffffff";
+  const shapeStroke = p.filled ? p.accent : "rgba(255,255,255,0.55)";
+  const shapeStrokeWidth = p.filled ? 0.5 : 0.8;
+  // Filled  -> icône en couleur d'accent, opacité 100% (lisible sur fond blanc)
+  // Empty   -> icône en gris très clair, opacité 30% (présente mais discrète)
+  const iconFill = p.filled ? p.accent : "#9ca3af";
+  const iconOpacity = p.filled ? 1 : 0.3;
+
+  const shapePath = getShapePath(p.shape);
+  const iconPath = getIconPath(p.iconKey);
+
   return (
     <div
       key={p.key}
@@ -441,48 +325,27 @@ function renderStamp(p: StampProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        position: "relative",
       }}
     >
-      <ShapeSvg
-        shape={p.shape}
-        size={p.size}
-        fill={fill}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-      />
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: `${p.size}px`,
-          height: `${p.size}px`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: iconColor,
-          fontSize: `${p.iconFontSize}px`,
-          fontWeight: 700,
-          lineHeight: 1,
-        }}
+      <svg
+        width={p.size}
+        height={p.size}
+        viewBox="0 0 24 24"
+        style={{ display: "flex" }}
       >
-        {p.iconGlyph}
-      </div>
+        {/* Forme extérieure */}
+        <path
+          d={shapePath}
+          fill={shapeFill}
+          stroke={shapeStroke}
+          strokeWidth={shapeStrokeWidth}
+          strokeLinejoin="round"
+        />
+        {/* Icône intérieure — même viewBox 24x24, donc centrée naturellement */}
+        <path d={iconPath} fill={iconFill} opacity={iconOpacity} />
+      </svg>
     </div>
   );
-}
-
-// Choisit une couleur de footer lisible selon la luminance du fond.
-// Fond clair -> texte foncé ; fond sombre -> texte clair.
-function pickFooterColor(bgHex: string): string {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((bgHex ?? "").trim());
-  if (!m) return "rgba(255,255,255,0.85)";
-  const r = parseInt(m[1], 16);
-  const g = parseInt(m[2], 16);
-  const b = parseInt(m[3], 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.85)";
 }
 
 // Darken a hex color by a fraction (0..1).

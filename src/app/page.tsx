@@ -46,7 +46,7 @@ const jsonLd = {
         lowPrice: "49",
         highPrice: "199",
         offerCount: 3,
-        url: `${SITE_URL}/pricing`,
+        url: `${SITE_URL}/#pricing`,
       },
     },
   ],

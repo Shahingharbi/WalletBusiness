@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CameraScanner } from "@/components/scanner/camera-scanner";
@@ -274,24 +275,35 @@ export default function ScannerPage() {
 
       {step === "result" && result && (
         <div className="flex-1 flex flex-col items-center justify-center relative">
-          {result.reward_earned && <Confetti count={50} />}
-          <div className="w-full max-w-sm space-y-6 relative z-10">
+          {/* Toujours quelques confettis discrets sur succès, plus dense quand
+              une récompense est débloquée. Donne un feedback visuel clair sans
+              le besoin de "rafraîchir" la page. */}
+          <Confetti count={result.reward_earned ? 60 : 24} />
+          <div className="w-full max-w-sm space-y-6 relative z-10 animate-fade-in-up">
             {result.reward_earned ? (
               <div className="text-center animate-celebrate">
-                <div className="text-6xl mb-3">&#127881;</div>
+                <div className="text-6xl mb-3" aria-hidden>
+                  &#127881;
+                </div>
                 <h2 className="text-white text-2xl font-bold">Récompense gagnée !</h2>
                 <p className="text-amber-400 text-sm mt-1">{result.reward_text}</p>
               </div>
             ) : (
-              <div className="text-center animate-stamp-pop">
-                <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
-                  <svg className="h-8 w-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
+              <div className="text-center">
+                {/* Cercle vert avec icône Lucide Check (au lieu d'un stroke SVG
+                    tracé qui rendait une croix biscornue sur certains devices). */}
+                <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/30 animate-stamp-pop">
+                  <Check
+                    className="h-10 w-10 text-white"
+                    strokeWidth={3}
+                  />
                 </div>
                 <h2 className="text-white text-xl font-bold">
                   {stamps > 1 ? `${stamps} tampons ajoutés !` : "Tampon ajouté !"}
                 </h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  La carte du client est mise à jour instantanément.
+                </p>
               </div>
             )}
 

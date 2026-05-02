@@ -9,7 +9,7 @@ export async function PATCH(request: Request) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -23,7 +23,7 @@ export async function PATCH(request: Request) {
     }
 
     if (Object.keys(update).length === 0) {
-      return NextResponse.json({ error: "Aucun champ a mettre a jour" }, { status: 400 });
+      return NextResponse.json({ error: "Aucun champ à mettre à jour" }, { status: 400 });
     }
 
     const { error } = await supabase
@@ -33,7 +33,7 @@ export async function PATCH(request: Request) {
 
     if (error) {
       console.error("Profile update error:", error);
-      return NextResponse.json({ error: "Erreur lors de la mise a jour" }, { status: 500 });
+      return NextResponse.json({ error: "Erreur lors de la mise à jour" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

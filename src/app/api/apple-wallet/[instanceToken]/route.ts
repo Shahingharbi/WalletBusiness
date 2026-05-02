@@ -28,7 +28,7 @@ export async function GET(
       .select(`
         id, token, stamps_collected, rewards_available, status,
         clients(first_name),
-        cards(id, name, stamp_count, reward_text, design, businesses(name, logo_url))
+        cards(id, name, stamp_count, reward_text, design, wallet_business_name, businesses(name, logo_url))
       `)
       .eq("token", instanceToken)
       .single();
@@ -50,6 +50,7 @@ export async function GET(
       stamp_count: number;
       reward_text: string;
       design: Record<string, unknown>;
+      wallet_business_name: string | null;
       businesses: { name: string; logo_url: string | null } | null;
     };
     const client = instance.clients as unknown as {
@@ -68,6 +69,7 @@ export async function GET(
       cardId: card.id,
       cardName: card.name,
       businessName,
+      walletBusinessName: card.wallet_business_name,
       customerInstanceToken: instance.token,
       customerFirstName: client?.first_name ?? null,
       stampsCollected: instance.stamps_collected,

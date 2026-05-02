@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { ChevronDown, Check, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
 import { STAMP_ICONS, type StampIconKey } from "@/lib/stamp-icons";
+import { COLOR_PRESETS, findMatchingPreset } from "@/lib/color-presets";
 import { cn } from "@/lib/utils";
 
 export type CardDesign = typeof DEFAULT_CARD_DESIGN;
@@ -32,13 +35,13 @@ function ColorField({
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-10 rounded-lg border border-gray-300 cursor-pointer p-0.5"
+          className="h-11 w-11 rounded-lg border border-gray-300 cursor-pointer p-0.5"
         />
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex h-10 w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+          className="flex h-11 flex-1 sm:w-28 sm:flex-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-base sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
         />
       </div>
     </div>
@@ -78,6 +81,20 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
 
   const accent = values.accent_color || "#e53e3e";
   const selectedIconKey = (values.stamp_icon || "check") as StampIconKey;
+  const matchedPreset = findMatchingPreset(
+    values.background_color,
+    values.accent_color
+  );
+  const [advancedOpen, setAdvancedOpen] = useState(!matchedPreset);
+
+  const applyPreset = (preset: (typeof COLOR_PRESETS)[number]) => {
+    onChange({
+      ...values,
+      background_color: preset.background_color,
+      accent_color: preset.accent_color,
+      ...(preset.text_color ? { text_color: preset.text_color } : {}),
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -88,11 +105,103 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
         </p>
       </div>
 
-      {/* Colors */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <ColorField label="Couleur de fond" value={values.background_color} onChange={(v) => update("background_color", v)} />
-        <ColorField label="Couleur du texte" value={values.text_color} onChange={(v) => update("text_color", v)} />
-        <ColorField label="Couleur d'accent" value={values.accent_color} onChange={(v) => update("accent_color", v)} />
+      {/* Color presets */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="block text-sm font-medium text-gray-700">
+            Palette de couleurs
+          </label>
+          {matchedPreset && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
+              <Sparkles className="h-3 w-3" />
+              {matchedPreset.label}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5">
+          {COLOR_PRESETS.map((preset) => {
+            const isSel = matchedPreset?.id === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyPreset(preset)}
+                title={preset.label}
+                aria-label={preset.label}
+                className={cn(
+                  "group relative flex flex-col items-center gap-1.5 cursor-pointer transition-all"
+                )}
+              >
+                <div
+                  className={cn(
+                    "relative h-12 w-12 rounded-full border-2 shadow-sm overflow-hidden transition-all",
+                    isSel
+                      ? "border-black scale-110 shadow-md"
+                      : "border-white group-hover:scale-105"
+                  )}
+                  style={{ backgroundColor: preset.background_color }}
+                >
+                  {/* Accent quarter */}
+                  <div
+                    className="absolute inset-y-0 right-0 w-1/2"
+                    style={{ backgroundColor: preset.accent_color }}
+                  />
+                  {isSel && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="h-5 w-5 rounded-full bg-white/90 shadow flex items-center justify-center">
+                        <Check className="h-3 w-3 text-black" strokeWidth={3} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    "text-[10px] leading-tight text-center truncate w-full",
+                    isSel ? "text-gray-900 font-semibold" : "text-gray-500"
+                  )}
+                >
+                  {preset.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Advanced toggle */}
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen((v) => !v)}
+          className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900 mt-1 cursor-pointer"
+        >
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 transition-transform",
+              advancedOpen && "rotate-180"
+            )}
+          />
+          {advancedOpen ? "Masquer" : "Couleurs personnalisées"}
+        </button>
+
+        {advancedOpen && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-gray-100">
+            <ColorField
+              label="Couleur de fond"
+              value={values.background_color}
+              onChange={(v) => update("background_color", v)}
+            />
+            <ColorField
+              label="Couleur du texte"
+              value={values.text_color}
+              onChange={(v) => update("text_color", v)}
+            />
+            <ColorField
+              label="Couleur d'accent"
+              value={values.accent_color}
+              onChange={(v) => update("accent_color", v)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Labels */}
@@ -102,12 +211,14 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
           value={values.label_stamps}
           onChange={(e) => update("label_stamps", e.target.value)}
           placeholder="Tampons avant récompense"
+          hint="Affiché au-dessus des tampons sur la carte"
         />
         <Input
           label='Label "récompenses"'
           value={values.label_rewards}
           onChange={(e) => update("label_rewards", e.target.value)}
           placeholder="Récompenses disponibles"
+          hint="Texte court visible dans le wallet"
         />
       </div>
 
@@ -119,7 +230,11 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
           onChange={(url) => update("logo_url", url)}
           folder="logos"
           aspect="square"
-          hint="Carré, fond transparent recommandé"
+          hint={
+            values.logo_url
+              ? "Carré, fond transparent recommandé"
+              : "Recommandé : carré, PNG, 200×200 minimum. Affiché en haut à gauche du wallet."
+          }
         />
         <ImageUpload
           label="Bannière / image de fond"
@@ -127,7 +242,11 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
           onChange={(url) => update("banner_url", url)}
           folder="banners"
           aspect="wide"
-          hint="Un voile sombre sera ajouté pour lisibilité"
+          hint={
+            values.banner_url
+              ? "Un voile sombre sera ajouté pour lisibilité"
+              : "Photo large (1125×432). Une image d'ambiance de votre commerce fonctionne très bien."
+          }
         />
       </div>
 
@@ -204,7 +323,11 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
           onChange={(url) => update("stamp_active_url", url)}
           folder="stamps"
           aspect="square"
-          hint="Remplace le style ci-dessus"
+          hint={
+            values.stamp_active_url
+              ? "Remplace le style ci-dessus"
+              : "Optionnel — remplace l'icône par une image perso (ex: votre logo en mini)."
+          }
         />
         <ImageUpload
           label="Tampon vide (image, optionnel)"
@@ -212,6 +335,11 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
           onChange={(url) => update("stamp_inactive_url", url)}
           folder="stamps"
           aspect="square"
+          hint={
+            values.stamp_inactive_url
+              ? undefined
+              : "Optionnel — image affichée pour les tampons non encore obtenus."
+          }
         />
       </div>
 
@@ -230,7 +358,7 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
           value={values.welcome_reward ?? ""}
           onChange={(e) => update("welcome_reward", e.target.value)}
           placeholder="Ex : -10% sur votre première commande, ou un café offert"
-          className="flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent resize-none"
+          className="flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent resize-none"
         />
         <p className="text-xs text-gray-500">
           Si renseigné, chaque nouveau client reçoit cette offre dès
