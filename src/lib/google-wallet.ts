@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { GoogleAuth } from "google-auth-library";
+import type { PassLocation } from "./apple-wallet";
 
 interface PassParams {
   cardId: string;
@@ -22,6 +23,11 @@ interface PassParams {
   bannerUrl?: string | null;
   appUrl: string;
   barcodeType?: "qr" | "pdf417";
+  /**
+   * Points de vente — Google Wallet stocke les locations au niveau de la
+   * `LoyaltyClass` (partagées par tous les porteurs). Max 10 par classe.
+   */
+  locations?: PassLocation[];
 }
 
 const ISSUER_ID = process.env.GOOGLE_WALLET_ISSUER_ID!;
@@ -51,6 +57,16 @@ function buildLoyaltyClass(p: PassParams) {
     (p.walletBusinessName && p.walletBusinessName.trim()) || p.businessName;
   // No class-level heroImage: the per-object heroImage (dynamic stamp grid)
   // is always set, so a class fallback would only add noise.
+  // Google Wallet `locations` : array d'objets {latitude, longitude}.
+  // L'OS Android affiche une notif quand le porteur s'approche du commerce.
+  const locations =
+    p.locations && p.locations.length > 0
+      ? p.locations.slice(0, 10).map((l) => ({
+          latitude: l.latitude,
+          longitude: l.longitude,
+        }))
+      : undefined;
+
   return {
     id: classId(p.cardId),
     issuerName: displayName,
@@ -71,6 +87,7 @@ function buildLoyaltyClass(p: PassParams) {
     // programDetails apparaît au verso de la carte Google Wallet — on y met
     // la récompense + le footer "Signé par aswallet".
     programDetails: `${p.rewardText}\n\nSigné par aswallet`,
+    ...(locations ? { locations } : {}),
   };
 }
 

@@ -5,6 +5,32 @@
 
 ---
 
+## 2026-05-02 — Geo-push + RFM segmentation + Auto-push événementiel
+
+### Geo-push (Boomerangme parity)
+- Migration `007_locations_and_birthday.sql` appliquée Supabase : `locations.relevant_text`, `clients.birthday`, `cards.auto_push_settings JSONB`, table `auto_push_log` + RLS. Réuse de la table `locations` existante (au lieu de créer `business_locations`).
+- `lib/locations.ts::fetchPassLocations()` : helper qui charge les POS actifs et les normalise au format `{ latitude, longitude, relevantText }`.
+- `lib/apple-wallet.ts` : embed `pass.json.locations[]` (max 10, iOS notif lockscreen à <100m).
+- `lib/google-wallet.ts` : embed `LoyaltyClass.locations[]` (Android notif).
+- API CRUD `/api/locations` + `/api/locations/[id]` (gating Starter=1 / Pro=3 / Business=10).
+- Géocodage gratuit via Nominatim OSM (`/api/locations/geocode?q=`) avec User-Agent + rate-limit.
+- Page `/locations` (sidebar "Localisations" + icône MapPin) — liste + add/edit/delete + toggle actif.
+
+### RFM segmentation
+- `lib/rfm.ts::computeRfmSegmentFromVisits()` : segments `champion / loyal / at_risk / lost / new` calculés à la volée depuis les transactions `stamp_add` (pas de table dédiée).
+- API `/api/clients/segments` retourne les 5 listes.
+- Page `/clients` enrichie : pills horizontales pour les 5 segments avec emoji + count, badge segment dans la colonne "Statut".
+
+### Auto-push événementiel (Pro+)
+- Cron `/api/cron/auto-push` planifié à 10h via `vercel.json` (`0 10 * * *`).
+- 3 triggers : `inactive_30d` (cooldown 30j), `near_reward_80` (cooldown 7j), `birthday` (cooldown 365j).
+- Idempotence via `auto_push_log` (clé `card_instance_id × trigger × sent_at`).
+- Push live wallet via `syncLoyaltyObject(message)` (Google Wallet). Apple : back-of-card uniquement (APNs non implémenté).
+- UI `/cards/[id]/auto-push` : 3 toggles + textarea avec variables `{name}`, `{reward}`, `{remaining}`. API `PUT /api/cards/[id]/auto-push` persiste dans `cards.auto_push_settings`.
+- Champ `birthday` éditable inline sur `/clients/[id]` via API `PATCH /api/clients/[id]`.
+
+---
+
 ## 2026-04-25 — Apple Wallet live + Stripe + Resend + Sentry + Onboarding + Push campaigns + Demo
 
 ### Apple Wallet (END-TO-END LIVE)

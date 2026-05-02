@@ -32,7 +32,16 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Routes publiques (pas d'auth requise)
-  const publicRoutes = ["/c/", "/api/install/"];
+  // /auth/reset-password est publique : Supabase y dépose le token de
+  // recovery dans le hash; on ne doit ni exiger un user connecté, ni
+  // rediriger vers /dashboard quand setSession() vient d'établir une
+  // session côté client.
+  const publicRoutes = [
+    "/c/",
+    "/api/install/",
+    "/auth/reset-password",
+    "/auth/callback",
+  ];
   const isPublicRoute = publicRoutes.some((route) => path.startsWith(route));
   if (isPublicRoute) return supabaseResponse;
 

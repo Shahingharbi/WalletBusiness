@@ -5,6 +5,7 @@ import {
   generateApplePassBuffer,
   isAppleWalletConfigured,
 } from "@/lib/apple-wallet";
+import { fetchPassLocations } from "@/lib/locations";
 
 export const runtime = "nodejs"; // passkit-generator + fs => pas Edge
 
@@ -26,7 +27,7 @@ export async function GET(
     const { data: instance, error } = await supabase
       .from("card_instances")
       .select(`
-        id, token, stamps_collected, rewards_available, status,
+        id, token, business_id, stamps_collected, rewards_available, status,
         clients(first_name),
         cards(id, name, stamp_count, reward_text, design, wallet_business_name, businesses(name, logo_url))
       `)
@@ -65,6 +66,9 @@ export async function GET(
       card.businesses?.logo_url ??
       null;
 
+    // Geo-push : embed les points de vente actifs dans le pass.
+    const locations = await fetchPassLocations(supabase, instance.business_id);
+
     const buffer = await generateApplePassBuffer({
       cardId: card.id,
       cardName: card.name,
@@ -85,6 +89,7 @@ export async function GET(
       accentColor: (design.accent_color as string) || "#10b981",
       appUrl,
       logoUrl: merchantLogoUrl,
+      locations,
     });
 
     return new NextResponse(new Uint8Array(buffer), {

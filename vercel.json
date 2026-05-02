@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/trial-expires-soon",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/auto-push",
+      "schedule": "0 10 * * *"
     }
   ]
 }

@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ScanLine,
+  MapPin,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ const navItems = [
   { label: "Cartes", href: "/cards", icon: CreditCard },
   { label: "Scanner", href: "/scanner", icon: ScanLine, highlight: true },
   { label: "Clients", href: "/clients", icon: Users },
+  { label: "Localisations", href: "/locations", icon: MapPin },
   { label: "Paramètres", href: "/settings", icon: Settings },
 ];
 

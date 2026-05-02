@@ -4,6 +4,17 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
+/**
+ * Localisation embarquée dans un pass Apple/Google.
+ * Apple en accepte jusqu'à 10 par pass — au-delà, iOS ignore les suivantes.
+ */
+export interface PassLocation {
+  latitude: number;
+  longitude: number;
+  /** Texte affiché en notif lockscreen (Apple) / sur la carte (Google). */
+  relevantText?: string | null;
+}
+
 interface ApplePassParams {
   cardId: string;
   cardName: string;
@@ -26,6 +37,11 @@ interface ApplePassParams {
   appUrl: string;
   /** Merchant's logo (carré idéalement) — affiché top-left du pass Apple. */
   logoUrl?: string | null;
+  /**
+   * Points de vente du commerce. Apple PassKit affiche une notif sur l'écran
+   * verrouillé quand le porteur passe dans un rayon de ~100m. Max 10.
+   */
+  locations?: PassLocation[];
 }
 
 const TEAM_ID = process.env.APPLE_TEAM_ID ?? "";
@@ -251,6 +267,20 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
       logoText:
         (p.walletBusinessName && p.walletBusinessName.trim()) ||
         p.businessName,
+      // Apple Wallet : un pass peut embarquer jusqu'à 10 locations. iOS
+      // déclenche une notification sur l'écran verrouillé quand le porteur
+      // entre dans un rayon de ~100m d'un de ces points (sans ouvrir l'app).
+      ...(p.locations && p.locations.length > 0
+        ? {
+            locations: p.locations.slice(0, 10).map((l) => ({
+              latitude: l.latitude,
+              longitude: l.longitude,
+              ...(l.relevantText && l.relevantText.trim()
+                ? { relevantText: l.relevantText.trim().slice(0, 200) }
+                : {}),
+            })),
+          }
+        : {}),
       ...liveUpdateProps,
     }
   );

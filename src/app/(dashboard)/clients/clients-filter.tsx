@@ -4,13 +4,28 @@ import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SEGMENT_LABELS, SEGMENT_ORDER } from "@/lib/rfm";
 
-const FILTERS = [
+type FilterId =
+  | "all"
+  | "active"
+  | "inactive"
+  | "rewards"
+  | (typeof SEGMENT_ORDER)[number];
+
+const STATIC_FILTERS: ReadonlyArray<{ id: FilterId; label: string; emoji?: string }> = [
   { id: "all", label: "Tous" },
   { id: "active", label: "Actifs (30 j)" },
   { id: "inactive", label: "Inactifs (>30 j)" },
   { id: "rewards", label: "Récompense dispo" },
-] as const;
+];
+
+const SEGMENT_FILTERS: ReadonlyArray<{ id: FilterId; label: string; emoji: string }> =
+  SEGMENT_ORDER.map((s) => ({
+    id: s,
+    label: SEGMENT_LABELS[s].label,
+    emoji: SEGMENT_LABELS[s].emoji,
+  }));
 
 interface ClientsFilterProps {
   currentFilter: string;
@@ -42,6 +57,41 @@ export function ClientsFilter({
     updateParams({ q: query.trim() });
   };
 
+  const renderPill = (
+    id: FilterId,
+    label: string,
+    emoji: string | undefined,
+    count: number
+  ) => {
+    const active = currentFilter === id;
+    return (
+      <button
+        key={id}
+        type="button"
+        onClick={() =>
+          updateParams({ filter: id === "all" ? undefined : id })
+        }
+        className={cn(
+          "px-3 py-1.5 text-sm font-medium rounded-full border transition-all cursor-pointer",
+          active
+            ? "bg-black text-white border-black"
+            : "bg-white text-gray-700 border-gray-200 hover:border-gray-400"
+        )}
+      >
+        {emoji && <span className="mr-1">{emoji}</span>}
+        {label}
+        <span
+          className={cn(
+            "ml-1.5 text-xs",
+            active ? "text-gray-300" : "text-gray-400"
+          )}
+        >
+          {count}
+        </span>
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-3">
       <form onSubmit={onSubmit} className="relative">
@@ -70,37 +120,20 @@ export function ClientsFilter({
 
       <div
         className={cn(
-          "inline-flex flex-wrap gap-1.5 transition-opacity",
+          "flex flex-col gap-2 transition-opacity",
           pending && "opacity-60"
         )}
       >
-        {FILTERS.map((f) => {
-          const active = currentFilter === f.id;
-          const count = counts[f.id] ?? 0;
-          return (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => updateParams({ filter: f.id === "all" ? undefined : f.id })}
-              className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-full border transition-all cursor-pointer",
-                active
-                  ? "bg-black text-white border-black"
-                  : "bg-white text-gray-700 border-gray-200 hover:border-gray-400"
-              )}
-            >
-              {f.label}
-              <span
-                className={cn(
-                  "ml-1.5 text-xs",
-                  active ? "text-gray-300" : "text-gray-400"
-                )}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
+        <div className="inline-flex flex-wrap gap-1.5">
+          {STATIC_FILTERS.map((f) =>
+            renderPill(f.id, f.label, undefined, counts[f.id] ?? 0)
+          )}
+        </div>
+        <div className="inline-flex flex-wrap gap-1.5">
+          {SEGMENT_FILTERS.map((f) =>
+            renderPill(f.id, f.label, f.emoji, counts[f.id] ?? 0)
+          )}
+        </div>
       </div>
     </div>
   );

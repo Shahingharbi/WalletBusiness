@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatRelative } from "@/lib/utils";
+import { BirthdayEditor } from "./birthday-editor";
 
 const TX_LABELS: Record<string, { label: string; color: string }> = {
   stamp_add: { label: "Tampon ajouté", color: "text-emerald-600" },
@@ -45,7 +46,7 @@ export default async function ClientDetailPage({
 
   const { data: client } = await supabase
     .from("clients")
-    .select("id, first_name, last_name, phone, email, notes, created_at")
+    .select("id, first_name, last_name, phone, email, notes, birthday, created_at")
     .eq("id", id)
     .eq("business_id", profile.business_id)
     .single();
@@ -132,6 +133,10 @@ export default async function ClientDetailPage({
                 <Calendar className="h-4 w-4 text-gray-400" />
                 {formatDate(client.created_at)}
               </div>
+              <BirthdayEditor
+                clientId={client.id}
+                initialBirthday={client.birthday ?? null}
+              />
             </div>
 
             {client.notes && (

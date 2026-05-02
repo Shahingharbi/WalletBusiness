@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Pencil, BarChart3, Users, Info, Send, ExternalLink, Sparkles } from "lucide-react";
+import { Pencil, BarChart3, Users, Info, Send, ExternalLink, Sparkles, Zap } from "lucide-react";
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -171,6 +171,10 @@ export default async function CardDetailPage({
                 <Send className="h-4 w-4 mr-1.5" />
                 Campagnes
               </TabsTrigger>
+              <TabsTrigger value="auto-push">
+                <Zap className="h-4 w-4 mr-1.5" />
+                Auto-push
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="info">
@@ -264,6 +268,21 @@ export default async function CardDetailPage({
                   </p>
                   <Link href={`/cards/${card.id}/campaigns`}>
                     <Button variant="secondary">Ouvrir les campagnes</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="auto-push">
+              <Card>
+                <CardContent className="p-6 text-center py-10 space-y-3">
+                  <Zap className="h-8 w-8 text-gray-300 mx-auto" />
+                  <p className="text-sm text-gray-500">
+                    Notifications automatiques : inactivité 30 j, 80 % de la
+                    récompense, anniversaire client.
+                  </p>
+                  <Link href={`/cards/${card.id}/auto-push`}>
+                    <Button variant="secondary">Configurer</Button>
                   </Link>
                 </CardContent>
               </Card>

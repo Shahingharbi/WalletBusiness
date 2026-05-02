@@ -5,6 +5,7 @@ import {
   generateGoogleWalletPassUrl,
   isGoogleWalletConfigured,
 } from "@/lib/google-wallet";
+import { fetchPassLocations } from "@/lib/locations";
 
 export async function GET(
   request: Request,
@@ -24,7 +25,7 @@ export async function GET(
     const { data: instance, error } = await supabase
       .from("card_instances")
       .select(`
-        id, token, stamps_collected, rewards_available, status,
+        id, token, business_id, stamps_collected, rewards_available, status,
         cards(id, name, stamp_count, reward_text, design, barcode_type, wallet_business_name, businesses(name, logo_url)),
         clients(first_name, last_name)
       `)
@@ -61,6 +62,9 @@ export async function GET(
       firstName || `${firstName} ${lastName}`.trim() || "Client";
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
 
+    // Geo-push : embed les points de vente actifs dans la LoyaltyClass.
+    const locations = await fetchPassLocations(supabase, instance.business_id);
+
     const url = generateGoogleWalletPassUrl({
       cardId: card.id,
       cardName: card.name,
@@ -81,6 +85,7 @@ export async function GET(
       bannerUrl: (design.banner_url as string | null) ?? null,
       appUrl,
       barcodeType: card.barcode_type ?? "qr",
+      locations,
     });
 
     return NextResponse.redirect(url);
