@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe";
 import {
   PLANS,
-  PLAN_ORDER,
+  STRIPE_PLANS,
   effectivePlan,
   isInTrial,
   isLockedOut,
@@ -131,14 +131,24 @@ export default async function BillingPage({ searchParams }: PageProps) {
         lockedOut={lockedOut}
         hasStripeCustomer={Boolean(business.stripe_customer_id)}
         invoices={invoices}
-        plans={PLAN_ORDER.map((id) => ({
-          id,
-          name: PLANS[id].name,
-          monthlyPrice: PLANS[id].monthlyPrice,
-          yearlyPrice: PLANS[id].yearlyPrice,
-          description: PLANS[id].description,
-          features: [...PLANS[id].features],
-        }))}
+        plans={STRIPE_PLANS.map((id) => {
+          const monthly = PLANS[id].monthlyPrice;
+          const yearly = PLANS[id].yearlyPrice;
+          const yearlyTotal = PLANS[id].yearlyTotal;
+          // STRIPE_PLANS exclut enterprise -> les prix sont toujours définis.
+          if (monthly === null || yearly === null || yearlyTotal === null) {
+            throw new Error(`[billing page] prix manquant pour le plan ${id}`);
+          }
+          return {
+            id,
+            name: PLANS[id].name,
+            monthlyPrice: monthly,
+            yearlyPrice: yearly,
+            yearlyTotal,
+            description: PLANS[id].description,
+            features: [...PLANS[id].features],
+          };
+        })}
       />
     </div>
   );

@@ -11,16 +11,17 @@ type UseCase = {
 };
 
 // Unsplash photos — vérifiées 200 OK, produits uniquement (pas de visage, pas d'awra).
+// Aucun chiffre marketing inventé : on décrit la mécanique, pas un résultat.
 const cases: UseCase[] = [
   {
     title: "Kebab & restauration rapide",
     tagline: "10 menus = 1 offert",
     benefit:
-      "Remplissez les creux de 14h. Vos habitués reviennent 2x plus souvent.",
+      "Remplissez les creux du midi. Notifiez vos habitués des plats du jour.",
     image:
       "https://images.unsplash.com/photo-1561651823-34feb02250e4?w=900&auto=format&fit=crop&q=70",
     ctaLabel: "Démarrer gratuitement",
-    badge: "+32% de retour",
+    badge: "Tampons illimités",
   },
   {
     title: "Boulangerie & café",
@@ -36,21 +37,21 @@ const cases: UseCase[] = [
     title: "Coiffeur & institut beauté",
     tagline: "-20% sur le 5e soin",
     benefit:
-      "Relancez vos clientes dormantes en 1 clic. 3x plus de re-réservations.",
+      "Relancez vos clientes dormantes en 1 clic, sans SMS payant.",
     image:
       "https://images.unsplash.com/photo-1562322140-8baeececf3df?w=900&auto=format&fit=crop&q=70",
     ctaLabel: "Démarrer gratuitement",
-    badge: "+3x re-résa",
+    badge: "Relances en 1 clic",
   },
   {
     title: "Pizzeria & restaurant",
     tagline: "La 10e pizza offerte",
     benefit:
-      "Doublez les réservations du mardi soir. Envoyez une promo ciblée.",
+      "Animez vos soirs creux : envoyez une promo ciblée à votre base.",
     image:
       "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=900&auto=format&fit=crop&q=70",
     ctaLabel: "Démarrer gratuitement",
-    badge: "x2 mardi soir",
+    badge: "Campagnes ciblées",
   },
   {
     title: "Fleuriste & épicerie",
@@ -60,7 +61,7 @@ const cases: UseCase[] = [
     image:
       "https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=900&auto=format&fit=crop&q=70",
     ctaLabel: "Démarrer gratuitement",
-    badge: "Pics saisonniers",
+    badge: "Rappels saisonniers",
   },
   {
     title: "VIP & premium",
@@ -70,7 +71,7 @@ const cases: UseCase[] = [
     image:
       "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=900&auto=format&fit=crop&q=70",
     ctaLabel: "Démarrer gratuitement",
-    badge: "Top 10% CA",
+    badge: "Carte privilège",
   },
 ];
 
@@ -103,7 +104,7 @@ export function UseCasesSection() {
           {cases.map((c) => (
             <Link
               key={c.title}
-              href="/register"
+              href="/#pricing"
               className="group relative flex flex-col overflow-hidden rounded-3xl bg-white shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
             >
               <div className="relative h-44 sm:h-52 lg:h-56 overflow-hidden">

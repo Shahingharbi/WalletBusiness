@@ -5,6 +5,7 @@ import {
   effectivePlan,
   isLockedOut,
   type BusinessBillingState,
+  type PlanId,
 } from "@/lib/billing";
 
 export const runtime = "nodejs";
@@ -21,17 +22,18 @@ interface LocationInput {
 }
 
 /**
- * Limites de localisations par plan (geo-push). Suit la même hiérarchie que
- * Boomerangme : plus de POS = plan plus haut.
- *  - Starter : 1 (mono-shop)
- *  - Pro     : 3
- *  - Business: 10 (max Apple/Google de toute façon)
+ * Limites de localisations geo-push par plan. Source de vérité : `PLANS[plan].limits.maxGeoLocations`.
+ *  - Starter    : 0 (pas de geo-push)
+ *  - Pro        : 3
+ *  - Business   : 10
+ *  - Enterprise : illimité
  */
-const LOCATIONS_LIMIT = {
-  starter: 1,
-  pro: 3,
-  business: 10,
-} as const;
+const LOCATIONS_LIMIT: Record<PlanId, number> = {
+  starter: PLANS.starter.limits.maxGeoLocations,
+  pro: PLANS.pro.limits.maxGeoLocations,
+  business: PLANS.business.limits.maxGeoLocations,
+  enterprise: Number.POSITIVE_INFINITY,
+};
 
 function validate(input: LocationInput): string | null {
   if (!input.name || typeof input.name !== "string" || !input.name.trim()) {
@@ -129,12 +131,22 @@ export async function POST(request: Request) {
     .eq("business_id", profile.business_id);
 
   if ((count ?? 0) >= limit) {
+    if (limit === 0) {
+      return NextResponse.json(
+        {
+          error: `Le geo-push n'est pas inclus dans le plan ${PLANS[plan].name}. Passez au plan Pro pour activer 3 emplacements.`,
+          requiredPlan: "pro" satisfies PlanId,
+        },
+        { status: 402 }
+      );
+    }
+    const requiredPlan: PlanId = plan === "pro" ? "business" : "enterprise";
     return NextResponse.json(
       {
         error: `Vous avez atteint la limite de ${limit} localisation${
           limit > 1 ? "s" : ""
         } du plan ${PLANS[plan].name}.`,
-        requiredPlan: plan === "starter" ? "pro" : "business",
+        requiredPlan,
       },
       { status: 402 }
     );

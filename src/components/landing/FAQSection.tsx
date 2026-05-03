@@ -16,7 +16,7 @@ const faqs: FAQ[] = [
   },
   {
     q: "Combien de temps pour rentabiliser l'abonnement ?",
-    a: "Le plan Starter à 49 EUR/mois est rentabilisé dès que 2 à 3 clients reviennent dans le mois grâce à une notification push. La plupart des commerces voient un effet dès la première offre flash envoyée.",
+    a: "Le plan Starter à 29 EUR/mois (22 EUR/mois en annuel) est rentabilisé dès qu'un seul client revient dans le mois grâce à une notification push. La plupart des commerces voient un effet dès la première offre flash envoyée.",
   },
   {
     q: "Puis-je résilier à tout moment ?",

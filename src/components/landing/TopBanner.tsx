@@ -14,16 +14,16 @@ export function TopBanner({ onDismiss }: { onDismiss: () => void }) {
         className="text-sm font-semibold tracking-tight hidden sm:block"
         style={{ fontFamily: "var(--font-maison-neue-extended)" }}
       >
-        Essai gratuit 14 jours, sans engagement, sans carte bancaire
+        Essai gratuit 30 jours, sans engagement, sans carte bancaire
       </p>
       <p
         className="text-xs font-semibold tracking-tight sm:hidden"
         style={{ fontFamily: "var(--font-maison-neue-extended)" }}
       >
-        14 jours gratuits
+        30 jours gratuits
       </p>
       <Link
-        href="/register"
+        href="/#pricing"
         className="ml-3 sm:ml-6 border border-white rounded-full px-3 sm:px-6 py-1.5 text-xs sm:text-sm text-white hover:bg-white hover:text-black transition-colors duration-200 whitespace-nowrap"
       >
         Commencer

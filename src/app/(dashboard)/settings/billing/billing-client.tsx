@@ -24,11 +24,14 @@ export interface InvoiceRow {
   invoicePdf: string | null;
 }
 
+type StripePlanId = Exclude<PlanId, "enterprise">;
+
 interface PlanInfo {
-  id: PlanId;
+  id: StripePlanId;
   name: string;
   monthlyPrice: number;
   yearlyPrice: number;
+  yearlyTotal: number;
   description: string;
   features: string[];
 }
@@ -105,13 +108,13 @@ export function BillingClient(props: BillingClientProps) {
   const [interval, setInterval] = useState<BillingInterval>(
     subscriptionInterval
   );
-  const [pendingPlan, setPendingPlan] = useState<PlanId | null>(null);
+  const [pendingPlan, setPendingPlan] = useState<StripePlanId | null>(null);
   const [pendingPortal, setPendingPortal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isPastDue = subscriptionStatus === "past_due";
 
-  async function startCheckout(plan: PlanId) {
+  async function startCheckout(plan: StripePlanId) {
     setError(null);
     setPendingPlan(plan);
     try {
@@ -334,10 +337,15 @@ export function BillingClient(props: BillingClientProps) {
                   : "text-gray-600 hover:text-foreground"
               }`}
             >
-              Annuel <span className="text-xs text-green-700">−20%</span>
+              Annuel <span className="text-xs text-green-700">−25%</span>
             </button>
           </div>
         </div>
+        {interval === "month" && (
+          <p className="mt-3 text-xs text-green-700">
+            Économie de 25 % / an en passant en facturation annuelle.
+          </p>
+        )}
 
         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
           {plans.map((plan) => {
@@ -370,15 +378,25 @@ export function BillingClient(props: BillingClientProps) {
                     </span>
                   )}
                 </div>
-                <div className="mt-3 flex items-baseline gap-1">
+                <div className="mt-3 flex items-baseline gap-2 flex-wrap">
+                  {interval === "year" && (
+                    <span className="text-base text-gray-400 line-through">
+                      {plan.monthlyPrice}€
+                    </span>
+                  )}
                   <span className="text-3xl font-bold text-gray-900">
-                    {price}
+                    {price}€
                   </span>
-                  <span className="text-sm text-gray-500">EUR/mois</span>
+                  <span className="text-sm text-gray-500">/mois</span>
                 </div>
-                {interval === "year" && (
+                {interval === "year" ? (
                   <p className="text-xs text-green-700 mt-1">
-                    Facturé annuellement
+                    Facturé annuellement ({plan.yearlyTotal}€/an, économie
+                    de 25 %)
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Soit {plan.yearlyPrice}€/mois en annuel — économisez 25 %.
                   </p>
                 )}
                 <p className="text-xs text-gray-600 mt-2 leading-relaxed">

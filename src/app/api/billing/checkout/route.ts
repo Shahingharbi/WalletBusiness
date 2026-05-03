@@ -4,10 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import {
   getPriceId,
-  isPlanId,
-  isBillingInterval,
-  type PlanId,
+  isStripePlanId,
+  isBillingIntervalLike,
+  normalizeBillingInterval,
   type BillingInterval,
+  type PlanId,
 } from "@/lib/billing";
 
 export const runtime = "nodejs";
@@ -15,6 +16,48 @@ export const runtime = "nodejs";
 interface CheckoutBody {
   plan?: unknown;
   interval?: unknown;
+}
+
+/**
+ * Crée une session Stripe Checkout pour le business courant.
+ *
+ * Accepte :
+ *  - body JSON `{ plan, interval }` (POST)
+ *  - query string `?plan=&interval=`  (POST avec body vide / GET pour debug)
+ *
+ * Plans valides : starter | pro | business (Enterprise = sales assisté).
+ * Intervalles : month | year (et alias UI monthly | annual).
+ */
+async function readArgs(request: Request): Promise<{
+  plan: Exclude<PlanId, "enterprise">;
+  interval: BillingInterval;
+} | { error: string; status: number }> {
+  const url = new URL(request.url);
+  let body: CheckoutBody = {};
+  try {
+    body = (await request.json().catch(() => ({}))) as CheckoutBody;
+  } catch {
+    body = {};
+  }
+
+  const planRaw = body.plan ?? url.searchParams.get("plan");
+  const intervalRaw = body.interval ?? url.searchParams.get("interval");
+
+  if (!isStripePlanId(planRaw)) {
+    return {
+      error:
+        "Plan invalide. Plans souscriptibles : starter, pro, business. Pour Enterprise, contactez les ventes.",
+      status: 422,
+    };
+  }
+  if (!isBillingIntervalLike(intervalRaw)) {
+    return { error: "Intervalle de facturation invalide.", status: 422 };
+  }
+
+  return {
+    plan: planRaw,
+    interval: normalizeBillingInterval(intervalRaw),
+  };
 }
 
 export async function POST(request: Request) {
@@ -55,11 +98,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json().catch(() => ({}))) as CheckoutBody;
-    const plan: PlanId = isPlanId(body.plan) ? body.plan : "pro";
-    const interval: BillingInterval = isBillingInterval(body.interval)
-      ? body.interval
-      : "month";
+    const args = await readArgs(request);
+    if ("error" in args) {
+      return NextResponse.json(
+        { error: args.error },
+        { status: args.status }
+      );
+    }
+    const { plan, interval } = args;
 
     const stripe = getStripe();
     const priceId = getPriceId(plan, interval);
@@ -121,8 +167,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: session.url }, { status: 200 });
   } catch (err) {
     console.error("POST /api/billing/checkout error:", err);
-    const message =
-      err instanceof Error ? err.message : "Erreur serveur";
+    const message = err instanceof Error ? err.message : "Erreur serveur";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

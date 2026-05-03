@@ -48,7 +48,7 @@ export function HeroSection() {
 
             <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
               <Link
-                href="/register"
+                href="/#pricing"
                 className="rounded-full bg-foreground px-6 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-semibold text-white hover:bg-foreground/90 transition-colors text-center inline-flex items-center justify-center gap-2 shadow-lg min-h-[48px]"
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
@@ -68,7 +68,7 @@ export function HeroSection() {
               className="mt-4 text-sm text-foreground/60"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              14 jours d&apos;essai sans carte bancaire &middot; Sans engagement &middot; Résiliable en 1 clic
+              30 jours d&apos;essai sans carte bancaire &middot; Sans engagement &middot; Résiliable en 1 clic
             </p>
 
             {/* Social proof: avatar stack */}

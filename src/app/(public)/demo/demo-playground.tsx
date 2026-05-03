@@ -214,7 +214,7 @@ export function DemoPlayground() {
                 className="mt-3 text-xs text-foreground/60 text-center"
                 style={{ fontFamily: "var(--font-maison-neue)" }}
               >
-                14 jours d&apos;essai &middot; Sans CB &middot; Sans engagement
+                30 jours d&apos;essai &middot; Sans CB &middot; Sans engagement
               </p>
             </div>
           </section>
@@ -243,7 +243,7 @@ export function DemoPlayground() {
               className="text-xs font-semibold text-foreground"
               style={{ fontFamily: "var(--font-maison-neue-extended)" }}
             >
-              Inscription gratuite — 14 jours d&apos;essai
+              Inscription gratuite — 30 jours d&apos;essai
             </p>
             <p className="text-[11px] text-foreground/60">
               Sans CB, sans engagement

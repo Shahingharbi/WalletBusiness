@@ -4,8 +4,14 @@
  * Pure logic — safe to import from server or client (no Stripe SDK here).
  */
 
-export type PlanId = "starter" | "pro" | "business";
+export type PlanId = "starter" | "pro" | "business" | "enterprise";
+/**
+ * Stripe SDK exposes the canonical interval as `month | year`. We accept the
+ * UI alias `monthly | annual` (used in the public pricing page query string)
+ * via {@link normalizeBillingInterval} so the two never get mixed up.
+ */
 export type BillingInterval = "month" | "year";
+export type BillingIntervalAlias = "monthly" | "annual";
 
 export type SubscriptionStatus =
   | "trialing"
@@ -22,14 +28,22 @@ export interface PlanLimits {
   maxCards: number | null;
   /** Nombre maximum de clients (null = illimité). */
   maxClients: number | null;
-  /** Multi-employés autorisé. */
+  /** Nombre maximum d'employés / vendeurs (null = illimité). */
+  maxEmployees: number | null;
+  /** Nombre maximum de localisations geo-push (0 = pas de geo-push). */
+  maxGeoLocations: number;
+  /** Multi-employés autorisé (= maxEmployees > 1 ou null). */
   multiEmployees: boolean;
   /** Notifications push géolocalisées. */
   geoPush: boolean;
-  /** Segmentation clients. */
+  /** Segmentation RFM auto. */
   segments: boolean;
+  /** Auto-push événementiels (anniversaire, relance, etc.). */
+  autoPush: boolean;
   /** Cartes cadeaux digitales. */
   giftCards: boolean;
+  /** Multi-boutiques (plusieurs établissements). */
+  multiShop: boolean;
   /** API & webhooks. */
   api: boolean;
   /** Marque blanche. */
@@ -41,9 +55,16 @@ export interface PlanLimits {
 export interface PlanDescriptor {
   id: PlanId;
   name: string;
-  monthlyPrice: number; // EUR
-  yearlyPrice: number; // EUR / mois facturé annuellement (réduit)
+  /** Mensuel facturé au mois — null = "Sur devis". */
+  monthlyPrice: number | null;
+  /** Mensuel facturé annuellement (réduit) — null = "Sur devis". */
+  yearlyPrice: number | null;
+  /** Total annuel quand facturé annuellement — null = "Sur devis". */
+  yearlyTotal: number | null;
+  /** Description courte affichée sous le titre. */
   description: string;
+  /** Public cible affiché en mini-tagline. */
+  audience: string;
   limits: PlanLimits;
   /** Liste affichée sur la page de pricing. */
   features: readonly string[];
@@ -53,93 +74,181 @@ export const PLANS: Readonly<Record<PlanId, PlanDescriptor>> = {
   starter: {
     id: "starter",
     name: "Starter",
-    monthlyPrice: 49,
-    yearlyPrice: 39,
+    monthlyPrice: 29,
+    yearlyPrice: 22,
+    yearlyTotal: 264,
     description:
-      "Idéal pour un commerce indépendant qui démarre sa fidélisation digitale.",
+      "Pour démarrer la fidélisation digitale dans un commerce indépendant.",
+    audience: "Kebab, boulangerie, café, salon — 1 commerce, premiers pas.",
     limits: {
       maxCards: 1,
-      maxClients: 200,
+      maxClients: 500,
+      maxEmployees: 1,
+      maxGeoLocations: 0,
       multiEmployees: false,
       geoPush: false,
       segments: false,
+      autoPush: false,
       giftCards: false,
+      multiShop: false,
       api: false,
       whiteLabel: false,
       campaigns: false,
     },
     features: [
-      "1 carte de fidélité",
-      "Jusqu'à 200 clients",
-      "Scanner (webapp smartphone)",
-      "Notifications push gratuites",
-      "Dashboard avec statistiques",
-      "QR code à imprimer",
-      "Support par email",
+      "1 carte de fidélité active",
+      "500 clients max",
+      "Apple Wallet & Google Wallet (mise à jour live des tampons)",
+      "Notifications push wallet illimitées (gratuites)",
+      "QR code + scanner web",
+      "Designer carte complet (12 palettes, 14 icônes, 5 formes)",
+      "Mise à jour live des cartes après scan",
+      "Bibliothèque de templates métier",
+      "Support email réactif (24h)",
+      "Essai 30 jours gratuit, sans CB",
     ],
   },
   pro: {
     id: "pro",
     name: "Pro",
-    monthlyPrice: 99,
-    yearlyPrice: 79,
+    monthlyPrice: 59,
+    yearlyPrice: 44,
+    yearlyTotal: 528,
     description:
-      "Pour les commerçants qui veulent aller plus loin avec la géolocalisation et la segmentation.",
+      "Pour vraiment fidéliser, lancer des campagnes et gérer plusieurs cartes.",
+    audience:
+      "Commerce qui veut vraiment fidéliser, faire des campagnes, plusieurs cartes.",
     limits: {
       maxCards: 5,
       maxClients: 2000,
-      multiEmployees: false,
+      maxEmployees: 5,
+      maxGeoLocations: 3,
+      multiEmployees: true,
       geoPush: true,
       segments: true,
+      autoPush: true,
       giftCards: true,
+      multiShop: false,
       api: false,
       whiteLabel: false,
       campaigns: true,
     },
     features: [
-      "Jusqu'à 5 cartes de fidélité",
-      "Jusqu'à 2 000 clients",
-      "Tout le plan Starter +",
-      "Statistiques avancées",
-      "Notifications géolocalisées",
-      "Segmentation clients",
-      "Cartes cadeaux digitales",
-      "Support prioritaire par chat",
+      "Tout Starter +",
+      "5 cartes de fidélité",
+      "2 000 clients max",
+      "Campagnes push manuelles (« −10 % mardi 17h-19h » → tous tes clients)",
+      "Auto-push événementiels : anniversaire, relance inactifs 30j, « plus que X tampons », récompense expire",
+      "Segmentation RFM auto (Champions, Loyaux, À relancer, Perdus, Nouveaux)",
+      "Geo-Push — 3 emplacements",
+      "Multi-employés — jusqu'à 5 vendeurs avec accès scanner perso",
+      "Stats avancées : taux de rétention, CA estimé, cohortes",
+      "Programme de parrainage client",
+      "Export CSV illimité",
+      "Support prioritaire (réponse < 4h)",
+      "Onboarding 1-on-1 offert (30 min en visio)",
     ],
   },
   business: {
     id: "business",
     name: "Business",
-    monthlyPrice: 199,
-    yearlyPrice: 159,
+    monthlyPrice: 129,
+    yearlyPrice: 97,
+    yearlyTotal: 1164,
     description:
-      "Pour les réseaux et franchises qui ont besoin de puissance et de personnalisation.",
+      "Pour franchises, chaînes et e-commerçants avec plusieurs établissements.",
+    audience:
+      "Franchises, chaînes, restaurateurs avec plusieurs établissements, e-commerçants.",
     limits: {
       maxCards: null,
       maxClients: null,
+      maxEmployees: null,
+      maxGeoLocations: 10,
       multiEmployees: true,
       geoPush: true,
       segments: true,
+      autoPush: true,
       giftCards: true,
+      multiShop: true,
+      api: true,
+      whiteLabel: false,
+      campaigns: true,
+    },
+    features: [
+      "Tout Pro +",
+      "Cartes & clients illimités",
+      "Multi-boutiques",
+      "Geo-Push — 10 emplacements",
+      "Multi-employés illimités",
+      "API & Webhooks",
+      "Intégrations natives : Shopify, WooCommerce, Square, Lightspeed (au fur et à mesure)",
+      "Champs clients personnalisés",
+      "A/B testing des campagnes",
+      "Rapports automatisés (hebdo email)",
+      "Accompagnement stratégique : 1 visio/mois avec un expert fidélité",
+      "Account manager dédié",
+      "Support 24/7 + WhatsApp direct",
+    ],
+  },
+  enterprise: {
+    id: "enterprise",
+    name: "Enterprise",
+    monthlyPrice: null,
+    yearlyPrice: null,
+    yearlyTotal: null,
+    description:
+      "Pour franchises grandes (10+ points de vente), chaînes nationales, marketplaces.",
+    audience:
+      "Franchises grandes (10+ points de vente), chaînes nationales, marketplaces.",
+    limits: {
+      maxCards: null,
+      maxClients: null,
+      maxEmployees: null,
+      maxGeoLocations: Number.POSITIVE_INFINITY,
+      multiEmployees: true,
+      geoPush: true,
+      segments: true,
+      autoPush: true,
+      giftCards: true,
+      multiShop: true,
       api: true,
       whiteLabel: true,
       campaigns: true,
     },
     features: [
-      "Cartes illimitées",
-      "Clients illimités",
-      "Multi-employés",
-      "Tout le plan Pro +",
-      "API & webhooks",
-      "Intégrations caisse (sur demande)",
-      "Support prioritaire téléphone",
-      "Marque blanche",
-      "Account manager dédié",
+      "Tout Business +",
+      "Marque blanche complète",
+      "Sous-comptes illimités",
+      "Stripe Connect / PayPal intégrés",
+      "SLA garanti 99.9 %",
+      "Migration assistée",
+      "Formation équipe",
+      "Integration custom avec ton SI",
+      "Conseiller dédié + WhatsApp privé fondateur",
+      "Conditions de paiement négociables",
     ],
   },
 };
 
-export const PLAN_ORDER: readonly PlanId[] = ["starter", "pro", "business"];
+/**
+ * Ordre canonique pour l'affichage des plans : du moins cher au plus cher,
+ * Enterprise en dernier (sur devis).
+ */
+export const PLAN_ORDER: readonly PlanId[] = [
+  "starter",
+  "pro",
+  "business",
+  "enterprise",
+];
+
+/**
+ * Plans disponibles à la souscription Stripe (Enterprise = manuel/sales).
+ */
+export const STRIPE_PLANS: readonly Exclude<PlanId, "enterprise">[] = [
+  "starter",
+  "pro",
+  "business",
+];
 
 export function getPlanLimits(plan: PlanId | null | undefined): PlanLimits {
   if (!plan) return PLANS.starter.limits;
@@ -211,7 +320,9 @@ export function isLockedOut(
 export function effectivePlan(b: BusinessBillingState): PlanId {
   if (isSubscriptionActive(b.subscription_status)) {
     const p = b.subscription_plan;
-    if (p === "starter" || p === "pro" || p === "business") return p;
+    if (p === "starter" || p === "pro" || p === "business" || p === "enterprise") {
+      return p;
+    }
     return "starter";
   }
   if (isInTrial(b)) return "pro";
@@ -225,6 +336,8 @@ export type GatedFeature =
   | "geo_push"
   | "segments"
   | "gift_cards"
+  | "auto_push"
+  | "multi_shop"
   | "api"
   | "white_label"
   | "campaigns";
@@ -303,9 +416,9 @@ export function requirePlan(
       return {
         ok: false,
         reason: "plan_too_low",
-        requiredPlan: "business",
+        requiredPlan: "pro",
         message:
-          "Le multi-employés est inclus dans le plan Business. Passez au plan Business pour inviter plusieurs collaborateurs.",
+          "Le multi-employés est inclus à partir du plan Pro. Passez au plan Pro pour inviter jusqu'à 5 vendeurs.",
       };
     case "geo_push":
       if (limits.geoPush) return { ok: true, plan };
@@ -323,7 +436,7 @@ export function requirePlan(
         reason: "plan_too_low",
         requiredPlan: "pro",
         message:
-          "La segmentation clients est incluse à partir du plan Pro.",
+          "La segmentation RFM auto est incluse à partir du plan Pro.",
       };
     case "gift_cards":
       if (limits.giftCards) return { ok: true, plan };
@@ -334,6 +447,23 @@ export function requirePlan(
         message:
           "Les cartes cadeaux digitales sont incluses à partir du plan Pro.",
       };
+    case "auto_push":
+      if (limits.autoPush) return { ok: true, plan };
+      return {
+        ok: false,
+        reason: "plan_too_low",
+        requiredPlan: "pro",
+        message:
+          "Les auto-push événementiels sont inclus à partir du plan Pro.",
+      };
+    case "multi_shop":
+      if (limits.multiShop) return { ok: true, plan };
+      return {
+        ok: false,
+        reason: "plan_too_low",
+        requiredPlan: "business",
+        message: "Le multi-boutiques est inclus à partir du plan Business.",
+      };
     case "api":
       if (limits.api) return { ok: true, plan };
       return {
@@ -341,15 +471,15 @@ export function requirePlan(
         reason: "plan_too_low",
         requiredPlan: "business",
         message:
-          "L'API et les webhooks sont inclus dans le plan Business.",
+          "L'API et les webhooks sont inclus à partir du plan Business.",
       };
     case "white_label":
       if (limits.whiteLabel) return { ok: true, plan };
       return {
         ok: false,
         reason: "plan_too_low",
-        requiredPlan: "business",
-        message: "La marque blanche est incluse dans le plan Business.",
+        requiredPlan: "enterprise",
+        message: "La marque blanche est incluse dans le plan Enterprise.",
       };
     case "campaigns":
       if (limits.campaigns) return { ok: true, plan };
@@ -364,19 +494,58 @@ export function requirePlan(
 }
 
 /**
+ * Convertit un alias UI ("monthly" | "annual") en {@link BillingInterval}
+ * canonique ("month" | "year"). Inconnu => "month" par défaut sécurisant.
+ */
+export function normalizeBillingInterval(
+  value: BillingInterval | BillingIntervalAlias | string | null | undefined
+): BillingInterval {
+  if (value === "year" || value === "annual") return "year";
+  return "month";
+}
+
+/**
+ * Inverse de {@link normalizeBillingInterval} : alias UI utilisé dans les
+ * URLs (`?interval=annual`).
+ */
+export function toBillingIntervalAlias(
+  interval: BillingInterval
+): BillingIntervalAlias {
+  return interval === "year" ? "annual" : "monthly";
+}
+
+/**
  * Récupère l'env Stripe Price ID pour un (plan, interval). Server-only.
+ *
+ * Tolère deux conventions de nommage pour rester rétro-compatible :
+ *  - Nouvelle (recommandée) : `STRIPE_PRICE_ID_PRO_MONTHLY` / `_ANNUAL`
+ *  - Ancienne                : `STRIPE_PRICE_ID_PRO_MONTH` / `_YEAR`
+ *
+ * Enterprise n'a pas de price ID — c'est une vente assistée.
  */
 export function getPriceId(
   plan: PlanId,
-  interval: BillingInterval
+  interval: BillingInterval | BillingIntervalAlias
 ): string {
-  const key = `STRIPE_PRICE_ID_${plan.toUpperCase()}_${
-    interval === "month" ? "MONTH" : "YEAR"
-  }`;
-  const value = process.env[key];
-  if (!value || value.trim() === "") {
+  if (plan === "enterprise") {
     throw new Error(
-      `[billing] Env var ${key} non configurée. Voir docs/TODO-manual.md section 3.`
+      "[billing] Enterprise n'a pas de price Stripe — flow de vente assistée."
+    );
+  }
+  const normalized = normalizeBillingInterval(interval);
+  const upperPlan = plan.toUpperCase();
+  const newKey = `STRIPE_PRICE_ID_${upperPlan}_${
+    normalized === "month" ? "MONTHLY" : "ANNUAL"
+  }`;
+  const legacyKey = `STRIPE_PRICE_ID_${upperPlan}_${
+    normalized === "month" ? "MONTH" : "YEAR"
+  }`;
+  const value =
+    (process.env[newKey] && process.env[newKey]?.trim()) ||
+    (process.env[legacyKey] && process.env[legacyKey]?.trim());
+  if (!value) {
+    throw new Error(
+      `[billing] Env var ${newKey} (ou ${legacyKey}) non configurée. Voir docs/TODO-manual.md section 3.`
     );
   }
   return value;
@@ -388,25 +557,101 @@ export function getPriceId(
  */
 export function lookupPriceId(
   priceId: string
-): { plan: PlanId; interval: BillingInterval } | null {
-  const candidates: Array<[PlanId, BillingInterval, string | undefined]> = [
-    ["starter", "month", process.env.STRIPE_PRICE_ID_STARTER_MONTH],
-    ["starter", "year", process.env.STRIPE_PRICE_ID_STARTER_YEAR],
-    ["pro", "month", process.env.STRIPE_PRICE_ID_PRO_MONTH],
-    ["pro", "year", process.env.STRIPE_PRICE_ID_PRO_YEAR],
-    ["business", "month", process.env.STRIPE_PRICE_ID_BUSINESS_MONTH],
-    ["business", "year", process.env.STRIPE_PRICE_ID_BUSINESS_YEAR],
+): { plan: Exclude<PlanId, "enterprise">; interval: BillingInterval } | null {
+  const candidates: Array<[
+    Exclude<PlanId, "enterprise">,
+    BillingInterval,
+    Array<string | undefined>,
+  ]> = [
+    [
+      "starter",
+      "month",
+      [
+        process.env.STRIPE_PRICE_ID_STARTER_MONTHLY,
+        process.env.STRIPE_PRICE_ID_STARTER_MONTH,
+      ],
+    ],
+    [
+      "starter",
+      "year",
+      [
+        process.env.STRIPE_PRICE_ID_STARTER_ANNUAL,
+        process.env.STRIPE_PRICE_ID_STARTER_YEAR,
+      ],
+    ],
+    [
+      "pro",
+      "month",
+      [
+        process.env.STRIPE_PRICE_ID_PRO_MONTHLY,
+        process.env.STRIPE_PRICE_ID_PRO_MONTH,
+      ],
+    ],
+    [
+      "pro",
+      "year",
+      [
+        process.env.STRIPE_PRICE_ID_PRO_ANNUAL,
+        process.env.STRIPE_PRICE_ID_PRO_YEAR,
+      ],
+    ],
+    [
+      "business",
+      "month",
+      [
+        process.env.STRIPE_PRICE_ID_BUSINESS_MONTHLY,
+        process.env.STRIPE_PRICE_ID_BUSINESS_MONTH,
+      ],
+    ],
+    [
+      "business",
+      "year",
+      [
+        process.env.STRIPE_PRICE_ID_BUSINESS_ANNUAL,
+        process.env.STRIPE_PRICE_ID_BUSINESS_YEAR,
+      ],
+    ],
   ];
-  for (const [plan, interval, env] of candidates) {
-    if (env && env === priceId) return { plan, interval };
+  for (const [plan, interval, envValues] of candidates) {
+    for (const env of envValues) {
+      if (env && env === priceId) return { plan, interval };
+    }
   }
   return null;
 }
 
 export function isPlanId(value: unknown): value is PlanId {
+  return (
+    value === "starter" ||
+    value === "pro" ||
+    value === "business" ||
+    value === "enterprise"
+  );
+}
+
+/**
+ * Restreint à un plan souscriptible Stripe (exclut Enterprise).
+ */
+export function isStripePlanId(
+  value: unknown
+): value is Exclude<PlanId, "enterprise"> {
   return value === "starter" || value === "pro" || value === "business";
 }
 
 export function isBillingInterval(value: unknown): value is BillingInterval {
   return value === "month" || value === "year";
+}
+
+/**
+ * Accepte aussi les alias UI "monthly" | "annual" en plus de "month" | "year".
+ */
+export function isBillingIntervalLike(
+  value: unknown
+): value is BillingInterval | BillingIntervalAlias {
+  return (
+    value === "month" ||
+    value === "year" ||
+    value === "monthly" ||
+    value === "annual"
+  );
 }

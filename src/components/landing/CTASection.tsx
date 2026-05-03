@@ -52,7 +52,7 @@ export function CTASection() {
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
             Rejoignez les commerçants qui ont arrêté d&apos;imprimer des cartes
-            papier. 14 jours d&apos;essai, sans CB, sans engagement.
+            papier. 30 jours d&apos;essai, sans CB, sans engagement.
           </p>
 
           <form onSubmit={submit} className="mt-10 max-w-md mx-auto">
@@ -84,7 +84,7 @@ export function CTASection() {
               </button>
             </div>
             <p className="mt-4 text-xs text-white/50">
-              14 jours gratuits &middot; Sans carte bancaire &middot; Sans engagement
+              30 jours gratuits &middot; Sans carte bancaire &middot; Sans engagement
             </p>
           </form>
 
@@ -121,7 +121,7 @@ export function CTASection() {
             <span className="h-3 w-px bg-white/20 hidden sm:block" />
             <span className="inline-flex items-center gap-1.5">
               <Clock size={14} />
-              14 jours offerts
+              30 jours offerts
             </span>
           </div>
         </div>

@@ -60,7 +60,7 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
             Se connecter
           </Link>
           <Link
-            href="/register"
+            href="/#pricing"
             className="rounded-full bg-yellow px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-foreground hover:bg-yellow-hover transition-colors whitespace-nowrap"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >

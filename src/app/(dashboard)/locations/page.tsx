@@ -13,9 +13,10 @@ import {
 import { LocationsClient, type LocationRow } from "./locations-client";
 
 const LOCATIONS_LIMIT: Record<PlanId, number> = {
-  starter: 1,
-  pro: 3,
-  business: 10,
+  starter: PLANS.starter.limits.maxGeoLocations,
+  pro: PLANS.pro.limits.maxGeoLocations,
+  business: PLANS.business.limits.maxGeoLocations,
+  enterprise: Number.POSITIVE_INFINITY,
 };
 
 export default async function LocationsPage() {
@@ -107,22 +108,46 @@ export default async function LocationsPage() {
         </div>
       </div>
 
-      <Card className="border-emerald-200 bg-emerald-50/40">
-        <CardContent className="p-4 flex items-start gap-3">
-          <MapPin className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
-          <div className="text-sm text-emerald-900">
-            <p className="font-semibold">
-              Plan {PLANS[plan].name} : {locations.length} / {limit} localisation
-              {limit > 1 ? "s" : ""}
-            </p>
-            <p className="text-emerald-800/80 mt-0.5">
-              Les nouveaux pass Apple/Google embarquent automatiquement vos
-              localisations actives. Les pass déjà installés sont mis à jour à
-              la prochaine synchronisation.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {limit === 0 ? (
+        <Card className="border-yellow-300 bg-yellow-50/60">
+          <CardContent className="p-4 flex items-start gap-3">
+            <Lock className="h-5 w-5 text-yellow-700 shrink-0 mt-0.5" />
+            <div className="text-sm text-yellow-900">
+              <p className="font-semibold">
+                Geo-Push non inclus dans le plan {PLANS[plan].name}
+              </p>
+              <p className="text-yellow-900/80 mt-0.5">
+                Passez au plan Pro pour activer 3 emplacements de
+                notifications géolocalisées.
+              </p>
+              <Link
+                href="/settings/billing"
+                className="mt-2 inline-block text-sm font-semibold underline"
+              >
+                Voir les plans &rarr;
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-emerald-200 bg-emerald-50/40">
+          <CardContent className="p-4 flex items-start gap-3">
+            <MapPin className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="text-sm text-emerald-900">
+              <p className="font-semibold">
+                Plan {PLANS[plan].name} : {locations.length} /{" "}
+                {Number.isFinite(limit) ? limit : "∞"} localisation
+                {limit > 1 ? "s" : ""}
+              </p>
+              <p className="text-emerald-800/80 mt-0.5">
+                Les nouveaux pass Apple/Google embarquent automatiquement vos
+                localisations actives. Les pass déjà installés sont mis à jour à
+                la prochaine synchronisation.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <LocationsClient
         initialLocations={locations}

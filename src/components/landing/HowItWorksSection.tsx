@@ -284,7 +284,7 @@ export function HowItWorksSection() {
 
         <div className="flex flex-col items-center gap-3 mt-14">
           <Link
-            href="/register"
+            href="/#pricing"
             className="rounded-full bg-foreground px-8 py-3.5 text-base font-semibold text-white hover:bg-foreground/90 transition-colors inline-flex items-center gap-2 shadow-lg"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
@@ -295,7 +295,7 @@ export function HowItWorksSection() {
             className="text-xs text-muted-foreground"
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
-            14 jours gratuits &middot; Sans CB &middot; Sans engagement
+            30 jours gratuits &middot; Sans CB &middot; Sans engagement
           </p>
         </div>
       </div>

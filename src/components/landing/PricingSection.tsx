@@ -3,88 +3,56 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ShieldCheck, Loader2 } from "lucide-react";
+import { Check, ShieldCheck, Sparkles, Crown, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { PlanId, BillingInterval } from "@/lib/billing";
+import {
+  PLANS,
+  PLAN_ORDER,
+  toBillingIntervalAlias,
+  type PlanId,
+  type BillingInterval,
+} from "@/lib/billing";
 
-type Plan = {
-  id: PlanId;
-  name: string;
-  monthlyPrice: number;
-  yearlyPrice: number;
-  description: string;
-  features: string[];
-  highlighted: boolean;
-  badge?: string;
+const ENTERPRISE_MAILTO =
+  "mailto:contact@aswallet.fr?subject=Demande%20Enterprise%20aswallet";
+
+type Badge = {
+  label: string;
+  /**
+   * Tailwind classes for the badge background + text. Kept hardcoded (no
+   * dynamic class names) so Tailwind's JIT picks them up.
+   */
+  className: string;
+  icon: React.ReactNode;
 };
 
-const plans: Plan[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    monthlyPrice: 49,
-    yearlyPrice: 39,
-    description:
-      "Idéal pour un commerce indépendant qui démarre sa fidélisation digitale.",
-    features: [
-      "1 carte de fidélité",
-      "Jusqu'à 200 clients",
-      "Scanner (webapp smartphone)",
-      "Notifications push gratuites",
-      "Dashboard avec statistiques",
-      "QR code à imprimer",
-      "Support par email",
-    ],
-    highlighted: false,
+const PLAN_BADGES: Partial<Record<PlanId, Badge>> = {
+  pro: {
+    label: "Le plus choisi",
+    className: "bg-yellow text-foreground",
+    icon: <Sparkles size={12} className="text-foreground" />,
   },
-  {
-    id: "pro",
-    name: "Pro",
-    monthlyPrice: 99,
-    yearlyPrice: 79,
-    description:
-      "Pour les commerçants qui veulent aller plus loin avec la géolocalisation et la segmentation.",
-    features: [
-      "Jusqu'à 5 cartes de fidélité",
-      "Jusqu'à 2 000 clients",
-      "Tout le plan Starter +",
-      "Statistiques avancées",
-      "Notifications géolocalisées",
-      "Segmentation clients",
-      "Cartes cadeaux digitales",
-      "Support prioritaire par chat",
-    ],
-    highlighted: true,
-    badge: "Le + populaire",
+  business: {
+    label: "Meilleur rapport qualité/prix",
+    className: "bg-green-600 text-white",
+    icon: <Check size={12} className="text-white" />,
   },
-  {
-    id: "business",
-    name: "Business",
-    monthlyPrice: 199,
-    yearlyPrice: 159,
-    description:
-      "Pour les réseaux et franchises qui ont besoin de puissance et de personnalisation.",
-    features: [
-      "Cartes illimitées",
-      "Clients illimités",
-      "Multi-employés",
-      "Tout le plan Pro +",
-      "API & webhooks",
-      "Support prioritaire téléphone",
-      "Marque blanche",
-      "Account manager dédié",
-    ],
-    highlighted: false,
+  enterprise: {
+    label: "Sur mesure",
+    className: "bg-amber-300 text-amber-950",
+    icon: <Crown size={12} className="text-amber-950" />,
   },
-];
+};
 
 export function PricingSection() {
   const router = useRouter();
-  const [interval, setInterval] = useState<BillingInterval>("month");
+  // Default = annual (proven higher LTV / better cash flow).
+  const [billingInterval, setBillingInterval] =
+    useState<BillingInterval>("year");
   const [pending, setPending] = useState<PlanId | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleCta(plan: PlanId) {
+  async function handleStripePlanCta(plan: Exclude<PlanId, "enterprise">) {
     setError(null);
     setPending(plan);
     try {
@@ -93,15 +61,17 @@ export function PricingSection() {
         data: { user },
       } = await supabase.auth.getUser();
 
+      const intervalAlias = toBillingIntervalAlias(billingInterval);
+
       if (!user) {
-        router.push(`/register?plan=${plan}&interval=${interval}`);
+        router.push(`/register?plan=${plan}&interval=${intervalAlias}`);
         return;
       }
 
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, interval }),
+        body: JSON.stringify({ plan, interval: billingInterval }),
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) {
@@ -127,25 +97,23 @@ export function PricingSection() {
           className="text-center text-base text-muted-foreground mt-4 max-w-xl mx-auto"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          Pas de frais cachés, pas d&apos;engagement.
+          Pas de frais cachés, pas d&apos;engagement. 30 jours d&apos;essai
+          gratuit, sans carte bancaire.
         </p>
 
-        <div className="mt-6 flex justify-center">
-          <span
-            className="inline-flex items-center gap-2 rounded-full bg-yellow px-4 py-2 text-sm font-semibold text-foreground"
-            style={{ fontFamily: "var(--font-maison-neue-extended)" }}
-          >
-            <Check size={16} /> 14 jours gratuits sur tous les plans &middot; Sans CB
-          </span>
-        </div>
-
         <div className="mt-8 flex justify-center">
-          <div className="inline-flex rounded-full bg-beige p-1 text-sm">
+          <div
+            className="inline-flex rounded-full bg-beige p-1 text-sm"
+            role="tablist"
+            aria-label="Choix de la fréquence de facturation"
+          >
             <button
               type="button"
-              onClick={() => setInterval("month")}
+              role="tab"
+              aria-selected={billingInterval === "month"}
+              onClick={() => setBillingInterval("month")}
               className={`px-5 py-2 rounded-full font-semibold transition-colors cursor-pointer ${
-                interval === "month"
+                billingInterval === "month"
                   ? "bg-white text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
@@ -154,16 +122,18 @@ export function PricingSection() {
             </button>
             <button
               type="button"
-              onClick={() => setInterval("year")}
+              role="tab"
+              aria-selected={billingInterval === "year"}
+              onClick={() => setBillingInterval("year")}
               className={`px-5 py-2 rounded-full font-semibold transition-colors cursor-pointer ${
-                interval === "year"
+                billingInterval === "year"
                   ? "bg-white text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Annuel{" "}
               <span className="text-xs text-green-700 ml-1">
-                Économisez 20%
+                Économisez 25 %
               </span>
             </button>
           </div>
@@ -175,111 +145,198 @@ export function PricingSection() {
           </div>
         )}
 
-        <div className="mt-10 sm:mt-12 grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 lg:gap-8">
-          {plans.map((plan) => {
-            const price =
-              interval === "year" ? plan.yearlyPrice : plan.monthlyPrice;
-            const ctaLabel =
-              plan.id === "starter"
-                ? "Commencer en Starter"
-                : plan.id === "pro"
-                  ? "Choisir Pro"
-                  : "Choisir Business";
+        <div className="mt-10 sm:mt-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 sm:gap-6 lg:gap-7">
+          {PLAN_ORDER.map((planId) => {
+            const plan = PLANS[planId];
+            const badge = PLAN_BADGES[planId];
+            const isEnterprise = planId === "enterprise";
+            const isHighlighted = planId === "pro";
+            const isAnnual = billingInterval === "year";
+            const displayPrice = isAnnual ? plan.yearlyPrice : plan.monthlyPrice;
+            const yearlyTotal = plan.yearlyTotal;
+
             return (
               <div
-                key={plan.id}
-                className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 transition-shadow duration-300 hover:shadow-xl ${
-                  plan.highlighted
-                    ? "border-foreground shadow-lg md:scale-[1.02]"
-                    : "border-border"
+                key={planId}
+                className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-7 transition-shadow duration-300 hover:shadow-xl ${
+                  isEnterprise
+                    ? "border-amber-400 bg-gradient-to-br from-[#1a1208] via-[#231806] to-[#0d0905] text-amber-50"
+                    : isHighlighted
+                      ? "border-foreground shadow-lg md:scale-[1.02] bg-white"
+                      : "border-border bg-white"
                 }`}
               >
-                {plan.badge && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow text-foreground text-xs font-bold px-4 py-1 rounded-full">
-                    {plan.badge}
+                {badge && (
+                  <span
+                    className={`absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-3 py-1 rounded-full ${badge.className}`}
+                  >
+                    {badge.icon}
+                    {badge.label}
                   </span>
                 )}
 
                 <h3
-                  className="text-2xl font-semibold text-foreground"
+                  className={`text-2xl font-semibold ${
+                    isEnterprise ? "text-amber-100" : "text-foreground"
+                  }`}
                   style={{ fontFamily: "var(--font-maison-neue-extended)" }}
                 >
                   {plan.name}
                 </h3>
 
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span
-                    className="text-5xl lg:text-6xl text-foreground"
-                    style={{
-                      fontFamily: "var(--font-ginto-nord)",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {price}
-                  </span>
-                  <span className="text-lg text-muted-foreground">
-                    EUR/mois
-                  </span>
+                <p
+                  className={`mt-1 text-xs ${
+                    isEnterprise
+                      ? "text-amber-200/80"
+                      : "text-muted-foreground"
+                  }`}
+                  style={{ fontFamily: "var(--font-maison-neue)" }}
+                >
+                  {plan.audience}
+                </p>
+
+                {/* Prices block */}
+                <div className="mt-5 min-h-[68px]">
+                  {isEnterprise ? (
+                    <div>
+                      <span
+                        className="text-3xl text-amber-100"
+                        style={{
+                          fontFamily: "var(--font-ginto-nord)",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Sur devis
+                      </span>
+                      <p className="text-xs text-amber-200/80 mt-1">
+                        À partir de ~300€/mois
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        {isAnnual && plan.monthlyPrice !== null && (
+                          <span className="text-xl text-muted-foreground line-through">
+                            {plan.monthlyPrice}€
+                          </span>
+                        )}
+                        <span
+                          className="text-5xl lg:text-6xl text-foreground"
+                          style={{
+                            fontFamily: "var(--font-ginto-nord)",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {displayPrice}€
+                        </span>
+                        <span className="text-base text-muted-foreground">
+                          /mois
+                        </span>
+                      </div>
+                      {isAnnual && yearlyTotal !== null ? (
+                        <p className="text-xs text-green-700 mt-1">
+                          Soit {yearlyTotal}€/an — 3 mois offerts (économie
+                          25 %)
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          ou {plan.yearlyPrice}€/mois en annuel — économisez
+                          25 %
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {interval === "year" && (
-                  <p className="text-xs text-green-700 mt-1">
-                    Facturé annuellement ({price * 12} EUR/an)
-                  </p>
-                )}
 
                 <p
-                  className="mt-3 text-sm text-muted-foreground leading-relaxed"
+                  className={`mt-3 text-sm leading-relaxed ${
+                    isEnterprise
+                      ? "text-amber-100/90"
+                      : "text-muted-foreground"
+                  }`}
                   style={{ fontFamily: "var(--font-maison-neue)" }}
                 >
                   {plan.description}
                 </p>
 
-                <div className="mt-6 flex-1">
-                  <div className="space-y-3">
+                <div className="mt-5 flex-1">
+                  <ul className="space-y-2.5">
                     {plan.features.map((feature) => (
-                      <div
+                      <li
                         key={feature}
-                        className="flex gap-3 items-start"
+                        className="flex gap-2.5 items-start"
                       >
                         <Check
                           size={16}
-                          className="text-green-600 flex-shrink-0 mt-0.5"
+                          className={`flex-shrink-0 mt-0.5 ${
+                            isEnterprise
+                              ? "text-amber-300"
+                              : "text-green-600"
+                          }`}
                         />
                         <span
-                          className="text-sm text-foreground"
+                          className={`text-sm leading-snug ${
+                            isEnterprise
+                              ? "text-amber-50/95"
+                              : "text-foreground"
+                          }`}
                           style={{ fontFamily: "var(--font-maison-neue)" }}
                         >
                           {feature}
                         </span>
-                      </div>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleCta(plan.id)}
-                  disabled={pending !== null}
-                  className={`mt-8 w-full block text-center rounded-full px-6 py-3.5 text-sm sm:text-base font-semibold transition-colors min-h-[48px] inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 ${
-                    plan.highlighted
-                      ? "bg-foreground text-white hover:bg-foreground/90"
-                      : "bg-yellow text-foreground hover:bg-yellow-hover"
-                  }`}
-                  style={{ fontFamily: "var(--font-maison-neue-extended)" }}
-                >
-                  {pending === plan.id ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Redirection…
-                    </>
-                  ) : (
-                    ctaLabel
-                  )}
-                </button>
+                {isEnterprise ? (
+                  <a
+                    href={ENTERPRISE_MAILTO}
+                    className="mt-7 w-full block text-center rounded-full px-6 py-3.5 text-sm sm:text-base font-semibold transition-colors min-h-[48px] inline-flex items-center justify-center bg-amber-300 text-amber-950 hover:bg-amber-200"
+                    style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+                  >
+                    Contacter les ventes
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleStripePlanCta(planId)}
+                    disabled={pending !== null}
+                    className={`mt-7 w-full block text-center rounded-full px-6 py-3.5 text-sm sm:text-base font-semibold transition-colors min-h-[48px] inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 ${
+                      isHighlighted
+                        ? "bg-foreground text-white hover:bg-foreground/90"
+                        : "bg-yellow text-foreground hover:bg-yellow-hover"
+                    }`}
+                    style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+                  >
+                    {pending === planId ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Redirection…
+                      </>
+                    ) : (
+                      "Démarrer l'essai gratuit"
+                    )}
+                  </button>
+                )}
 
-                <p className="mt-3 text-center text-xs text-muted-foreground">
-                  14 jours sans engagement, sans carte bancaire
-                </p>
+                {!isEnterprise && (
+                  <p
+                    className={`mt-3 text-center text-xs ${
+                      isHighlighted
+                        ? "text-muted-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    30 jours d&apos;essai gratuit · Sans carte bancaire ·
+                    Annulation en 1 clic
+                  </p>
+                )}
+                {isEnterprise && (
+                  <p className="mt-3 text-center text-xs text-amber-200/80">
+                    Réponse sous 24h ouvrées · Démo personnalisée
+                  </p>
+                )}
               </div>
             );
           })}
@@ -287,15 +344,15 @@ export function PricingSection() {
 
         <div className="mt-10 flex flex-col items-center gap-4">
           <div
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-beige/60 px-5 py-2.5 text-sm text-foreground"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-beige/60 px-5 py-2.5 text-sm text-foreground text-center"
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
-            <ShieldCheck size={16} className="text-green-600" />
+            <ShieldCheck size={16} className="text-green-600 flex-shrink-0" />
             <span>
               <strong className="font-semibold">
-                Essai 14 jours sans engagement.
+                Garantie satisfait ou remboursé 30 jours après paiement.
               </strong>{" "}
-              Résiliable en 1 clic, à tout moment.
+              Résiliation en 1 clic, sans question.
             </span>
           </div>
           <Link

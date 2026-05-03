@@ -25,34 +25,58 @@ Ces étapes nécessitent des comptes payants ou des actions hors du codebase.
 4. Côté Node, signer un JWT avec la clé pour générer le lien "Save to Google Wallet"
 5. Ajouter le bouton sur `/c/[token]/status/[instanceToken]`
 
-## 3. Stripe billing
+## 3. Stripe billing — Tarifs mai 2026
 
-**Statut code** : tout le flow est implémenté (checkout, webhook idempotent, customer portal, gating par plan, page `/settings/billing`, banner d'essai). Il ne reste qu'à créer les produits côté Stripe et coller les clés.
+**Statut code** : tout le flow est implémenté (checkout, webhook idempotent, customer portal, gating par plan, page `/settings/billing`, banner d'essai 30 jours). Il ne reste qu'à créer les produits côté Stripe et coller les 6 price IDs.
 
-**Étapes** :
+**Mise à jour mai 2026** : nouveaux tarifs (29 / 59 / 129 €) + 30 jours d'essai (au lieu de 14) + Enterprise sur devis (pas de price Stripe — vente assistée via `mailto:contact@aswallet.fr`).
+
+**Étapes — à suivre dans l'ordre** :
 
 1. **Créer un compte Stripe** (gratuit) : https://dashboard.stripe.com/register puis activer le mode test (toggle en haut à droite) pour le dev.
 
-2. **Appliquer la migration SQL** : copie-colle `supabase/migrations/002_billing.sql` dans le SQL Editor Supabase. Elle ajoute les colonnes `subscription_*` sur `businesses`, met l'essai 14j sur les comptes existants, et crée la table `stripe_events` (idempotence webhook).
+2. **Appliquer les migrations SQL** dans cet ordre via le SQL Editor Supabase :
+   - `supabase/migrations/002_billing.sql` — colonnes `subscription_*` + table `stripe_events` (déjà appliquée historiquement).
+   - `supabase/migrations/009_intended_plan.sql` — colonnes `intended_plan` / `intended_interval` (déjà appliquée le 2026-05-02 via Management API).
+   - `supabase/migrations/010_extended_trial.sql` — passe le trigger `handle_new_user` à 30 jours d'essai (au lieu de 14) et étend les essais en cours de +16j. **À appliquer manuellement** : copie-colle ce fichier dans SQL Editor → Run.
 
-3. **Créer 3 produits** dans Stripe Dashboard → *Products* → *Add product*. Pour chaque produit, créer **2 prix récurrents** (monthly + yearly) :
-   - Starter : 49 EUR/mois et 39 EUR/mois facturé annuellement (= 468 EUR/an)
-   - Pro : 99 EUR/mois et 79 EUR/mois facturé annuellement (= 948 EUR/an)
-   - Business : 199 EUR/mois et 159 EUR/mois facturé annuellement (= 1908 EUR/an)
-   - Pour chaque prix, copier le `price_id` (commence par `price_...`).
+3. **Créer 3 produits dans Stripe** (Dashboard → *Products* → *Add product*). Pour chaque produit, créer **2 prix récurrents** (mensuel + annuel facturé en une fois) :
 
-4. **Récupérer les clés API** dans Stripe → *Developers* → *API keys*. Copier `Secret key` (sk_test_...) et `Publishable key` (pk_test_...). Les coller dans `.env.local` (les noms sont déjà listés dans `.env.example`).
+   | Produit  | Prix mensuel        | Prix annuel             | Total annuel |
+   |----------|---------------------|-------------------------|--------------|
+   | Starter  | 29 EUR /mois        | 264 EUR /an             | 264 EUR      |
+   | Pro      | 59 EUR /mois        | 528 EUR /an             | 528 EUR      |
+   | Business | 129 EUR /mois       | 1164 EUR /an            | 1164 EUR     |
 
-5. **Configurer le webhook** : Stripe → *Developers* → *Webhooks* → *Add endpoint*.
+   Pour chaque prix créé, copier le `price_id` (commence par `price_...`) — tu vas en avoir 6 au total.
+
+   ⚠️ **Pas de produit Enterprise** : c'est une vente assistée. Le bouton "Contacter les ventes" sur la landing ouvre simplement `mailto:contact@aswallet.fr?subject=Demande%20Enterprise%20aswallet`.
+
+4. **Coller les 6 price IDs** dans `.env.local` (ou Vercel) avec exactement ces noms :
+
+   ```
+   STRIPE_PRICE_ID_STARTER_MONTHLY=price_...
+   STRIPE_PRICE_ID_STARTER_ANNUAL=price_...
+   STRIPE_PRICE_ID_PRO_MONTHLY=price_...
+   STRIPE_PRICE_ID_PRO_ANNUAL=price_...
+   STRIPE_PRICE_ID_BUSINESS_MONTHLY=price_...
+   STRIPE_PRICE_ID_BUSINESS_ANNUAL=price_...
+   ```
+
+   Note : le code accepte aussi les anciens noms `_MONTH` / `_YEAR` (rétro-compat) mais on recommande d'utiliser les nouveaux `_MONTHLY` / `_ANNUAL` qui matchent la copie UI ("Mensuel / Annuel").
+
+5. **Récupérer les clés API** dans Stripe → *Developers* → *API keys*. Copier `Secret key` (sk_test_...) et `Publishable key` (pk_test_...). Les coller dans `.env.local` (les noms sont déjà listés dans `.env.example`).
+
+6. **Configurer le webhook** : Stripe → *Developers* → *Webhooks* → *Add endpoint*.
    - URL : `https://aswallet.fr/api/billing/webhook` (en local : utiliser `stripe listen --forward-to localhost:3000/api/billing/webhook` qui imprime un `whsec_...`).
    - Events à sélectionner : `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`.
    - Copier le `Signing secret` (whsec_...) dans `STRIPE_WEBHOOK_SECRET`.
 
-6. **Activer le Customer Portal** : Stripe → *Settings* → *Billing* → *Customer portal*. Activer ; cocher "Allow customers to cancel subscriptions" et "Update payment methods".
+7. **Activer le Customer Portal** : Stripe → *Settings* → *Billing* → *Customer portal*. Activer ; cocher "Allow customers to cancel subscriptions" et "Update payment methods".
 
-7. **Vercel** : ajouter les 9 variables d'env dans le dashboard Vercel (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, et les 6 `STRIPE_PRICE_ID_*`). Redéployer.
+8. **Vercel** : ajouter au total 9 variables d'env (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, et les 6 `STRIPE_PRICE_ID_*` listés ci-dessus). Redéployer.
 
-8. **Tester** : avec une carte test (`4242 4242 4242 4242`, n'importe quelle date + CVC), depuis `/settings/billing` cliquer "Souscrire", terminer le checkout, vérifier que `businesses.subscription_status = 'active'` et que `subscription_plan` est correct côté DB.
+9. **Tester** : avec une carte test (`4242 4242 4242 4242`, n'importe quelle date + CVC), depuis la landing page cliquer "Démarrer l'essai gratuit" sur la carte Pro, créer le compte, attendre la fin du trial OU cliquer "Configurer le paiement" depuis le banner du dashboard, terminer le checkout, vérifier que `businesses.subscription_status = 'active'` et que `subscription_plan` = `pro` côté DB.
 
 ## 4. Email transactionnel (confirmation, invitations)
 
