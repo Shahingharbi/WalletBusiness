@@ -51,35 +51,101 @@ function pickGrid(total: number): { cols: number; rows: number } {
 }
 
 /**
- * Pré-fetch une image distante et la convertit en data URI.
+ * Pré-fetch une image distante, la **normalise via sharp**, et la renvoie en
+ * data URI prête à être consommée par Satori.
  *
- * Pourquoi : Satori (utilisé par next/og ImageResponse) tente de fetcher les
- * images externes pendant le rendu, avec un timeout court (~4s) et sans retry.
- * Si Supabase Storage est en cold start ou si l'image est lourde, la fetch
- * échoue silencieusement → la strip ressort SANS la bannière (= invisible
- * côté Apple Wallet). Le pre-fetch côté Node (10s timeout, conversion en data
- * URI) garantit que Satori n'a plus aucun call externe à faire au rendu.
+ * Pourquoi cette approche bourine :
  *
- * Renvoie null si fetch impossible — la rendering tombera sur le gradient
- * accent_color sans casser.
+ *  1. Satori (le moteur de next/og ImageResponse) plante silencieusement sur
+ *     beaucoup de formats : HEIC, AVIF, WebP animé, SVG complexes, JPEG
+ *     CMYK, PNG entrelacés, fichiers > 4 Mo, profils colorimétriques exotiques.
+ *  2. Satori a aussi un timeout fetch court (~4s) sans retry — sur Supabase
+ *     Storage en cold start ou avec un gros fichier, la photo arrive trop tard.
+ *  3. Le merchant uploade ce qu'il veut depuis son tel : photo iPhone HEIC,
+ *     PNG géant, screenshot 4K, GIF animé… On ne peut pas lui demander de
+ *     "respecter un format", il faut que TOUT marche.
+ *
+ * La parade :
+ *
+ *  - Fetch côté Node avec un timeout généreux (15 s) + retry 1 fois.
+ *  - sharp décode quasi tout (HEIC inclus si libheif dispo, sinon il crashe
+ *    proprement et on retombe sur null).
+ *  - Resize à la taille EXACTE du strip (1125 x 369), `cover` pour préserver
+ *    le sujet sans déformer.
+ *  - Reconvertit en JPEG sRGB qualité 88 — Satori adore ça.
+ *  - Cap dur à 4 Mo en sortie (Satori plante au-delà).
+ *
+ * Renvoie null si vraiment impossible — le rendu tombe sur le gradient
+ * accent_color sans casser le pass.
  */
-async function prefetchAsDataUri(url: string | null): Promise<string | null> {
+async function prefetchAsDataUri(
+  url: string | null,
+  targetWidth: number,
+  targetHeight: number,
+): Promise<string | null> {
   if (!url) return null;
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 10_000);
-    const res = await fetch(url, { signal: ctrl.signal, redirect: "follow" });
-    clearTimeout(timer);
-    if (!res.ok) {
-      console.warn(`[wallet-banner] prefetch ${url}: HTTP ${res.status}`);
-      return null;
+
+  // 1. Fetch avec retry x1 (utile en cold start Supabase).
+  let buf: Buffer | null = null;
+  for (let attempt = 0; attempt < 2 && !buf; attempt++) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15_000);
+      const res = await fetch(url, { signal: ctrl.signal, redirect: "follow" });
+      clearTimeout(timer);
+      if (!res.ok) {
+        console.warn(
+          `[wallet-banner] fetch attempt ${attempt + 1} for ${url}: HTTP ${res.status}`,
+        );
+        continue;
+      }
+      const arr = await res.arrayBuffer();
+      if (arr.byteLength === 0) continue;
+      buf = Buffer.from(arr);
+    } catch (err) {
+      console.warn(
+        `[wallet-banner] fetch attempt ${attempt + 1} for ${url} threw:`,
+        err,
+      );
     }
-    const ct = res.headers.get("content-type") || "image/jpeg";
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length === 0) return null;
-    return `data:${ct};base64,${buf.toString("base64")}`;
+  }
+  if (!buf) return null;
+
+  // 2. Si SVG, on l'embed tel quel (sharp peut rasteriser mais c'est risqué
+  //    sur les SVG avec polices externes — Satori gère le SVG en data URI).
+  const head = buf.slice(0, Math.min(buf.length, 64)).toString("utf8");
+  if (head.trim().startsWith("<?xml") || head.includes("<svg")) {
+    return `data:image/svg+xml;base64,${buf.toString("base64")}`;
+  }
+
+  // 3. Normalisation sharp : décode + flatten alpha sur fond blanc + resize
+  //    cover + sortie JPEG sRGB.
+  try {
+    const { default: sharp } = await import("sharp");
+    const out = await sharp(buf, { failOn: "none" })
+      .rotate() // applique l'EXIF orientation
+      .flatten({ background: { r: 255, g: 255, b: 255 } }) // alpha -> blanc
+      .resize(targetWidth, targetHeight, {
+        fit: "cover",
+        position: "center",
+      })
+      .toColorspace("srgb")
+      .jpeg({ quality: 88, progressive: false, mozjpeg: true })
+      .toBuffer();
+    if (out.length > 4_000_000) {
+      // Cap dur à 4 Mo (Satori plante au-delà). Re-compresse plus aggressif.
+      const smaller = await sharp(out)
+        .jpeg({ quality: 70, progressive: false, mozjpeg: true })
+        .toBuffer();
+      if (smaller.length > 4_000_000) return null;
+      return `data:image/jpeg;base64,${smaller.toString("base64")}`;
+    }
+    return `data:image/jpeg;base64,${out.toString("base64")}`;
   } catch (err) {
-    console.warn(`[wallet-banner] prefetch failed for ${url}:`, err);
+    console.warn(
+      `[wallet-banner] sharp normalize failed for ${url}:`,
+      err instanceof Error ? err.message : err,
+    );
     return null;
   }
 }
@@ -152,8 +218,9 @@ export async function GET(
     const background =
       (design.background_color as string) || darken(accent, 0.0);
     const bannerSourceUrl = (design.banner_url as string | null) || null;
-    // Pré-fetch en data URI pour fiabiliser le rendu Satori (voir helper).
-    const bannerUrl = await prefetchAsDataUri(bannerSourceUrl);
+    // Normalise la photo (HEIC / AVIF / PNG géant / etc.) → JPEG 1125x369 sRGB
+    // que Satori avale toujours. Voir prefetchAsDataUri pour la stratégie.
+    const bannerUrl = await prefetchAsDataUri(bannerSourceUrl, WIDTH, HEIGHT);
     const stampActiveUrl =
       (design.stamp_active_url as string | null) ||
       (design.activeImageUrl as string | null) ||
