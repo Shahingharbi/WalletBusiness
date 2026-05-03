@@ -12,12 +12,20 @@ import {
 export const runtime = "nodejs";
 
 // Image utilisée à la fois pour Apple Wallet (strip image) et Google Wallet
-// (heroImage). Ratio ~3:1. On NE rend QUE la grille de tampons, centrée, sur
-// fond accent_color. Aucun texte, aucun nom de commerce, aucun compteur.
-// Toutes les autres infos (logo commerce, points, prochaine récompense...) sont
-// rendues par le wallet lui-même via les fields du pass.json.
-const WIDTH = 1032;
-const HEIGHT = 336;
+// (heroImage).
+//
+// Apple Wallet — storeCard avec QR : strip.png attendu en 375×123 (1x), 750×246 (2x),
+// 1125×369 (3x). On génère le @3x et iOS scale les autres. Ratio ~3:1.
+// Apple **rejette silencieusement** une strip dont les dimensions ne respectent
+// pas ce format (résultat: bannière invisible côté pass).
+//
+// Google Wallet — heroImage accepte n'importe quel ratio mais 1125×369 marche aussi.
+//
+// On NE rend QUE la grille de tampons, centrée, sur fond accent_color OU photo
+// du merchant si banner_url. Aucun texte sur le strip — Apple/Google posent
+// leurs propres champs autour.
+const WIDTH = 1125;
+const HEIGHT = 369;
 
 function pickGrid(total: number): { cols: number; rows: number } {
   const map: Record<number, [number, number]> = {
@@ -40,6 +48,40 @@ function pickGrid(total: number): { cols: number; rows: number } {
   if (total <= 4) return { cols: total, rows: 1 };
   const cols = total > 12 ? 5 : 4;
   return { cols, rows: Math.ceil(total / cols) };
+}
+
+/**
+ * Pré-fetch une image distante et la convertit en data URI.
+ *
+ * Pourquoi : Satori (utilisé par next/og ImageResponse) tente de fetcher les
+ * images externes pendant le rendu, avec un timeout court (~4s) et sans retry.
+ * Si Supabase Storage est en cold start ou si l'image est lourde, la fetch
+ * échoue silencieusement → la strip ressort SANS la bannière (= invisible
+ * côté Apple Wallet). Le pre-fetch côté Node (10s timeout, conversion en data
+ * URI) garantit que Satori n'a plus aucun call externe à faire au rendu.
+ *
+ * Renvoie null si fetch impossible — la rendering tombera sur le gradient
+ * accent_color sans casser.
+ */
+async function prefetchAsDataUri(url: string | null): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10_000);
+    const res = await fetch(url, { signal: ctrl.signal, redirect: "follow" });
+    clearTimeout(timer);
+    if (!res.ok) {
+      console.warn(`[wallet-banner] prefetch ${url}: HTTP ${res.status}`);
+      return null;
+    }
+    const ct = res.headers.get("content-type") || "image/jpeg";
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length === 0) return null;
+    return `data:${ct};base64,${buf.toString("base64")}`;
+  } catch (err) {
+    console.warn(`[wallet-banner] prefetch failed for ${url}:`, err);
+    return null;
+  }
 }
 
 function errorImage(message: string) {
@@ -109,7 +151,9 @@ export async function GET(
     const accent = (design.accent_color as string) || "#10b981";
     const background =
       (design.background_color as string) || darken(accent, 0.0);
-    const bannerUrl = (design.banner_url as string | null) || null;
+    const bannerSourceUrl = (design.banner_url as string | null) || null;
+    // Pré-fetch en data URI pour fiabiliser le rendu Satori (voir helper).
+    const bannerUrl = await prefetchAsDataUri(bannerSourceUrl);
     const stampActiveUrl =
       (design.stamp_active_url as string | null) ||
       (design.activeImageUrl as string | null) ||
@@ -150,13 +194,27 @@ export async function GET(
     // de l'iPhone collent les tampons et c'est moche). On limite aussi la
     // taille max d'un tampon à 110px en grille dense pour éviter les "boutons"
     // géants qui mangent toute l'image.
+    // Cap intelligent basé sur le NOMBRE DE LIGNES, pas juste le total. Apple
+    // Wallet rend le strip à largeur fixe ~375px sur l'iPhone — si on autorise
+    // des stamps de 200px en source, ils sont scalés à ~67px à l'écran ce qui
+    // est OK. Mais sur 1 ligne avec peu de tampons, on les laissait monter à
+    // 200px verticalement → ils dépassaient du strip côté Apple (le ratio ~3:1
+    // imposé par PassKit était cassé visuellement). Solution : caper la
+    // hauteur max d'un stamp en fonction de la hauteur DISPONIBLE.
     const dense = stampsTotal >= 12;
-    const padding = dense ? 56 : 28;
-    const gap = dense ? 14 : 18;
+    const padding = dense ? 64 : 36;
+    const gap = dense ? 14 : 22;
     const maxByW = (WIDTH - padding * 2 - gap * (cols - 1)) / cols;
     const maxByH = (HEIGHT - padding * 2 - gap * (rows - 1)) / rows;
-    const upperCap = dense ? 110 : 200;
-    const stampSize = Math.max(60, Math.min(upperCap, Math.floor(Math.min(maxByW, maxByH))));
+    // Hard cap par nb de lignes pour respecter le ratio strip Apple :
+    // 1 ligne (≤5 stamps) -> 130px max  (avant: 200px → débordait)
+    // 2 lignes (6-12)     -> 120px max
+    // 3+ lignes           -> 100px max
+    const upperCap = rows === 1 ? 130 : rows === 2 ? 120 : 100;
+    const stampSize = Math.max(
+      48,
+      Math.min(upperCap, Math.floor(Math.min(maxByW, maxByH))),
+    );
 
     const stamps: Array<{ filled: boolean; idx: number }> = [];
     for (let i = 0; i < stampsTotal; i++) {
@@ -251,7 +309,12 @@ export async function GET(
         width: WIDTH,
         height: HEIGHT,
         headers: {
-          "Cache-Control": "public, max-age=60, s-maxage=300",
+          // No cache long terme : quand le merchant met à jour son design
+          // (banner, logo, accent), la nouvelle image doit s'afficher au prochain
+          // refetch sans attendre que le CDN expire. Apple/Google fetch quand
+          // l'URL change (count varie après chaque scan), donc s-maxage long
+          // était redondant et masquait les bugs.
+          "Cache-Control": "public, max-age=10, s-maxage=10, must-revalidate",
           "Content-Type": "image/png",
         },
       },
@@ -309,16 +372,19 @@ function renderStamp(p: StampProps) {
   }
 
   // Style Boomerangme avec VRAIE forme SVG (star, shield, hex, etc.) ET icône
-  // intérieure rendue dans le MÊME SVG (path enfant), ce qui évite tout SVG
-  // nested (incompatible Satori) et garantit que la forme + l'icône changent
-  // ensemble selon les choix du merchant.
+  // intérieure rendue dans le MÊME SVG (path enfant). Pas de SVG nested
+  // (incompatible Satori). La forme + l'icône suivent toujours le choix
+  // merchant (stamp_shape + stamp_active_icon dans design).
+  //
+  // Couleurs : la **couleur d'accent du merchant** est appliquée AUX DEUX états
+  // pour que la marque soit visible partout. Les tampons VIDES affichent quand
+  // même l'icône en accent_color mais à 35% d'opacité (au lieu de gris fixe).
+  // Comme ça même sur une carte neuve (0/10) on voit déjà la couleur de marque.
   const shapeFill = "#ffffff";
-  const shapeStroke = p.filled ? p.accent : "rgba(255,255,255,0.55)";
-  const shapeStrokeWidth = p.filled ? 0.5 : 0.8;
-  // Filled  -> icône en couleur d'accent, opacité 100% (lisible sur fond blanc)
-  // Empty   -> icône en gris très clair, opacité 30% (présente mais discrète)
-  const iconFill = p.filled ? p.accent : "#9ca3af";
-  const iconOpacity = p.filled ? 1 : 0.3;
+  const shapeStroke = p.accent;
+  const shapeStrokeWidth = p.filled ? 0.6 : 1.1;
+  const iconFill = p.accent;
+  const iconOpacity = p.filled ? 1 : 0.35;
 
   const shapePath = getShapePath(p.shape);
   const iconPath = getIconPath(p.iconKey);
