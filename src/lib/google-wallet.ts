@@ -103,8 +103,8 @@ function buildLoyaltyClass(p: PassParams) {
     accountIdLabel: "Client",
     accountNameLabel: "Nom",
     // programDetails apparaît au verso de la carte Google Wallet — on y met
-    // la récompense + le footer "Signé par aswallet".
-    programDetails: `${p.rewardText}\n\nSigné par aswallet`,
+    // la récompense + le footer "Propulsé par aswallet".
+    programDetails: `${p.rewardText}\n\nPropulsé par aswallet`,
     ...(locations ? { locations } : {}),
   };
 }
@@ -171,7 +171,7 @@ function buildLoyaltyObject(p: PassParams) {
       value: p.customerInstanceToken,
       // alternateText apparaît sous le code-barres dans Google Wallet.
       // On remplace le serial number (chaîne aléatoire) par un crédit clair.
-      alternateText: "Signé par aswallet",
+      alternateText: "Propulsé par aswallet",
     },
     linksModuleData: {
       uris: [

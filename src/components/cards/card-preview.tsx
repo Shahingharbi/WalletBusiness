@@ -599,7 +599,7 @@ function SinglePreview({
                   </div>
                 )}
 
-                {/* 4. White card section : QR + "Signé par aswallet". */}
+                {/* 4. White card section : QR + "Propulsé par aswallet". */}
                 <div className="bg-white px-4 py-3 flex flex-col items-center gap-1.5 border-t border-black/5">
                   {barcodeType === "qr" ? (
                     qrDataUrl ? (
@@ -614,7 +614,7 @@ function SinglePreview({
                     </div>
                   )}
                   <span className="text-[9px] text-gray-500 tracking-wide">
-                    Signé par aswallet
+                    Propulsé par aswallet
                   </span>
                 </div>
               </div>
@@ -675,45 +675,77 @@ export function CardPreview({
     );
   }
 
-  // Mode "both" (défaut, éditeur) : Apple + Google côte-à-côte sur desktop,
-  // empilés sur mobile. Le merchant voit IMMÉDIATEMENT comment chaque
-  // plate-forme rend sa carte (et que Google force le fond sombre si besoin).
+  // Mode "both" (défaut éditeur) : UN SEUL mockup à taille pleine + toggle
+  // pour switcher entre Apple Wallet et Google Wallet. Le tel s'affiche
+  // entier (pas tronqué/coupé en deux). Le merchant clique pour comparer.
+  return <ToggledPreview
+    cardName={cardName}
+    stampCount={stampCount}
+    rewardText={rewardText}
+    collectedStamps={collectedStamps}
+    design={design}
+    cardType={cardType}
+    businessName={businessName}
+    walletBusinessName={walletBusinessName}
+    barcodeType={barcodeType}
+    customerFirstName={customerFirstName}
+  />;
+}
+
+function ToggledPreview({
+  cardName,
+  stampCount,
+  rewardText,
+  collectedStamps = 3,
+  design,
+  cardType = "stamp",
+  businessName,
+  walletBusinessName,
+  barcodeType = "qr",
+  customerFirstName = "Sophie",
+}: Omit<CardPreviewProps, "platform">) {
+  const [platform, setPlatform] = useState<"apple" | "google">("apple");
   return (
-    <div className="flex flex-col xl:flex-row gap-6 xl:gap-4 items-start justify-center">
-      <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
-        <SinglePreview
-          platform="apple"
-          cardName={cardName}
-          stampCount={stampCount}
-          rewardText={rewardText}
-          collectedStamps={collectedStamps}
-          design={design}
-          cardType={cardType}
-          businessName={businessName}
-          walletBusinessName={walletBusinessName}
-          barcodeType={barcodeType}
-          customerFirstName={customerFirstName}
-        />
+    <div className="flex flex-col items-center gap-3">
+      <div className="inline-flex items-center bg-gray-100 rounded-full p-1 text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => setPlatform("apple")}
+          className={cn(
+            "px-4 py-1.5 rounded-full transition-colors cursor-pointer",
+            platform === "apple"
+              ? "bg-black text-white shadow-sm"
+              : "text-gray-600 hover:text-black",
+          )}
+        >
+          Apple Wallet
+        </button>
+        <button
+          type="button"
+          onClick={() => setPlatform("google")}
+          className={cn(
+            "px-4 py-1.5 rounded-full transition-colors cursor-pointer",
+            platform === "google"
+              ? "bg-black text-white shadow-sm"
+              : "text-gray-600 hover:text-black",
+          )}
+        >
+          Google Wallet
+        </button>
       </div>
-      <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
-        <SinglePreview
-          platform="google"
-          cardName={cardName}
-          stampCount={stampCount}
-          rewardText={rewardText}
-          collectedStamps={collectedStamps}
-          design={design}
-          cardType={cardType}
-          businessName={businessName}
-          walletBusinessName={walletBusinessName}
-          barcodeType={barcodeType}
-          customerFirstName={customerFirstName}
-        />
-        <p className="text-[10px] italic text-gray-500 max-w-[300px] text-center leading-snug px-1">
-          Google Wallet impose la couleur du texte. Si vous choisissez un fond
-          clair, nous l&apos;adaptons automatiquement pour rester lisible.
-        </p>
-      </div>
+      <SinglePreview
+        platform={platform}
+        cardName={cardName}
+        stampCount={stampCount}
+        rewardText={rewardText}
+        collectedStamps={collectedStamps}
+        design={design}
+        cardType={cardType}
+        businessName={businessName}
+        walletBusinessName={walletBusinessName}
+        barcodeType={barcodeType}
+        customerFirstName={customerFirstName}
+      />
     </div>
   );
 }

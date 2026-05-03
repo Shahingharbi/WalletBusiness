@@ -438,12 +438,12 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
 
   // QR code lisible par l'app scanner du commerçant. altText apparaît
   // sous le QR — on remplace le serial number (chaîne aléatoire pas
-  // parlante) par un crédit "Signé par aswallet".
+  // parlante) par un crédit "Propulsé par aswallet".
   pass.setBarcodes({
     message: p.customerInstanceToken,
     format: "PKBarcodeFormatQR",
     messageEncoding: "iso-8859-1",
-    altText: "Signé par aswallet",
+    altText: "Propulsé par aswallet",
   });
 
   return pass.getAsBuffer();

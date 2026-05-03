@@ -243,7 +243,7 @@ export async function GET(
           </div>
 
           {/* Footer "Powered by aswallet" supprimé — on ne signe plus la
-              strip image. Le crédit "Signé par aswallet" est désormais affiché
+              strip image. Le crédit "Propulsé par aswallet" est désormais affiché
               sous le code-barres (altText du barcode Apple/Google). */}
         </div>
       ),

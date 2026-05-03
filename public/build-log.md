@@ -5,6 +5,59 @@
 
 ---
 
+## 2026-05-03 — Pricing relaunch + Apple Wallet APNs + design preview Apple/Google + auto-flip + 360° polish
+
+### Pricing (validé)
+- 4 plans : **Starter 29€**, **Pro 59€** (badge "Le plus choisi"), **Business 129€** (badge "Meilleur rapport qualité-prix"), **Enterprise** sur devis (mailto contact ventes).
+- Toggle Mensuel/Annuel sur `/#pricing`, default = Annuel, **-25%** mis en avant. Annuel = 3 mois offerts (264 / 528 / 1164 €/an).
+- Migration 009 appliquée : `businesses.intended_plan` + `intended_interval`. POST `/api/account/intended-plan` persiste juste après signup.
+- Migration 010 appliquée : `handle_new_user` bumpé à **30j de trial** + lit `intended_plan/intended_interval` depuis user_metadata. **11 trials existants étendus** de 16j. Bug `gen_random_bytes` (pgcrypto schema) re-fix via md5+random.
+- `/register` lit `?plan=&interval=`, redirect `/#pricing` si manquant. Banner plan choisi en haut du form.
+- Banner dashboard trial countdown : soft → warning J+25 (≤5j) → danger J+30+ avec lock dashboard read-only. **Les cartes des clients continuent de marcher**, seul le merchant dashboard se verrouille.
+- 6 env vars `STRIPE_PRICE_ID_{STARTER,PRO,BUSINESS}_{MONTHLY,ANNUAL}` documentées dans `docs/TODO-manual.md` à set par le merchant dans Stripe Dashboard.
+- `/api/billing/checkout` accept `?plan=&interval=`, rejette `enterprise` (force le mailto).
+
+### Apple Wallet — fix couleurs + APNs live updates
+- **Fix critique** : `foregroundColor` et `labelColor` étaient hardcodés en blanc (lignes 268+270 de `lib/apple-wallet.ts`), peu importe le `text_color` choisi. Donc fond blanc + texte blanc = invisible. Fix : `autoForeground()` luminance-based + respect explicite de `design.text_color` quand fourni.
+- `install-form.tsx` : bouton "Obtenir ma carte" auto-contraste son texte selon `accent_color` via `pickContrast()` (lib/utils). Plus de bouton fantôme quand l'accent est pâle.
+- **APNs live updates phase 2** :
+  - Migration `005_apple_pass_devices.sql` appliquée (table push tokens, RLS service-role).
+  - PassKit Web Service complet : 4 endpoints sous `/api/apple-wallet/v1/*` (devices register/unregister, list updated, get pass, log).
+  - `lib/apple-wallet-push.ts` : push HTTP/2 raw via `node:http2` qui réutilise le Pass Type cert comme TLS client cert. Pas de cert APNs séparé. Auto-cleanup stale tokens sur 410. Fire-and-forget après chaque scan.
+  - `pass.json` embarque `webServiceURL` + `authenticationToken` HMAC-SHA256 auto-calculé (pas de stockage).
+  - `APPLE_WALLET_AUTH_SECRET` (32 bytes hex) ajouté sur Vercel via API.
+
+### Wallet design polish
+- **Preview Apple+Google côte à côte** dans le designer → le user a flag "trop tronqué", basculé en **toggle Apple/Google** avec un seul mockup à taille pleine (`<CardPreview platform="both">` rend `<ToggledPreview>`).
+- **Layout wallet simplifié** : sous le strip, juste `Bonjour {prénom}` (gauche) + `Notre offre` (droite, gros). Plus de "Prochaine récompense" / "Récompenses dispo" qui polluaient.
+- **Fusion `reward_text` + `reward_subtitle`** → un seul champ "Récompense / Offre" (max 60 chars). Migration 011 appliquée (`DROP COLUMN reward_subtitle` vérifié). Apple Wallet adapte la taille du texte selon longueur (≤18 → primaryFields gros / 19-32 → secondaryFields / 33+ → auxiliaryFields).
+- **Auto-flip Google Wallet** quand `background_color` clair : `lib/wallet-colors.ts::googleEffectiveBgColor()` bascule auto sur `darken(accent, 0.5)` ou `#1a1a1a` pour garantir la lisibilité (Google n'expose pas de foregroundColor).
+- **Strip image** : SVG path partagé via `lib/stamp-render.ts` (`getShapePath` + `getIconPath`) entre preview app et banner endpoint → pixel-parity entre éditeur et wallet réel.
+- **Padding adaptatif** sur grilles 12+ tampons (les bords ne collent plus à l'iPhone).
+- **Logo merchant** : retrait de la suppression auto du fond blanc (trop bourine, baveait sur dégradés). Hint clair vers remove.bg dans le designer pour PNG transparent.
+- **"Propulsé par aswallet"** partout sous QR (preview + Apple altText + Google altText + programDetails). Plus de serial number aléatoire.
+
+### Boomerangme parity (3 features)
+- **Geo-Push** (migration 007) : `pass.json.locations[]` Apple + `LoyaltyClass.locations[]` Google. Page `/locations` + géocodage Nominatim gratuit. Gating Starter 0 / Pro 3 / Business 10.
+- **RFM segmentation** : `lib/rfm.ts` calcule à la volée 5 segments depuis transactions. Pills + filtres dans `/clients`.
+- **Auto-push événementiel** (Pro+) : cron daily 10h, 3 triggers idempotents (`inactive_30d`, `near_reward_80`, `birthday`). UI `/cards/[id]/auto-push` avec variables `{name}/{reward}/{remaining}`.
+- **Welcome offer** : `design.welcome_reward` à l'install → `rewards_available=1` + push wallet auto.
+
+### QA 360° + UX
+- Password reset : nouvelle page `/auth/reset-password` (parse hash recovery, setSession, updateUser). Avant : email arrivait, mais user landait sur `/dashboard` sans UI pour set le nouveau mdp.
+- iOS/Android UA detection sur `/c/.../status` : composant client `WalletButtons` qui n'affiche que le bouton compatible (iOS=Apple, Android=Google, autre=both). SSR-safe.
+- 12 palettes preset couleurs dans le designer, toggle "Couleurs personnalisées" pour mode avancé.
+- Mobile sticky preview en haut du viewport pendant l'édition (plus besoin de scroll bas/haut).
+- Sticky bottom action bar mobile avec `pb-[env(safe-area-inset-bottom)]`.
+- Empty states polish dashboard (cards / clients / dashboard).
+- Pricing badge "Meilleur rapport qualité/prix" overflowait sur Chrome → fix CSS (`whitespace-nowrap` + `pt-8/9`).
+- Aucun chiffre social inventé (suppression des badges fake "+32% de retour" / "x2 mardi soir" / "Top 10% CA" dans `UseCasesSection`).
+
+### Compte test admin
+- `test@aswallet.fr` / `aswallet2026` — Business plan débloqué 100 ans, onboarding skip, accès toutes features payantes.
+
+---
+
 ## 2026-05-02 — Geo-push + RFM segmentation + Auto-push événementiel
 
 ### Geo-push (Boomerangme parity)
