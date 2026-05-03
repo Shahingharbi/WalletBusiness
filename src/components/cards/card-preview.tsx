@@ -1,9 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Wifi, Signal, BatteryFull, Percent, Crown, CircleDollarSign } from "lucide-react";
+import {
+  Wifi,
+  Signal,
+  BatteryFull,
+  Percent,
+  Crown,
+  CircleDollarSign,
+} from "lucide-react";
 import QRCode from "qrcode";
 import { DEFAULT_CARD_DESIGN, type CardType } from "@/lib/constants";
+import { googleEffectiveBgColor, luminance } from "@/lib/wallet-colors";
 import {
   getIconPath,
   getShapePath,
@@ -26,23 +34,20 @@ interface CardPreviewProps {
    * dans l'aperçu si fourni.
    */
   walletBusinessName?: string | null;
-  /**
-   * Phrase courte affichée à la place du compteur "X tampons restants" dans
-   * la zone des auxiliaryFields. Doit refléter exactement ce que le wallet
-   * affichera (logique de fallback identique à apple-wallet.ts /
-   * google-wallet.ts).
-   */
-  rewardSubtitle?: string | null;
   barcodeType?: "qr" | "pdf417";
   /** Prénom client simulé pour la zone "Bonjour {firstName}". */
   customerFirstName?: string;
+  /**
+   * Plate-forme à rendre.
+   *  - "apple"  : aperçu Apple Wallet uniquement
+   *  - "google" : aperçu Google Wallet uniquement
+   *  - "both"   : les deux côte-à-côte (défaut, pour l'éditeur de carte)
+   */
+  platform?: "apple" | "google" | "both";
 }
-
-type Device = "ios" | "android";
 
 /**
  * PDF417-style placeholder visualization (not a real encoder — preview only).
- * Renders a dense SVG grid that LOOKS like a PDF417 in the same way the wallet does.
  */
 function Pdf417Visual({ value }: { value: string }) {
   const rows = 6;
@@ -100,8 +105,7 @@ function Pdf417Visual({ value }: { value: string }) {
 }
 
 /**
- * Same pickGrid logic as src/app/api/wallet/banner/.../route.tsx — must stay
- * in sync so the preview matches the actual strip image generated for the wallet.
+ * Same pickGrid logic as src/app/api/wallet/banner/.../route.tsx.
  */
 function pickGrid(total: number): { cols: number; rows: number } {
   const map: Record<number, [number, number]> = {
@@ -200,41 +204,67 @@ function StripStamp({
   );
 }
 
-export function CardPreview({
+interface SinglePreviewProps {
+  platform: "apple" | "google";
+  cardName: string;
+  stampCount: number;
+  rewardText: string;
+  collectedStamps: number;
+  design: typeof DEFAULT_CARD_DESIGN;
+  cardType: CardType;
+  businessName?: string;
+  walletBusinessName?: string | null;
+  barcodeType: "qr" | "pdf417";
+  customerFirstName: string;
+}
+
+function SinglePreview({
+  platform,
   cardName,
   stampCount,
   rewardText,
-  collectedStamps = 3,
+  collectedStamps,
   design,
-  cardType = "stamp",
+  cardType,
   businessName,
   walletBusinessName,
-  rewardSubtitle,
-  barcodeType = "qr",
-  customerFirstName = "Sophie",
-}: CardPreviewProps) {
-  // Le wallet réel utilise `walletBusinessName` (logoText Apple / issuerName
-  // Google) en priorité, sinon retombe sur `cardName`. L'aperçu doit appliquer
-  // EXACTEMENT la même logique pour rester fidèle à ce que verra le client.
+  barcodeType,
+  customerFirstName,
+}: SinglePreviewProps) {
   const headerTitle =
     (walletBusinessName && walletBusinessName.trim()) ||
     cardName ||
     businessName ||
     "Ma carte";
 
-  const [device, setDevice] = useState<Device>("ios");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
-  // Couleur scheme — on suit le wallet : foregroundColor blanc forcé,
-  // backgroundColor = la couleur que le merchant a choisie.
-  const cardBg = design.background_color || "#1a1a1a";
+  // Couleurs : règles spécifiques à chaque plate-forme.
+  const designBg = design.background_color || "#1a1a1a";
   const accentColor = design.accent_color || "#e53e3e";
-  const onCardText = "#ffffff";
-  const labelColor = "rgba(255,255,255,0.7)";
+  const designTextColor = (design.text_color || "").trim();
+
+  // Apple : merchant pilote la couleur de texte. Si vide -> auto-contraste.
+  // Google : on auto-flippe le fond vers du sombre si le merchant a choisi
+  // clair (Google force le texte blanc -> illisible). Texte toujours blanc.
+  const cardBg =
+    platform === "apple" ? designBg : googleEffectiveBgColor(designBg, accentColor);
+  const onCardText =
+    platform === "apple"
+      ? designTextColor.length > 0
+        ? designTextColor
+        : luminance(designBg) > 0.6
+          ? "#141414"
+          : "#ffffff"
+      : "#ffffff";
+  // Petit utilitaire pour générer un labelColor lisible dérivé du texte.
+  const labelColor =
+    onCardText.toLowerCase() === "#ffffff"
+      ? "rgba(255,255,255,0.7)"
+      : "rgba(20,20,20,0.55)";
 
   const stampsTotal = Math.max(1, Math.min(20, stampCount));
   const stampsCollected = Math.max(0, Math.min(collectedStamps, stampsTotal));
-  const remaining = Math.max(0, stampsTotal - stampsCollected);
 
   const shape = normalizeShape(design.stamp_shape);
   const iconKey = normalizeIconKey(
@@ -243,15 +273,6 @@ export function CardPreview({
       "check",
     "check"
   );
-
-  // Phrase d'offre à afficher dans la zone auxiliaryFields. Logique IDENTIQUE
-  // à celle de apple-wallet.ts (label "Notre offre") et google-wallet.ts
-  // (textModulesData id="subtitle"). Si vide => fallback "{remaining} tampons".
-  const subtitleTrimmed = (rewardSubtitle ?? "").trim();
-  const auxOfferLabel =
-    subtitleTrimmed.length > 0 ? "Notre offre" : "Prochaine récompense";
-  const auxOfferValue =
-    subtitleTrimmed.length > 0 ? subtitleTrimmed : `${remaining} tampons`;
 
   // Token QR stable côté preview.
   const sampleToken = useMemo(
@@ -281,11 +302,8 @@ export function CardPreview({
     };
   }, [sampleToken, barcodeType]);
 
-  // Grille de tampons — même logique que la route /api/wallet/banner.
+  // Grille de tampons.
   const { cols, rows } = pickGrid(stampsTotal);
-  // Taille adaptée au format réduit (preview ~280px de large) — on contraint
-  // pour respecter le ratio 3:1 du strip d'origine. La largeur dispo dans la
-  // zone strip est environ 280 - 2*16 = 248px.
   const stripWidth = 280;
   const stripHorizontalPadding = stampsTotal >= 12 ? 14 : 16;
   const stripGap = stampsTotal >= 12 ? 6 : 8;
@@ -303,43 +321,28 @@ export function CardPreview({
   }
 
   const isStampLikeCard = cardType === "stamp" || cardType === "cashback";
+  const reward = (rewardText ?? "").trim();
+  const firstName = (customerFirstName ?? "").trim();
+
+  // Frame style : iOS arrondi 44px / notch large, Material 32px / petit dot.
+  const isIos = platform === "apple";
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      {/* Device toggle */}
-      <div className="inline-flex rounded-full border border-gray-200 bg-white p-0.5 text-[11px] font-medium">
-        <button
-          type="button"
-          onClick={() => setDevice("ios")}
-          className={cn(
-            "px-3 py-1 rounded-full transition-colors cursor-pointer",
-            device === "ios" ? "bg-black text-white" : "text-gray-500 hover:text-gray-800"
-          )}
-        >
-          Apple Wallet
-        </button>
-        <button
-          type="button"
-          onClick={() => setDevice("android")}
-          className={cn(
-            "px-3 py-1 rounded-full transition-colors cursor-pointer",
-            device === "android" ? "bg-black text-white" : "text-gray-500 hover:text-gray-800"
-          )}
-        >
-          Google Wallet
-        </button>
+    <div className="flex flex-col items-center gap-2 w-full">
+      <div className="flex items-center justify-between w-full max-w-[300px] px-1">
+        <span className="text-[11px] font-semibold text-gray-700 uppercase tracking-wider">
+          {isIos ? "Aperçu Apple Wallet" : "Aperçu Google Wallet"}
+        </span>
       </div>
-
-      {/* Phone frame */}
       <div className="relative w-full max-w-[300px]">
         <div
           className={cn(
             "relative p-3 shadow-2xl",
-            device === "ios" ? "bg-gray-900 rounded-[44px]" : "bg-gray-800 rounded-[32px]"
+            isIos ? "bg-gray-900 rounded-[44px]" : "bg-gray-800 rounded-[32px]"
           )}
         >
           {/* Notch */}
-          {device === "ios" ? (
+          {isIos ? (
             <div className="flex justify-center mb-2">
               <div className="w-24 h-6 bg-black rounded-full" />
             </div>
@@ -353,8 +356,8 @@ export function CardPreview({
           <div
             className={cn(
               "relative overflow-hidden flex flex-col",
-              device === "ios" ? "rounded-[32px]" : "rounded-[22px]",
-              device === "ios" ? "bg-neutral-100" : "bg-[#0f1115]",
+              isIos ? "rounded-[32px]" : "rounded-[22px]",
+              isIos ? "bg-neutral-100" : "bg-[#0f1115]",
               "min-h-[560px]"
             )}
           >
@@ -362,7 +365,7 @@ export function CardPreview({
             <div
               className={cn(
                 "flex items-center justify-between px-5 pt-2 pb-1 text-[10px] font-semibold",
-                device === "ios" ? "text-gray-900" : "text-gray-200"
+                isIos ? "text-gray-900" : "text-gray-200"
               )}
             >
               <span>9:41</span>
@@ -377,23 +380,22 @@ export function CardPreview({
             <div
               className={cn(
                 "px-5 pt-2 pb-3 flex items-center justify-between",
-                device === "ios" ? "text-gray-900" : "text-gray-100"
+                isIos ? "text-gray-900" : "text-gray-100"
               )}
             >
               <span className="text-[13px] font-semibold">
-                {device === "ios" ? "Cartes" : "Google Wallet"}
+                {isIos ? "Cartes" : "Google Wallet"}
               </span>
               <div className="text-[11px] opacity-50">...</div>
             </div>
 
-            {/* === The pass itself, rebuilt to match Apple StoreCard layout === */}
+            {/* === The pass itself === */}
             <div className="px-3 pb-5 flex-1">
               <div
                 className="rounded-[18px] overflow-hidden shadow-xl relative"
                 style={{ backgroundColor: cardBg, color: onCardText }}
               >
-                {/* 1. Header band : logo + (logoText/cardName) on left, headerField "TAMPONS X / Y" on right.
-                    bg = backgroundColor, text white, label uppercase + small. */}
+                {/* 1. Header band : logo + (logoText/cardName) + headerField "TAMPONS X / Y". */}
                 <div className="flex items-center gap-2 px-3.5 pt-3 pb-2.5">
                   {design.logo_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
@@ -441,15 +443,9 @@ export function CardPreview({
                   )}
                 </div>
 
-                {/* 2. Strip image : grille de tampons rendue inline avec les MÊMES
-                    paths SVG que la route /api/wallet/banner (source-of-truth
-                    src/lib/stamp-render.ts). Bg = banner_url ou backgroundColor. */}
+                {/* 2. Strip image : grille de tampons. */}
                 {isStampLikeCard ? (
-                  <div
-                    className="relative w-full"
-                    style={{ height: 92 }}
-                  >
-                    {/* Background layer : photo banner si fournie sinon couleur de fond. */}
+                  <div className="relative w-full" style={{ height: 92 }}>
                     {design.banner_url ? (
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -467,7 +463,6 @@ export function CardPreview({
                       />
                     )}
 
-                    {/* Stamps grid — centred. */}
                     <div className="relative z-10 h-full flex items-center justify-center">
                       <div
                         className="flex flex-col items-center justify-center"
@@ -501,8 +496,6 @@ export function CardPreview({
                     </div>
                   </div>
                 ) : (
-                  /* Cartes non-tampons (discount/membership/...) : on remplace le
-                     strip par un encart visuel cohérent avec le pass généré. */
                   <div
                     className="relative w-full flex items-center gap-3 px-4 py-4"
                     style={{
@@ -540,67 +533,73 @@ export function CardPreview({
                       className="relative z-10 text-[13px] font-bold truncate"
                       style={{ color: onCardText }}
                     >
-                      {rewardText || "À définir"}
+                      {reward || "À définir"}
                     </p>
                   </div>
                 )}
 
-                {/* 3. Auxiliary fields row : 3 colonnes "Bonjour" / "Notre offre"
-                    (ou "Prochaine récompense") / "Récompenses dispo".
-                    Style identique aux auxiliaryFields Apple : label uppercase
-                    petit + value blanche en gras juste en-dessous. */}
+                {/* 3. Fields row simplifiée :
+                    - Apple : "Bonjour {firstName}" gauche / "Notre offre" droite
+                    - Google : un seul textModule "Notre offre" pleine largeur
+                      (Google ne sait pas faire 2 colonnes en haut). */}
                 {isStampLikeCard && (
                   <div
-                    className="grid grid-cols-3 gap-2 px-3.5 pt-2 pb-3"
+                    className="px-3.5 pt-2 pb-3"
                     style={{ backgroundColor: cardBg }}
                   >
-                    <div className="min-w-0">
-                      <p
-                        className="text-[8px] font-semibold tracking-wider uppercase leading-none"
-                        style={{ color: labelColor }}
-                      >
-                        Bonjour
-                      </p>
-                      <p
-                        className="text-[11px] font-bold mt-1 truncate"
-                        style={{ color: onCardText }}
-                      >
-                        {customerFirstName}
-                      </p>
-                    </div>
-                    <div className="min-w-0">
-                      <p
-                        className="text-[8px] font-semibold tracking-wider uppercase leading-none truncate"
-                        style={{ color: labelColor }}
-                      >
-                        {auxOfferLabel}
-                      </p>
-                      <p
-                        className="text-[11px] font-bold mt-1 truncate"
-                        style={{ color: onCardText }}
-                        title={auxOfferValue}
-                      >
-                        {auxOfferValue}
-                      </p>
-                    </div>
-                    <div className="min-w-0 text-right">
-                      <p
-                        className="text-[8px] font-semibold tracking-wider uppercase leading-none"
-                        style={{ color: labelColor }}
-                      >
-                        Récompenses dispo
-                      </p>
-                      <p
-                        className="text-[11px] font-bold mt-1 truncate"
-                        style={{ color: onCardText }}
-                      >
-                        0
-                      </p>
-                    </div>
+                    {isIos ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="min-w-0">
+                          <p
+                            className="text-[8px] font-semibold tracking-wider uppercase leading-none"
+                            style={{ color: labelColor }}
+                          >
+                            Bonjour
+                          </p>
+                          <p
+                            className="text-[11px] font-bold mt-1 truncate"
+                            style={{ color: onCardText }}
+                          >
+                            {firstName || "—"}
+                          </p>
+                        </div>
+                        <div className="min-w-0 text-right">
+                          <p
+                            className="text-[8px] font-semibold tracking-wider uppercase leading-none"
+                            style={{ color: labelColor }}
+                          >
+                            Notre offre
+                          </p>
+                          <p
+                            className="text-[11px] font-bold mt-1 truncate"
+                            style={{ color: onCardText }}
+                            title={reward}
+                          >
+                            {reward || "—"}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="min-w-0">
+                        <p
+                          className="text-[8px] font-semibold tracking-wider uppercase leading-none"
+                          style={{ color: labelColor }}
+                        >
+                          Notre offre
+                        </p>
+                        <p
+                          className="text-[11px] font-bold mt-1 truncate"
+                          style={{ color: onCardText }}
+                          title={reward}
+                        >
+                          {reward || "—"}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* 4. White card section : QR + "Signé par aswallet" caption. */}
+                {/* 4. White card section : QR + "Signé par aswallet". */}
                 <div className="bg-white px-4 py-3 flex flex-col items-center gap-1.5 border-t border-black/5">
                   {barcodeType === "qr" ? (
                     qrDataUrl ? (
@@ -620,11 +619,10 @@ export function CardPreview({
                 </div>
               </div>
 
-              {/* Subtle hint below card */}
               <p
                 className={cn(
                   "text-center text-[10px] mt-3",
-                  device === "ios" ? "text-gray-400" : "text-gray-500"
+                  isIos ? "text-gray-400" : "text-gray-500"
                 )}
               >
                 Glisser pour modifier · Double-taper pour les infos
@@ -632,13 +630,89 @@ export function CardPreview({
             </div>
           </div>
 
-          {/* Home indicator */}
-          {device === "ios" && (
+          {/* Home indicator (iOS only) */}
+          {isIos && (
             <div className="flex justify-center mt-2">
               <div className="w-28 h-1 bg-gray-600 rounded-full" />
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function CardPreview({
+  cardName,
+  stampCount,
+  rewardText,
+  collectedStamps = 3,
+  design,
+  cardType = "stamp",
+  businessName,
+  walletBusinessName,
+  barcodeType = "qr",
+  customerFirstName = "Sophie",
+  platform = "both",
+}: CardPreviewProps) {
+  // Mode "single" : on rend un seul preview (utilisé par les pages publiques
+  // et les modals où l'on veut juste l'iOS ou juste l'Android).
+  if (platform === "apple" || platform === "google") {
+    return (
+      <SinglePreview
+        platform={platform}
+        cardName={cardName}
+        stampCount={stampCount}
+        rewardText={rewardText}
+        collectedStamps={collectedStamps}
+        design={design}
+        cardType={cardType}
+        businessName={businessName}
+        walletBusinessName={walletBusinessName}
+        barcodeType={barcodeType}
+        customerFirstName={customerFirstName}
+      />
+    );
+  }
+
+  // Mode "both" (défaut, éditeur) : Apple + Google côte-à-côte sur desktop,
+  // empilés sur mobile. Le merchant voit IMMÉDIATEMENT comment chaque
+  // plate-forme rend sa carte (et que Google force le fond sombre si besoin).
+  return (
+    <div className="flex flex-col xl:flex-row gap-6 xl:gap-4 items-start justify-center">
+      <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+        <SinglePreview
+          platform="apple"
+          cardName={cardName}
+          stampCount={stampCount}
+          rewardText={rewardText}
+          collectedStamps={collectedStamps}
+          design={design}
+          cardType={cardType}
+          businessName={businessName}
+          walletBusinessName={walletBusinessName}
+          barcodeType={barcodeType}
+          customerFirstName={customerFirstName}
+        />
+      </div>
+      <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+        <SinglePreview
+          platform="google"
+          cardName={cardName}
+          stampCount={stampCount}
+          rewardText={rewardText}
+          collectedStamps={collectedStamps}
+          design={design}
+          cardType={cardType}
+          businessName={businessName}
+          walletBusinessName={walletBusinessName}
+          barcodeType={barcodeType}
+          customerFirstName={customerFirstName}
+        />
+        <p className="text-[10px] italic text-gray-500 max-w-[300px] text-center leading-snug px-1">
+          Google Wallet impose la couleur du texte. Si vous choisissez un fond
+          clair, nous l&apos;adaptons automatiquement pour rester lisible.
+        </p>
       </div>
     </div>
   );

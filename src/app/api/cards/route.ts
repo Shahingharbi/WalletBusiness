@@ -81,14 +81,6 @@ export async function POST(request: Request) {
         ? body.wallet_business_name.trim()
         : null;
 
-    // Optional short offer phrase shown in the wallet pass auxiliary fields,
-    // replacing the auto "X tampons" line. NULL = fall back to the count.
-    const rewardSubtitle =
-      typeof body.reward_subtitle === "string" &&
-      body.reward_subtitle.trim().length > 0
-        ? body.reward_subtitle.trim().slice(0, 60)
-        : null;
-
     const { data: card, error: insertError } = await supabase
       .from("cards")
       .insert({
@@ -102,7 +94,6 @@ export async function POST(request: Request) {
         expiration_date: body.expiration_date || null,
         expiration_days: body.expiration_days || null,
         wallet_business_name: walletBusinessName,
-        reward_subtitle: rewardSubtitle,
         design,
         status: "draft",
       })

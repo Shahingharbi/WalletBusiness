@@ -1,6 +1,12 @@
 import jwt from "jsonwebtoken";
 import { GoogleAuth } from "google-auth-library";
 import type { PassLocation } from "./apple-wallet";
+import { googleEffectiveBgColor } from "./wallet-colors";
+
+// Re-export pour rester compatible avec les call-sites qui importent depuis
+// "@/lib/google-wallet" (l'aperçu côté client utilise plutôt l'import direct
+// depuis "@/lib/wallet-colors" pour ne pas tirer jsonwebtoken dans le bundle).
+export { googleEffectiveBgColor };
 
 interface PassParams {
   cardId: string;
@@ -17,13 +23,10 @@ interface PassParams {
   stampsTotal: number;
   rewardsAvailable: number;
   rewardText: string;
-  /**
-   * Phrase courte décrivant l'offre, ajoutée en première position des
-   * `textModulesData` (header "Notre offre"). Ex: "12 tampons = 1 sandwich".
-   */
-  rewardSubtitle?: string | null;
   /** Couleur de FOND du pass (hex). */
   bgColor: string;
+  /** Couleur d'accent du merchant — sert au fallback auto-flip si bg trop clair. */
+  accentColor?: string | null;
   logoUrl?: string | null;
   bannerUrl?: string | null;
   appUrl: string;
@@ -77,6 +80,11 @@ function buildLoyaltyClass(p: PassParams) {
         }))
       : undefined;
 
+  // Google n'autorise QUE le réglage du fond — la couleur de texte est
+  // décidée par leur renderer. Pour éviter un fond blanc + texte blanc
+  // (illisible), on force un fond sombre quand le merchant a choisi clair.
+  const effectiveBg = googleEffectiveBgColor(p.bgColor, p.accentColor);
+
   return {
     id: classId(p.cardId),
     issuerName: displayName,
@@ -87,7 +95,7 @@ function buildLoyaltyClass(p: PassParams) {
         defaultValue: { language: "fr", value: displayName },
       },
     },
-    hexBackgroundColor: p.bgColor,
+    hexBackgroundColor: effectiveBg,
     countryCode: "FR",
     reviewStatus: "UNDER_REVIEW",
     rewardsTier: "Standard",
@@ -157,8 +165,7 @@ function buildLoyaltyObject(p: PassParams) {
     },
     // PAS de secondaryLoyaltyPoints — Google les rend comme une rangée de
     // ronds génériques en bas de la carte (catastrophique visuellement vu
-    // qu'on a déjà notre grille custom dans heroImage/imageModules). Le compte
-    // de récompenses est mis en avant dans textModulesData ci-dessous.
+    // qu'on a déjà notre grille custom dans heroImage/imageModules).
     barcode: {
       type: p.barcodeType === "pdf417" ? "PDF_417" : "QR_CODE",
       value: p.customerInstanceToken,
@@ -177,33 +184,16 @@ function buildLoyaltyObject(p: PassParams) {
     },
   };
 
-  // textModulesData : récompense + nb de récompenses dispo + tampons restants.
-  // C'est rendu propre et lisible par Google Wallet, sans la rangée de ronds
-  // moches de secondaryLoyaltyPoints.
-  const remaining = Math.max(0, p.stampsTotal - p.stampsCollected);
+  // textModulesData : un SEUL module — "Notre offre" — pour rester focalisé
+  // sur l'info clé (ce que le client gagne). Le compte de tampons est déjà
+  // dans loyaltyPoints, et Google calcule lui-même la progression côté UI.
   const modules: Array<{ id: string; header: string; body: string }> = [];
-  // Si le merchant a renseigné un "Texte de l'offre", on le met EN PREMIER —
-  // c'est la phrase la plus parlante pour le client (ex: "12 tampons = 1 sandwich").
-  const subtitle = (p.rewardSubtitle ?? "").trim();
-  if (subtitle.length > 0) {
-    modules.push({ id: "subtitle", header: "Notre offre", body: subtitle });
-  }
   if (rewardText) {
-    modules.push({ id: "reward", header: "Récompense", body: rewardText });
+    modules.push({ id: "offer", header: "Notre offre", body: rewardText });
   }
-  modules.push({
-    id: "progress",
-    header: "Prochaine récompense",
-    body: remaining > 0 ? `${remaining} tampons restants` : "Récompense disponible !",
-  });
-  if (p.rewardsAvailable > 0) {
-    modules.push({
-      id: "rewards-available",
-      header: "Récompenses disponibles",
-      body: String(p.rewardsAvailable),
-    });
+  if (modules.length > 0) {
+    obj.textModulesData = modules;
   }
-  obj.textModulesData = modules;
 
   return obj;
 }
@@ -256,16 +246,6 @@ export async function syncLoyaltyObject(
       ? `${stampsCollected} / ${stampsTotal}`
       : `${stampsCollected}`;
   const stampsBannerUri = bannerUri(appUrl, instanceToken, stampsCollected);
-  const remaining =
-    typeof stampsTotal === "number"
-      ? Math.max(0, stampsTotal - stampsCollected)
-      : 0;
-  const progressBody =
-    typeof stampsTotal === "number"
-      ? remaining > 0
-        ? `${remaining} tampons restants`
-        : "Récompense disponible !"
-      : `${stampsCollected} tampons`;
 
   const body: Record<string, unknown> = {
     // balance.int explicitement null -> on clear l'ancien format si l'objet
@@ -277,21 +257,9 @@ export async function syncLoyaltyObject(
     },
     // Clear l'ancien secondaryLoyaltyPoints si l'objet existant en avait.
     secondaryLoyaltyPoints: null,
-    textModulesData: [
-      { id: "progress", header: "Prochaine récompense", body: progressBody },
-      ...(rewardsAvailable > 0
-        ? [
-            {
-              id: "rewards-available",
-              header: "Récompenses disponibles",
-              body: String(rewardsAvailable),
-            },
-          ]
-        : []),
-    ],
-    // Même URL dans heroImage et imageModulesData -> Google refetch les deux
-    // emplacements pour que la grille soit visible aussi bien dans la preview
-    // que dans la liste et plein écran.
+    // Aucun textModulesData côté sync -> on ne tente plus de pousser un
+    // module "progress"/"rewards-available" obsolète. Le module "Notre offre"
+    // est figé côté loyaltyClass au moment de la création du pass.
     heroImage: {
       sourceUri: { uri: stampsBannerUri },
       contentDescription: {
@@ -313,6 +281,10 @@ export async function syncLoyaltyObject(
       },
     ],
   };
+
+  // rewardsAvailable n'est plus rendu visuellement (suppression du module
+  // dédié), mais on garde la signature pour compat campagnes / appels existants.
+  void rewardsAvailable;
 
   if (message && message.trim()) {
     // Google envoie une notification push silencieuse au porteur quand

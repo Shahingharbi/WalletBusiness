@@ -57,7 +57,6 @@ export function EditCardForm({
           expiration_date: settings.expirationDate || null,
           expiration_days: settings.expirationDays || null,
           wallet_business_name: settings.walletBusinessName.trim() || null,
-          reward_subtitle: settings.rewardSubtitle.trim() || null,
           design,
         }),
       });
@@ -118,7 +117,6 @@ export function EditCardForm({
         barcodeType={settings.barcodeType}
         businessName={businessName}
         walletBusinessName={settings.walletBusinessName}
-        rewardSubtitle={settings.rewardSubtitle}
       />
 
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">

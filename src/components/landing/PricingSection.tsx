@@ -159,6 +159,8 @@ export function PricingSection() {
               <div
                 key={planId}
                 className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-7 transition-shadow duration-300 hover:shadow-xl ${
+                  badge ? "pt-8 sm:pt-9" : ""
+                } ${
                   isEnterprise
                     ? "border-amber-400 bg-gradient-to-br from-[#1a1208] via-[#231806] to-[#0d0905] text-amber-50"
                     : isHighlighted
@@ -168,7 +170,12 @@ export function PricingSection() {
               >
                 {badge && (
                   <span
-                    className={`absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-3 py-1 rounded-full ${badge.className}`}
+                    /* whitespace-nowrap : empêche "Meilleur rapport qualité/prix"
+                       de wrapper et de chevaucher le titre du plan sur Chrome.
+                       max-w-[calc(100%-1rem)] : si la carte est plus étroite
+                       que le badge (très rare en md+ mais arrive en mobile),
+                       on tronque proprement plutôt que de déborder. */
+                    className={`absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide px-3 py-1 rounded-full whitespace-nowrap max-w-[calc(100%-1rem)] overflow-hidden text-ellipsis ${badge.className}`}
                   >
                     {badge.icon}
                     {badge.label}

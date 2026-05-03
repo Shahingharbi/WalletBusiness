@@ -49,7 +49,6 @@ const initialState: FormState = {
     expirationDate: "",
     expirationDays: 30,
     walletBusinessName: "",
-    rewardSubtitle: "",
   },
   design: { ...DEFAULT_CARD_DESIGN },
   templateId: null,
@@ -167,7 +166,6 @@ function NewCardForm() {
           expiration_date: form.settings.expirationDate || null,
           expiration_days: form.settings.expirationDays || null,
           wallet_business_name: form.settings.walletBusinessName.trim() || null,
-          reward_subtitle: form.settings.rewardSubtitle.trim() || null,
           design: form.design,
         }),
       });
@@ -278,7 +276,6 @@ function NewCardForm() {
           barcodeType={form.settings.barcodeType}
           businessName={businessName}
           walletBusinessName={form.settings.walletBusinessName}
-          rewardSubtitle={form.settings.rewardSubtitle}
         />
       )}
 
@@ -358,7 +355,6 @@ function NewCardForm() {
               barcodeType={form.settings.barcodeType}
               businessName={businessName || undefined}
               walletBusinessName={form.settings.walletBusinessName}
-              rewardSubtitle={form.settings.rewardSubtitle}
             />
           </div>
         </div>

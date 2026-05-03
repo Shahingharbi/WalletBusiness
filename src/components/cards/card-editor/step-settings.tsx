@@ -23,13 +23,6 @@ export interface CardSettings {
    * Vide => fallback sur le nom du commerce (`businesses.name`).
    */
   walletBusinessName: string;
-  /**
-   * Phrase courte affichée à la place du compteur "X tampons restants" dans
-   * le pass wallet. Permet au merchant de communiquer l'offre concrète :
-   * "12 tampons = 1 sandwich offert à 6,50€". Vide => fallback sur le calcul
-   * automatique "{remaining} tampons".
-   */
-  rewardSubtitle: string;
 }
 
 interface StepSettingsProps {
@@ -50,27 +43,27 @@ const TYPE_COPY: Record<CardType, {
 }> = {
   stamp: {
     namePlaceholder: "Ex: Carte Tampon Kebab",
-    rewardLabel: "Récompense",
-    rewardPlaceholder: "Ex: Un kebab offert !",
+    rewardLabel: "Récompense / Offre",
+    rewardPlaceholder: "Ex: 9 cafés = 1 café offert",
     countLabel: "Nombre de tampons",
     showCount: true,
   },
   cashback: {
     namePlaceholder: "Ex: Cashback Boulangerie",
-    rewardLabel: "Description du cashback",
+    rewardLabel: "Récompense / Offre",
     rewardPlaceholder: "Ex: 5% cashback sur chaque achat",
     countLabel: "Nombre de visites avant cashback",
     showCount: true,
   },
   discount: {
     namePlaceholder: "Ex: Carte VIP Salon",
-    rewardLabel: "Avantage permanent",
+    rewardLabel: "Récompense / Offre",
     rewardPlaceholder: "Ex: -10% sur tous vos achats",
     showCount: false,
   },
   membership: {
     namePlaceholder: "Ex: Adhésion Premium 2026",
-    rewardLabel: "Avantages membre",
+    rewardLabel: "Récompense / Offre",
     rewardPlaceholder: "Ex: Accès illimité + réductions partenaires",
     showCount: false,
   },
@@ -151,29 +144,19 @@ export function StepSettings({ values, onChange, errors, cardType = "stamp", bus
       </div>
       )}
 
-      {/* Reward text */}
+      {/* Reward / Offer — un SEUL champ depuis la fusion (mai 2026). */}
       <Input
         label={copy.rewardLabel}
         placeholder={copy.rewardPlaceholder}
         value={values.rewardText}
-        onChange={(e) => update("rewardText", e.target.value)}
+        maxLength={60}
+        onChange={(e) => update("rewardText", e.target.value.slice(0, 60))}
         error={errors?.rewardText}
         hint={
           values.rewardText.trim().length === 0
-            ? "Soyez court et concret. Le texte s'affiche en gros sur la carte du client."
-            : undefined
+            ? "Soyez court et concret (max 60 caractères). Le texte s'affiche en gros sur la carte du client."
+            : "Affiché en grand sur la carte. Plus c'est court, plus c'est gros."
         }
-      />
-
-      {/* Texte de l'offre (court, optionnel) — remplace le compteur générique
-          "X tampons" dans le pass wallet par une phrase plus parlante. */}
-      <Input
-        label="Texte de l'offre (court, max 60 caractères)"
-        placeholder="Ex: 12 tampons = 1 sandwich offert"
-        value={values.rewardSubtitle}
-        maxLength={60}
-        onChange={(e) => update("rewardSubtitle", e.target.value.slice(0, 60))}
-        hint="Optionnel — affiché à la place de « X tampons » sur la carte du wallet pour expliquer l'offre d'un coup d'œil."
       />
 
       {/* Barcode type */}

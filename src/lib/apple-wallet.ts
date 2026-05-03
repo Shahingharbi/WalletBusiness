@@ -30,12 +30,6 @@ interface ApplePassParams {
   stampsTotal: number;
   rewardsAvailable: number;
   rewardText: string;
-  /**
-   * Phrase courte décrivant l'offre, affichée à la place du compteur
-   * "X tampons" dans les auxiliaryFields du pass. Ex: "12 tampons = 1 sandwich".
-   * Vide / null => fallback sur le calcul automatique.
-   */
-  rewardSubtitle?: string | null;
   /** Couleur de FOND du pass (la couleur dominante derrière tout le contenu). */
   backgroundColor: string;
   /** Couleur du TEXTE principal (valeurs des fields). */
@@ -249,6 +243,11 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
     throw new Error("Apple Wallet not configured");
   }
 
+  // `rewardsAvailable` n'est plus rendu visuellement (suppression du slot
+  // "Récompenses dispo"), mais on garde le champ dans la signature pour
+  // compat avec les call-sites qui le passent toujours.
+  void p.rewardsAvailable;
+
   // Parallel fetch : merchant logo + strip image (gain de temps).
   const [merchantLogo, stripBuffers] = await Promise.all([
     fetchMerchantLogo(p.logoUrl),
@@ -337,17 +336,19 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   );
 
   // Type "storeCard" = carte de fidélité Apple Wallet (avec strip image visuelle).
-  // Stratégie de mise en page (référence: KFC, Boomerangme):
+  // Stratégie de mise en page simplifiée (post-relaunch pricing) :
   //  - logoText (top-left, à côté du logo)            -> nom du commerce
   //  - headerFields (top-right)                        -> compteur "X / Y"
-  //  - primaryFields (par-dessus le strip)             -> VIDE (le strip image
-  //                                                       contient déjà la grille
-  //                                                       de tampons; on évite
-  //                                                       toute superposition)
-  //  - secondaryFields (entre primary et auxiliary)    -> "Bonjour <prénom>"
-  //  - auxiliaryFields (sous le strip)                 -> prochaine récompense
-  //                                                       + récompenses dispo
+  //  - primaryFields (par-dessus le strip)             -> "Notre offre" si court
+  //                                                       (≤ 18 chars), sinon vide
+  //  - secondaryFields                                 -> "Bonjour <prénom>" + offre
+  //                                                       (selon longueur)
+  //  - auxiliaryFields                                 -> "Notre offre" (long)
   //  - backFields (verso, accessible via "...")        -> détails complets
+  //
+  // On a explicitement RETIRÉ "Prochaine récompense" (X tampons restants) et
+  // "Récompenses dispo" (toujours 0 sur cartes neuves) — ces deux slots
+  // surchargeaient la carte sans valeur informationnelle pour le client.
   pass.type = "storeCard";
 
   pass.headerFields.push({
@@ -356,72 +357,61 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
     value: `${p.stampsCollected} / ${p.stampsTotal}`,
   });
 
-  const remaining = Math.max(0, p.stampsTotal - p.stampsCollected);
-  const subtitle = (p.rewardSubtitle ?? "").trim();
-
-  // Adaptation auto de la taille du texte de l'offre selon sa longueur.
-  // Apple Wallet rend automatiquement chaque slot de field à des tailles
-  // différentes (primary > secondary > auxiliary). En PLAÇANT le subtitle
-  // dans le slot le plus haut quand il est court, on le rend plus gros
-  // sans changer une ligne de CSS — Apple s'occupe de tout.
+  // Récompense : un SEUL champ "Notre offre" dont la taille s'adapte.
+  // Apple rend chaque slot à une taille différente (primary > secondary >
+  // auxiliary) → en plaçant l'offre dans le slot le plus haut quand elle est
+  // courte, on la rend automatiquement plus grosse sans CSS.
   //
-  //   ≤ 18 chars  → primaryFields  → texte ÉNORME (idéal: "12 = 1 offert")
-  //   19 → 32     → secondaryFields → texte moyen (idéal: "5 cafés = 1 offert")
+  //   ≤ 18 chars  → primaryFields  → texte ÉNORME ("Café offert")
+  //   19 → 32     → secondaryFields → texte moyen ("9 cafés = 1 offert")
   //   33 +        → auxiliaryFields → petit (cas "12 tampons = 1 sandwich à 6,60€")
-  //
-  // Si pas de subtitle, on retombe sur le compteur générique en auxiliaryFields.
-  if (subtitle.length > 0) {
-    if (subtitle.length <= 18) {
-      pass.primaryFields.push({
-        key: "offer",
-        label: "Notre offre",
-        value: subtitle,
-      });
-    } else if (subtitle.length <= 32) {
-      pass.secondaryFields.push({
-        key: "offer",
-        label: "Notre offre",
-        value: subtitle,
+  const reward = (p.rewardText ?? "").trim();
+  const firstName = (p.customerFirstName ?? "").trim();
+
+  let rewardSlot: "primary" | "secondary" | "auxiliary" | null = null;
+  if (reward.length > 0) {
+    if (reward.length <= 18) rewardSlot = "primary";
+    else if (reward.length <= 32) rewardSlot = "secondary";
+    else rewardSlot = "auxiliary";
+  }
+
+  // "Bonjour {firstName}" en secondaryFields (sauf si l'offre y est déjà,
+  // auquel cas on bascule en auxiliaryFields pour ne pas saturer la rangée).
+  if (firstName.length > 0) {
+    if (rewardSlot === "secondary") {
+      pass.auxiliaryFields.push({
+        key: "card",
+        label: "Bonjour",
+        value: firstName,
       });
     } else {
-      pass.auxiliaryFields.push({
-        key: "offer",
-        label: "Notre offre",
-        value: subtitle,
+      pass.secondaryFields.push({
+        key: "card",
+        label: "Bonjour",
+        value: firstName,
       });
     }
   }
 
-  // Le prénom du client passe en secondaryFields seulement s'il n'y a pas
-  // déjà un "Notre offre" qui occupe ce slot (sinon le pass devient surchargé).
-  const subtitleInSecondary = subtitle.length > 18 && subtitle.length <= 32;
-  if (
-    p.customerFirstName &&
-    p.customerFirstName.trim().length > 0 &&
-    !subtitleInSecondary
-  ) {
+  if (rewardSlot === "primary") {
+    pass.primaryFields.push({
+      key: "offer",
+      label: "Notre offre",
+      value: reward,
+    });
+  } else if (rewardSlot === "secondary") {
     pass.secondaryFields.push({
-      key: "card",
-      label: "Bonjour",
-      value: p.customerFirstName.trim(),
+      key: "offer",
+      label: "Notre offre",
+      value: reward,
     });
-  }
-
-  // En auxiliaryFields : le compteur "X tampons restants" SI on n'a pas déjà
-  // le subtitle dans ce slot, et toujours le compteur de récompenses dispo.
-  const subtitleInAuxiliary = subtitle.length > 32;
-  if (!subtitleInAuxiliary) {
+  } else if (rewardSlot === "auxiliary") {
     pass.auxiliaryFields.push({
-      key: "till-reward",
-      label: "Prochaine récompense",
-      value: `${remaining} tampons`,
+      key: "offer",
+      label: "Notre offre",
+      value: reward,
     });
   }
-  pass.auxiliaryFields.push({
-    key: "rewards-available",
-    label: "Récompenses dispo",
-    value: String(p.rewardsAvailable),
-  });
 
   pass.backFields.push(
     {
@@ -434,17 +424,6 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
       label: "Récompense",
       value: p.rewardText,
     },
-    // Le texte d'offre est aussi mis au verso : auxiliaryFields tronque parfois
-    // les longues phrases, le verso garantit la version complète.
-    ...(subtitle.length > 0
-      ? [
-          {
-            key: "offer-subtitle",
-            label: "Notre offre",
-            value: subtitle,
-          },
-        ]
-      : []),
     {
       key: "view-online",
       label: "Voir ma carte en ligne",

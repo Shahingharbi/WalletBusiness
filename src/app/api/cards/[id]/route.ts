@@ -73,14 +73,6 @@ export async function PATCH(
           ? body.wallet_business_name.trim()
           : null;
     }
-    if (body.reward_subtitle !== undefined) {
-      // Empty/whitespace -> NULL = wallet retombe sur "X tampons" auto.
-      update.reward_subtitle =
-        typeof body.reward_subtitle === "string" &&
-        body.reward_subtitle.trim().length > 0
-          ? body.reward_subtitle.trim().slice(0, 60)
-          : null;
-    }
     if (body.design && typeof body.design === "object") {
       update.design = { ...DEFAULT_CARD_DESIGN, ...body.design };
     }

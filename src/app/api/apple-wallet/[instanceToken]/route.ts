@@ -29,7 +29,7 @@ export async function GET(
       .select(`
         id, token, business_id, stamps_collected, rewards_available, status,
         clients(first_name),
-        cards(id, name, stamp_count, reward_text, design, wallet_business_name, reward_subtitle, businesses(name, logo_url))
+        cards(id, name, stamp_count, reward_text, design, wallet_business_name, businesses(name, logo_url))
       `)
       .eq("token", instanceToken)
       .single();
@@ -52,7 +52,6 @@ export async function GET(
       reward_text: string;
       design: Record<string, unknown>;
       wallet_business_name: string | null;
-      reward_subtitle: string | null;
       businesses: { name: string; logo_url: string | null } | null;
     };
     const client = instance.clients as unknown as {
@@ -81,7 +80,6 @@ export async function GET(
       stampsTotal: card.stamp_count,
       rewardsAvailable: instance.rewards_available,
       rewardText: card.reward_text,
-      rewardSubtitle: card.reward_subtitle,
       // Bg du pass = couleur de fond explicitement choisie par le merchant.
       // Si manquante, fallback sur l'accent (rare car DEFAULT_CARD_DESIGN.background_color = "#ffffff").
       backgroundColor:
