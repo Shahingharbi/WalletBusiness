@@ -421,13 +421,15 @@ function renderStamp(p: StampProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          opacity: p.filled ? 1 : 0.4,
+          opacity: p.filled ? 1 : 0.5,
           borderRadius: radiusForImg,
           overflow: "hidden",
           backgroundColor: "#ffffff",
+          // Bord accent + ombre marquée même à vide pour rester visible sur photo.
+          border: p.filled ? "none" : `2px solid ${p.accent}`,
           boxShadow: p.filled
             ? "0 8px 18px rgba(0,0,0,0.32)"
-            : "0 2px 4px rgba(0,0,0,0.08)",
+            : "0 3px 8px rgba(0,0,0,0.20)",
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -490,7 +492,11 @@ function renderStamp(p: StampProps) {
     );
   }
 
-  // Vide : silhouette discrète qui laisse voir la photo / le fond derrière.
+  // Vide : tampon "scellé en attente" — disque blanc opaque, bord accent FORT,
+  // ombre, icône fanée. Il faut qu'il soit AUSSI VISIBLE qu'un tampon validé
+  // sur photo de kebab/pizza/etc. (sinon le client voit "1/10" au lieu de
+  // "1 sur 10 tampons" → mauvais signal d'état). Le contraste vide vs validé
+  // se joue sur la COULEUR DU FOND (blanc vs accent), pas sur l'opacité.
   return (
     <div
       key={p.key}
@@ -500,6 +506,9 @@ function renderStamp(p: StampProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        // Ombre plus discrète que le validé pour distinguer les deux états
+        // au premier coup d'œil.
+        filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.22))",
       }}
     >
       <svg
@@ -510,12 +519,12 @@ function renderStamp(p: StampProps) {
       >
         <path
           d={shapePath}
-          fill="rgba(255,255,255,0.55)"
-          stroke={hexWithAlpha(p.accent, 0.3)}
-          strokeWidth={1.1}
+          fill="#ffffff"
+          stroke={p.accent}
+          strokeWidth={1.6}
           strokeLinejoin="round"
         />
-        <path d={iconPath} fill="#9ca3af" opacity={0.25} />
+        <path d={iconPath} fill={p.accent} opacity={0.22} />
       </svg>
     </div>
   );
@@ -532,13 +541,3 @@ function darken(hex: string, amount: number): string {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
-// Convertit une couleur hex en rgba(...) avec l'alpha donné. Utilisé pour
-// le bord du tampon vide (accent_color à 30 %).
-function hexWithAlpha(hex: string, alpha: number): string {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((hex ?? "").trim());
-  if (!m) return `rgba(0,0,0,${alpha})`;
-  const r = parseInt(m[1], 16);
-  const g = parseInt(m[2], 16);
-  const b = parseInt(m[3], 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}

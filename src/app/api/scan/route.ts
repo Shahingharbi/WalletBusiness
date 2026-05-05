@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { canScan } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -158,35 +158,57 @@ export async function POST(request: Request) {
     const newRewards = updated?.rewards_available ?? instance.rewards_available;
     const rewardEarned = newRewards > instance.rewards_available;
 
-    // Sync count to Google Wallet if the user previously added the pass.
-    // Swallow errors so scan never fails because of a Wallet hiccup.
+    // Wallet live updates + email reward — déférés via `after()` pour qu'ils
+    // tournent APRÈS le retour de la réponse au caissier MAIS sans risquer la
+    // termination du lambda Vercel (le `void promise.catch()` était killé en
+    // serverless dès que la réponse partait, donc Apple APNs n'arrivait jamais).
+    //
+    // `after()` keeps the invocation alive jusqu'à ce que les promesses settle.
+    // Résultat : caissier voit "tampon ajouté" instantanément + Apple/Google
+    // poussent vraiment leur live update au tel du client.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
-    await syncLoyaltyObject(
-      instance.token,
-      newStamps,
-      newRewards,
-      appUrl,
-      undefined,
-      card.stamp_count
-    );
 
-    // Push Apple Wallet (live update via APNs). Fire-and-forget : tout
-    // problème APNs ne doit jamais faire échouer le scan.
-    void pushAppleWalletUpdate(instance.token).catch((err) => {
-      console.error("[scan] pushAppleWalletUpdate failed:", err);
+    after(async () => {
+      // Google Wallet PATCH (heroImage + balance + imageModulesData).
+      // Combiné avec notifyPreference=NOTIFY_ON_UPDATE sur la classe, Google
+      // pousse une notif silencieuse au tel Android et la carte se met à jour
+      // sans rouvrir l'app.
+      try {
+        await syncLoyaltyObject(
+          instance.token,
+          newStamps,
+          newRewards,
+          appUrl,
+          undefined,
+          card.stamp_count
+        );
+      } catch (err) {
+        console.error("[scan/after] syncLoyaltyObject failed:", err);
+      }
+
+      // Apple Wallet APNs : push silencieux → iOS rappelle /v1/passes/...
+      // → on lui renvoie le .pkpass à jour avec stamps_collected +1.
+      try {
+        await pushAppleWalletUpdate(instance.token);
+      } catch (err) {
+        console.error("[scan/after] pushAppleWalletUpdate failed:", err);
+      }
+
+      if (rewardEarned) {
+        try {
+          await notifyCustomerRewardEarned({
+            clientId: client.id,
+            businessId: instance.business_id,
+            cardId: card.id,
+            instanceToken: instance.token,
+            rewardText: card.reward_text,
+            appUrl,
+          });
+        } catch (err) {
+          console.error("[scan/after] notifyCustomerRewardEarned failed:", err);
+        }
+      }
     });
-
-    // Notify customer if a new reward was just earned. Fire-and-forget.
-    if (rewardEarned) {
-      void notifyCustomerRewardEarned({
-        clientId: client.id,
-        businessId: instance.business_id,
-        cardId: card.id,
-        instanceToken: instance.token,
-        rewardText: card.reward_text,
-        appUrl,
-      });
-    }
 
     return NextResponse.json({
       success: true,
