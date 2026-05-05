@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isOwnerOrAdmin } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     if (!profile?.business_id) {
       return NextResponse.json({ error: "Commerce introuvable" }, { status: 400 });
     }
-    if (profile.role !== "business_owner") {
+    if (!isOwnerOrAdmin(profile.role)) {
       return NextResponse.json(
         { error: "Seul le propriétaire peut inviter des employés" },
         { status: 403 }
@@ -92,7 +93,7 @@ export async function DELETE(request: Request) {
       .eq("id", user.id)
       .single();
 
-    if (profile?.role !== "business_owner") {
+    if (!profile || !isOwnerOrAdmin(profile.role)) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 

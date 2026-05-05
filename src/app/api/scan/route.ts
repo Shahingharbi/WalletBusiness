@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { canScan } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncLoyaltyObject } from "@/lib/google-wallet";
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (profile.role !== "employee" && profile.role !== "business_owner") {
+    if (!canScan(profile.role)) {
       return NextResponse.json(
         { error: "Accès non autorisé" },
         { status: 403 }

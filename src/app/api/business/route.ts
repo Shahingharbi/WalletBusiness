@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isOwnerOrAdmin } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -53,7 +54,7 @@ export async function PATCH(request: Request) {
     if (!profile?.business_id) {
       return NextResponse.json({ error: "Commerce introuvable" }, { status: 400 });
     }
-    if (profile.role !== "business_owner") {
+    if (!isOwnerOrAdmin(profile.role)) {
       return NextResponse.json(
         { error: "Seul le propriétaire peut modifier le commerce" },
         { status: 403 }

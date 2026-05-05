@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isOwnerOrAdmin } from "@/lib/rbac";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -43,7 +44,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
     .single();
 
   if (!profile?.business_id) redirect("/dashboard");
-  if (profile.role !== "business_owner") redirect("/dashboard");
+  if (!isOwnerOrAdmin(profile.role)) redirect("/dashboard");
 
   const { data: business } = await supabase
     .from("businesses")

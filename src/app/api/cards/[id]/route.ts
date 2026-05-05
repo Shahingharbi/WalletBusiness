@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isOwnerOrAdmin } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
 
@@ -18,7 +19,7 @@ async function getOwnedCard(id: string) {
   if (!profile?.business_id) {
     return { error: "Commerce introuvable", status: 400 } as const;
   }
-  if (profile.role !== "business_owner") {
+  if (!isOwnerOrAdmin(profile.role)) {
     return { error: "Accès refusé", status: 403 } as const;
   }
 

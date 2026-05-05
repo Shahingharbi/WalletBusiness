@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isOwnerOrAdmin } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!profile?.business_id || profile.role !== "business_owner") {
+    if (!profile?.business_id || !isOwnerOrAdmin(profile.role)) {
       // Best-effort : signup tout juste créé, le trigger n'a peut-être pas
       // encore matérialisé `profiles`. On répond 200 silencieux.
       return NextResponse.json({ ok: true, persisted: false });

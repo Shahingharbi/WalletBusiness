@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isOwnerOrAdmin } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(
@@ -36,7 +37,7 @@ export async function POST(
       );
     }
 
-    if (profile.role !== "business_owner") {
+    if (!isOwnerOrAdmin(profile.role)) {
       return NextResponse.json(
         { error: "Seul le propriétaire peut activer une carte" },
         { status: 403 }
