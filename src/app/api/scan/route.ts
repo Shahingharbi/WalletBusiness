@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       .select(`
         id, token, stamps_collected, rewards_available, status, card_id,
         business_id,
-        cards(id, name, stamp_count, reward_text),
+        cards(id, name, stamp_count, reward_text, design),
         clients(id, first_name)
       `)
       .eq("token", token.trim())
@@ -123,7 +123,12 @@ export async function POST(request: Request) {
       name: string;
       stamp_count: number;
       reward_text: string;
+      design: Record<string, unknown> | null;
     };
+    const labelStamps =
+      typeof card.design?.label_stamps === "string"
+        ? (card.design.label_stamps as string)
+        : null;
     const client = instance.clients as unknown as {
       id: string;
       first_name: string;
@@ -180,7 +185,8 @@ export async function POST(request: Request) {
           newRewards,
           appUrl,
           undefined,
-          card.stamp_count
+          card.stamp_count,
+          labelStamps
         );
       } catch (err) {
         console.error("[scan/after] syncLoyaltyObject failed:", err);

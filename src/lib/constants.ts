@@ -45,8 +45,14 @@ export const DEFAULT_CARD_DESIGN = {
   logo_url: null as string | null,
   icon_url: null as string | null,
   banner_url: null as string | null,
-  background_color: "#ffffff",
-  text_color: "#1a1a1a",
+  // Fond sombre par défaut : c'est la SEULE option qui rend bien à la fois
+  // sur Apple Wallet (texte blanc auto-contrasté) ET sur Google Wallet
+  // (Google force le texte en blanc, donc fond clair = invisible). Avec
+  // `#1a1a1a` on garantit lisibilité par défaut sans forcer le merchant
+  // à comprendre les contraintes de chaque plateforme. Les couleurs
+  // personnalisées restent libres dans l'éditeur.
+  background_color: "#1a1a1a",
+  text_color: "#ffffff",
   accent_color: "#e53e3e",
   stamp_icon: "check" as string,
   stamp_shape: "circle" as "circle" | "squircle" | "shield" | "star" | "hex",

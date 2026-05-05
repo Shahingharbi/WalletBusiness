@@ -12,12 +12,8 @@ import {
 import QRCode from "qrcode";
 import { DEFAULT_CARD_DESIGN, type CardType } from "@/lib/constants";
 import { googleEffectiveBgColor, luminance } from "@/lib/wallet-colors";
-import {
-  getIconPath,
-  getShapePath,
-  normalizeIconKey,
-  normalizeShape,
-} from "@/lib/stamp-render";
+import { normalizeIconKey, normalizeShape } from "@/lib/stamp-render";
+import { StampSvg } from "./stamp-svg";
 import { cn } from "@/lib/utils";
 
 interface CardPreviewProps {
@@ -130,114 +126,8 @@ function pickGrid(total: number): { cols: number; rows: number } {
   return { cols, rows: Math.ceil(total / cols) };
 }
 
-interface StripStampProps {
-  filled: boolean;
-  size: number;
-  shape: ReturnType<typeof normalizeShape>;
-  iconKey: string;
-  accent: string;
-  activeUrl: string | null;
-  inactiveUrl: string | null;
-}
-
-function StripStamp({
-  filled,
-  size,
-  shape,
-  iconKey,
-  accent,
-  activeUrl,
-  inactiveUrl,
-}: StripStampProps) {
-  const url = filled ? activeUrl : inactiveUrl;
-  if (url) {
-    const radius =
-      shape === "circle" ? "50%" : shape === "squircle" ? "30%" : "12%";
-    return (
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: radius,
-          overflow: "hidden",
-          opacity: filled ? 1 : 0.4,
-          backgroundColor: "#ffffff",
-          boxShadow: filled
-            ? "0 6px 14px rgba(0,0,0,0.28)"
-            : "0 1px 3px rgba(0,0,0,0.08)",
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={url}
-          alt=""
-          width={size}
-          height={size}
-          style={{ width: size, height: size, objectFit: "cover" }}
-        />
-      </div>
-    );
-  }
-
-  const shapePath = getShapePath(shape);
-  const iconPath = getIconPath(iconKey);
-
-  // Cohérence avec /api/wallet/banner/.../route.tsx :
-  //  - REMPLI : fond accent plein, icône blanche, ombre prononcée
-  //  - VIDE   : fond blanc semi-transparent, bord accent à 30 %, icône
-  //             grise à 25 % d'opacité
-  if (filled) {
-    return (
-      <div
-        style={{
-          width: size,
-          height: size,
-          filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.25))",
-        }}
-      >
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          style={{ display: "block" }}
-        >
-          <path
-            d={shapePath}
-            fill={accent}
-            stroke={accent}
-            strokeWidth={0.5}
-            strokeLinejoin="round"
-          />
-          <path d={iconPath} fill="#ffffff" />
-        </svg>
-      </div>
-    );
-  }
-
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      style={{ display: "block" }}
-    >
-      <path
-        d={shapePath}
-        fill="rgba(255,255,255,0.55)"
-        stroke={hexAlpha(accent, 0.3)}
-        strokeWidth={1.1}
-        strokeLinejoin="round"
-      />
-      <path d={iconPath} fill="#9ca3af" opacity={0.25} />
-    </svg>
-  );
-}
-
-function hexAlpha(hex: string, alpha: number): string {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((hex ?? "").trim());
-  if (!m) return `rgba(0,0,0,${alpha})`;
-  return `rgba(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}, ${alpha})`;
-}
+// StripStamp local supprimé — on utilise <StampSvg /> du module partagé pour
+// éviter les divergences entre preview et wallet réel.
 
 interface SinglePreviewProps {
   platform: "apple" | "google";
@@ -338,15 +228,23 @@ function SinglePreview({
   }, [sampleToken, barcodeType]);
 
   // Grille de tampons.
+  // On reproduit ICI le même algo que /api/wallet/banner/.../route.tsx, à
+  // l'échelle 1:4 (preview = 280×92, banner = 1125×369). Garder ces deux
+  // calculs synchros = aperçu fidèle au wallet réel pixel pour pixel.
   const { cols, rows } = pickGrid(stampsTotal);
   const stripWidth = 280;
-  const stripHorizontalPadding = stampsTotal >= 12 ? 14 : 16;
-  const stripGap = stampsTotal >= 12 ? 6 : 8;
+  const stripHeight = 92;
+  const dense = stampsTotal >= 12;
+  // Banner: padding 36/64 px, gap 14/22 px sur 1125×369 → ratio /4 :
+  const stripHorizontalPadding = dense ? 16 : 9;
+  const stripGap = dense ? 4 : 6;
   const availableW = stripWidth - stripHorizontalPadding * 2 - stripGap * (cols - 1);
-  const availableH = 92 - 16 - stripGap * (rows - 1);
+  const availableH = stripHeight - stripHorizontalPadding * 2 - stripGap * (rows - 1);
+  // Hard caps cohérents avec la banner route (130/120/100 px → /4 ≈ 33/30/25).
+  const upperCap = rows === 1 ? 33 : rows === 2 ? 30 : 25;
   const stampSize = Math.max(
-    16,
-    Math.floor(Math.min(availableW / cols, availableH / rows))
+    14,
+    Math.min(upperCap, Math.floor(Math.min(availableW / cols, availableH / rows))),
   );
 
   const stamps = Array.from({ length: stampsTotal }, (_, i) => i < stampsCollected);
@@ -492,10 +390,12 @@ function SinglePreview({
                         <div className="absolute inset-0 bg-gradient-to-br from-black/30 to-black/45" />
                       </>
                     ) : (
-                      <div
-                        className="absolute inset-0"
-                        style={{ backgroundColor: cardBg, filter: "brightness(0.92)" }}
-                      />
+                      // Pas de banner : on garde le strip TRANSPARENT comme
+                      // le wallet réel (qui laisse Apple/Google poser leur
+                      // backgroundColor derrière). Le `cardBg` du conteneur
+                      // parent s'affiche donc à travers — cohérence parfaite
+                      // entre cette zone et le reste de la carte.
+                      null
                     )}
 
                     <div className="relative z-10 h-full flex items-center justify-center">
@@ -514,7 +414,7 @@ function SinglePreview({
                             style={{ gap: stripGap }}
                           >
                             {row.map((filled, idx) => (
-                              <StripStamp
+                              <StampSvg
                                 key={idx}
                                 filled={filled}
                                 size={stampSize}

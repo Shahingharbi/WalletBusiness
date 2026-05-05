@@ -15,6 +15,7 @@ import {
   isAppleWalletConfigured,
   verifyApplePassAuthHeader,
 } from "@/lib/apple-wallet";
+import { fetchPassLocations } from "@/lib/locations";
 
 export const runtime = "nodejs";
 
@@ -46,7 +47,7 @@ export async function GET(request: Request, ctx: RouteCtx) {
     .from("card_instances")
     .select(
       `
-        id, token, stamps_collected, rewards_available, status, updated_at,
+        id, token, business_id, stamps_collected, rewards_available, status, updated_at,
         clients(first_name),
         cards(id, name, stamp_count, reward_text, design, wallet_business_name, businesses(name, logo_url))
       `
@@ -94,6 +95,14 @@ export async function GET(request: Request, ctx: RouteCtx) {
   const merchantLogoUrl =
     (design.logo_url as string | null) ?? card.businesses?.logo_url ?? null;
 
+  // IMPORTANT : on recharge les locations à chaque refresh du pass. Sans
+  // ça, après chaque scan iOS récupérait un .pkpass SANS locations[] →
+  // perte de la geo-push pour la durée de vie de la carte.
+  const locations = await fetchPassLocations(
+    admin,
+    instance.business_id as string,
+  );
+
   const buffer = await generateApplePassBuffer({
     cardId: card.id,
     cardName: card.name,
@@ -113,6 +122,8 @@ export async function GET(request: Request, ctx: RouteCtx) {
     accentColor: (design.accent_color as string) || "#10b981",
     appUrl,
     logoUrl: merchantLogoUrl,
+    locations,
+    stampsLabel: (design.label_stamps as string | null) ?? null,
   });
 
   return new NextResponse(new Uint8Array(buffer), {

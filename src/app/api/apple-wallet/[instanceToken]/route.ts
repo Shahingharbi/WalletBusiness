@@ -91,6 +91,7 @@ export async function GET(
       appUrl,
       logoUrl: merchantLogoUrl,
       locations,
+      stampsLabel: (design.label_stamps as string | null) ?? null,
     });
 
     return new NextResponse(new Uint8Array(buffer), {

@@ -89,6 +89,7 @@ export async function GET(
       appUrl,
       barcodeType: card.barcode_type ?? "qr",
       locations,
+      stampsLabel: (design.label_stamps as string | null) ?? null,
     });
 
     return NextResponse.redirect(url);

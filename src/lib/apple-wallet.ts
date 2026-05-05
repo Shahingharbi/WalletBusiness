@@ -40,6 +40,12 @@ interface ApplePassParams {
   /** Merchant's logo (carré idéalement) — affiché top-left du pass Apple. */
   logoUrl?: string | null;
   /**
+   * Label custom au-dessus du compteur (gauche du strip). Par défaut "Tampons"
+   * mais le merchant peut choisir "Visites", "Achats", "Cafés" etc. dans le
+   * designer.
+   */
+  stampsLabel?: string | null;
+  /**
    * Points de vente du commerce. Apple PassKit affiche une notif sur l'écran
    * verrouillé quand le porteur passe dans un rayon de ~100m. Max 10.
    */
@@ -351,9 +357,15 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   // surchargeaient la carte sans valeur informationnelle pour le client.
   pass.type = "storeCard";
 
+  // Label compteur : par défaut "Tampons" mais le merchant peut customiser
+  // ("Visites", "Cafés", "Achats", etc.). On tronque à 18 chars pour rester
+  // lisible dans le headerField étroit d'Apple Wallet.
+  const stampsLabel =
+    (p.stampsLabel && p.stampsLabel.trim().slice(0, 18)) || "Tampons";
+
   pass.headerFields.push({
     key: "points",
-    label: "Tampons",
+    label: stampsLabel,
     value: `${p.stampsCollected} / ${p.stampsTotal}`,
   });
 

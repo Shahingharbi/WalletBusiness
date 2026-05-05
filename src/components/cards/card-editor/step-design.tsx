@@ -202,12 +202,17 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
                 onChange={(v) => update("accent_color", v)}
               />
             </div>
-            <p className="text-[11px] text-gray-500 leading-snug">
-              Astuce : Google Wallet adapte automatiquement la couleur du texte
-              selon le fond. Avec un fond très clair, certains éléments peuvent
-              rester en blanc — préférez un fond bien contrasté (foncé ou
-              vif).
-            </p>
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-900 leading-snug">
+              <p className="font-semibold">À savoir</p>
+              <p className="mt-0.5">
+                <strong>Apple Wallet</strong> respecte vos 3 couleurs (fond /
+                texte / accent).{" "}
+                <strong>Google Wallet</strong> force le texte en blanc et
+                ré-écrit votre fond en sombre s&apos;il est trop clair, pour
+                garantir la lisibilité. Utilisez l&apos;onglet Google de
+                l&apos;aperçu pour voir le rendu réel sur Android.
+              </p>
+            </div>
           </div>
         )}
       </div>

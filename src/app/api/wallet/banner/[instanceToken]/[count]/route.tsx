@@ -215,8 +215,12 @@ export async function GET(
 
     // Visual config — accept multiple field naming conventions for forward compat.
     const accent = (design.accent_color as string) || "#10b981";
-    const background =
-      (design.background_color as string) || darken(accent, 0.0);
+    // PAS de `background` solide ici. Quand il n'y a pas de banner_url, on
+    // laisse le strip TRANSPARENT et c'est Apple/Google qui posent le
+    // backgroundColor du pass derrière → cohérence parfaite entre la zone
+    // strip et le reste de la carte (Apple respecte design.background_color,
+    // Google auto-flippe vers sombre via googleEffectiveBgColor — chacune
+    // sa logique, mais le strip suit la même couleur que le reste).
     const bannerSourceUrl = (design.banner_url as string | null) || null;
     // Normalise la photo (HEIC / AVIF / PNG géant / etc.) → JPEG 1125x369 sRGB
     // que Satori avale toujours. Voir prefetchAsDataUri pour la stratégie.
@@ -301,13 +305,14 @@ export async function GET(
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            // Banner photo si le merchant l'a uploadée. Sinon, un fond uni en
-            // background_color (la couleur de fond choisie par le merchant
-            // dans le designer) avec un léger gradient pour la profondeur.
+            // Banner photo si le merchant l'a uploadée — sinon TRANSPARENT
+            // pour laisser le card backgroundColor d'Apple/Google s'afficher
+            // derrière (cohérence parfaite de la couleur du strip avec le
+            // reste de la carte sur chaque plateforme).
             backgroundImage: bannerUrl ? `url(${bannerUrl})` : undefined,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            backgroundColor: bannerUrl ? "transparent" : background,
+            backgroundColor: "transparent",
             fontFamily: "system-ui, -apple-system, sans-serif",
             color: "white",
             padding: `${padding}px`,
@@ -530,14 +535,4 @@ function renderStamp(p: StampProps) {
   );
 }
 
-// Darken a hex color by a fraction (0..1).
-function darken(hex: string, amount: number): string {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
-  if (!m) return hex;
-  const f = (v: number) => Math.max(0, Math.min(255, Math.round(v * (1 - amount))));
-  const r = f(parseInt(m[1], 16));
-  const g = f(parseInt(m[2], 16));
-  const b = f(parseInt(m[3], 16));
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-}
 

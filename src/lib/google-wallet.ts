@@ -36,6 +36,11 @@ interface PassParams {
    * `LoyaltyClass` (partagées par tous les porteurs). Max 10 par classe.
    */
   locations?: PassLocation[];
+  /**
+   * Label custom du compteur ("Tampons" / "Visites" / "Cafés" / ...). Choisi
+   * dans le designer côté merchant, persisté dans `design.label_stamps`.
+   */
+  stampsLabel?: string | null;
 }
 
 const ISSUER_ID = process.env.GOOGLE_WALLET_ISSUER_ID!;
@@ -167,7 +172,7 @@ function buildLoyaltyObject(p: PassParams) {
     // number, and matches the Apple headerFields value.
     loyaltyPoints: {
       balance: { string: `${p.stampsCollected} / ${p.stampsTotal}` },
-      label: "Tampons",
+      label: (p.stampsLabel && p.stampsLabel.trim().slice(0, 18)) || "Tampons",
     },
     // PAS de secondaryLoyaltyPoints — Google les rend comme une rangée de
     // ronds génériques en bas de la carte (catastrophique visuellement vu
@@ -238,7 +243,8 @@ export async function syncLoyaltyObject(
   rewardsAvailable: number,
   appUrl: string,
   message?: string,
-  stampsTotal?: number
+  stampsTotal?: number,
+  stampsLabel?: string | null,
 ): Promise<{ ok: boolean; status?: number }> {
   if (!isGoogleWalletConfigured()) return { ok: false };
 
@@ -259,7 +265,7 @@ export async function syncLoyaltyObject(
     // point balances cannot be set".
     loyaltyPoints: {
       balance: { string: balanceString, int: null },
-      label: "Tampons",
+      label: (stampsLabel && stampsLabel.trim().slice(0, 18)) || "Tampons",
     },
     // Clear l'ancien secondaryLoyaltyPoints si l'objet existant en avait.
     secondaryLoyaltyPoints: null,
