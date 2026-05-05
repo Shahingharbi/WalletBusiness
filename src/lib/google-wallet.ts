@@ -98,6 +98,12 @@ function buildLoyaltyClass(p: PassParams) {
     hexBackgroundColor: effectiveBg,
     countryCode: "FR",
     reviewStatus: "UNDER_REVIEW",
+    // Force Google Wallet à pousser une notification push au porteur ET à
+    // rafraîchir visuellement la carte ouverte dès qu'on PATCH un object de
+    // cette classe. Sans ce flag, le PATCH côté serveur réussit mais le tel
+    // ne refetch qu'au prochain ouverture de l'app -> tampons en retard.
+    multipleDevicesAndHoldersAllowedStatus: "MULTIPLE_HOLDERS",
+    notifyPreference: "NOTIFY_ON_UPDATE",
     rewardsTier: "Standard",
     rewardsTierLabel: "Programme",
     accountIdLabel: "Client",
