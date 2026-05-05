@@ -51,10 +51,10 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
           </a>
         </div>
 
-        <div className="flex items-center gap-3 sm:gap-5">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/login"
-            className="hidden sm:block text-sm text-foreground hover:opacity-70 transition-opacity"
+            className="rounded-full border border-foreground/15 px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-foreground hover:border-foreground hover:bg-foreground/5 transition-colors whitespace-nowrap"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
             Se connecter
