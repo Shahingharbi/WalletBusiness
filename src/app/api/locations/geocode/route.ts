@@ -35,14 +35,14 @@ export async function GET(request: Request) {
     );
   }
 
-  // Bias France-first : si la requête ne mentionne pas un pays, Nominatim
-  // peut renvoyer un résultat aux antipodes. countrycodes=fr restreint au
-  // territoire français (commerces aswallet, FR uniquement pour l'instant).
+  // Pas de restriction `countrycodes` : on supporte les commerces hors FR
+  // (Algérie, Maroc, Belgique, Suisse, etc.). Le merchant qui tape "Paris"
+  // sans pays tombe quand même bien sur Paris (FR) car Nominatim ranke
+  // les villes majeures en premier.
   const params = new URLSearchParams({
     q,
     format: "json",
     limit: "5",
-    countrycodes: "fr",
     "accept-language": "fr",
   });
 

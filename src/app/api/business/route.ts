@@ -1,6 +1,73 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { isOwnerOrAdmin } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { geocodeAddress } from "@/lib/geocode";
+
+/**
+ * Convention pour la location auto-créée à partir de l'adresse commerce.
+ * Quand on regéocode (l'adresse a changé), on UPDATE la row existante avec
+ * ce nom de marqueur plutôt que d'en créer une nouvelle (sinon doublons à
+ * chaque édition d'adresse). Le merchant peut renommer librement les
+ * locations qu'il a créées manuellement — on ne les touche pas.
+ */
+const PRIMARY_LOCATION_NAME = "Adresse principale";
+
+/**
+ * Géocode l'adresse du commerce et upsert une location "Adresse principale".
+ * Best-effort : silencieux sur erreur, ne casse pas la requête principale.
+ *
+ * Pourquoi : géo-push (Apple/Google notif lockscreen quand le porteur passe à
+ * <100m) nécessite des coordonnées GPS sur le pass. Sans intervention auto,
+ * 99% des merchants ne configurent jamais leur location → feature jamais
+ * utilisée. Cette fonction fait que dès qu'un merchant remplit son adresse
+ * dans /settings, sa première location est créée toute seule.
+ */
+async function autoUpsertPrimaryLocation(
+  businessId: string,
+  parts: {
+    address?: string | null;
+    city?: string | null;
+    postal_code?: string | null;
+  },
+): Promise<void> {
+  if (!parts.address && !parts.city) return;
+  try {
+    const geo = await geocodeAddress(parts);
+    if (!geo) return;
+
+    const admin = createAdminClient();
+    const { data: existing } = await admin
+      .from("locations")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("name", PRIMARY_LOCATION_NAME)
+      .maybeSingle();
+
+    const row = {
+      business_id: businessId,
+      name: PRIMARY_LOCATION_NAME,
+      address: (parts.address ?? null) as string | null,
+      city: (parts.city ?? null) as string | null,
+      postal_code: (parts.postal_code ?? null) as string | null,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+      is_active: true,
+    };
+
+    if (existing) {
+      await admin.from("locations").update(row).eq("id", existing.id);
+    } else {
+      // RLS : on bypass via service role pour éviter les checks owner-side.
+      // La gating "Starter = 0 emplacements" du POST /api/locations ne
+      // s'applique pas ici : la location auto-créée est offerte à tous, c'est
+      // un acquis du produit (sans elle, le geo-push est inutilisable).
+      await admin.from("locations").insert(row);
+    }
+  } catch (err) {
+    console.warn("[business] auto-geocode failed:", err);
+  }
+}
 
 export async function GET() {
   try {
@@ -84,6 +151,28 @@ export async function PATCH(request: Request) {
     if (error) {
       console.error("Business update error:", error);
       return NextResponse.json({ error: "Erreur lors de la mise à jour" }, { status: 500 });
+    }
+
+    // Si l'adresse / ville / CP a bougé, on regéocode et on met à jour la
+    // location "Adresse principale" en background. `after()` garantit que ça
+    // tourne après la réponse sans être tué par Vercel.
+    const addressChanged =
+      "address" in update || "city" in update || "postal_code" in update;
+    if (addressChanged) {
+      const businessId = profile.business_id;
+      after(async () => {
+        // Refetch pour avoir l'état FINAL après l'update (les champs non
+        // modifiés dans `update` doivent quand même partir au géocodeur).
+        const admin = createAdminClient();
+        const { data: fresh } = await admin
+          .from("businesses")
+          .select("address, city, postal_code")
+          .eq("id", businessId)
+          .single();
+        if (fresh) {
+          await autoUpsertPrimaryLocation(businessId, fresh);
+        }
+      });
     }
 
     return NextResponse.json({ success: true });

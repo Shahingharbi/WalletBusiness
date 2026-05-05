@@ -5,6 +5,7 @@ import { formatRelative, pickContrast } from "@/lib/utils";
 import { isGoogleWalletConfigured } from "@/lib/google-wallet";
 import { isAppleWalletConfigured } from "@/lib/apple-wallet";
 import { WalletButtons } from "@/components/public/wallet-buttons";
+import { PwaInstallPrompt } from "@/components/public/pwa-install-prompt";
 import QRCode from "qrcode";
 
 export default async function CardStatusPage({
@@ -217,13 +218,13 @@ export default async function CardStatusPage({
           </p>
         )}
 
-        {/* Add to home screen hint */}
-        <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-center">
-          <p className="text-xs text-blue-700">
-            Ajoutez cette page à votre écran d&apos;accueil pour y accéder facilement.
-          </p>
-        </div>
       </div>
+
+      {/* Sheet "Ajoutez à l'écran d'accueil" — apparaît après 4s, dismissible.
+          Killer feature pour les utilisateurs sans Apple Pay (Algérie, etc.)
+          qui ne peuvent pas utiliser le double-clic side-button pour sortir
+          le wallet — l'icône PWA leur donne un accès en 1 tap au QR. */}
+      <PwaInstallPrompt />
     </div>
   );
 }
