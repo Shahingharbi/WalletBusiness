@@ -5,6 +5,66 @@
 
 ---
 
+## 2026-05-05 (suite) — Design system overhaul + Geo-push auto + PWA prompt + Navbar login + Audit
+
+### Design system : preview = wallet réel (3 bugs visuels résolus)
+- **Diagnostic** : 3 versions divergentes du rendu tampon dans le repo (preview app, wallet réel, status page client). L'autre Claude avait copié-collé partiellement à chaque fois.
+- **Bug critique** sur `stamp-display.tsx` (status page client) : tampons REMPLIS rendus avec fond blanc + icône accent (silhouette) au lieu de fill plein accent + icône blanche → littéralement **INVERSÉS** par rapport au wallet réel. Le client voyait tous ses tampons "vides".
+- **Bug 2** : `card-preview.tsx` rendait les tampons vides à 55% d'opacité (version pré-fix d'avant-hier) → preview mentait au merchant.
+- **Bug 3** : strip image (banner endpoint) avait un fond solide `design.background_color` → divergeait du fond carte sur Google (auto-flip vers sombre) → "carte sombre + bande tampons claire" sur Android.
+- **Solution** : nouveau composant `<StampSvg />` dans `components/cards/stamp-svg.tsx` = source de vérité unique pour preview + status page. Reuse les paths SVG de `lib/stamp-render.ts` que partage déjà le banner endpoint server-side → pixel-parity garantie sur les 3 surfaces.
+- Strip image : passé en **transparent** (au lieu de fond solide) → Apple et Google posent leur `hexBackgroundColor` derrière → cohérence parfaite entre zone strip et reste de la carte sur chaque plateforme.
+
+### Label tampons custom propagé partout
+- Avant : `design.label_stamps` saisi par le merchant n'était jamais utilisé sur les passes réels (hardcode "Tampons" dans `apple-wallet.ts:357`, `google-wallet.ts:170,262`).
+- Maintenant : remonte jusqu'à Apple `headerFields` et Google `loyaltyPoints.label`, tronqué à 18 chars. `/api/scan` recharge `label_stamps` depuis `cards.design` pour le PATCH `syncLoyaltyObject`.
+
+### Bug bonus : Apple Wallet refresh perdait les locations
+- `/api/apple-wallet/v1/passes/[passTypeId]/[serial]` (refresh après scan via APNs) ne chargeait pas `locations[]` → après chaque scan, le `.pkpass` mis à jour perdait sa géo-push pour la durée de vie de la carte.
+- Fix : `fetchPassLocations()` ajoutée à la route refresh.
+
+### Default card design plus safe
+- `background_color: "#ffffff"` → `"#1a1a1a"`, `text_color: "#1a1a1a"` → `"#ffffff"`.
+- Avant : fond clair par défaut = Apple OK mais Google auto-flippait → preview Apple/Google complètement différentes pour le merchant qui ne touche à rien.
+- Maintenant : sombre par défaut → les deux plateformes rendent la même carte.
+
+### Designer UX : notice claire des contraintes Google
+- Bloc info ambre dans `step-design.tsx` : "Apple respecte vos 3 couleurs. Google force le texte blanc et flip le fond si trop clair." → plus de surprise quand le merchant teste sur Android.
+
+### Géo-push out-of-the-box (auto-géocode)
+- `lib/geocode.ts` : helper Nominatim server-side, sans restriction pays (supporte Algérie, Maroc, Belgique, Suisse, etc., pas seulement FR).
+- `PATCH /api/business` : quand l'adresse/ville/CP change, regéocode en background via `after()` et upsert une location nommée "Adresse principale" avec lat/lng. Bypass plan limits — feature offerte à tous les plans (sinon Starter ne pouvait jamais activer geo-push, donc feature jamais utilisée).
+- `fetchPassLocations()` la prend automatiquement → les passes Apple/Google embarquent `locations[]` → notif lockscreen quand le porteur passe à <100m du commerce.
+- Route `/api/locations/geocode` publique : retrait de `countrycodes=fr`.
+
+### PWA install prompt agressif sur la status page
+- Nouveau `components/public/pwa-install-prompt.tsx` : bottom sheet après 4s sur `/c/.../status/...`, dismissible (localStorage).
+- Détection plateforme : iOS = instructions Share/Sur l'écran d'accueil (utile pour Algérie sans Apple Pay → pas de double-clic side-button), Android Chrome = `beforeinstallprompt` natif quand dispo, fallback menu.
+- Caché si `display-mode: standalone` (déjà installé).
+- Killer feature : 1 tap sur l'icône home screen = QR plein écran prêt à scanner. Marche partout pareil.
+
+### Navbar : bouton "Se connecter" visible partout
+- Avant : `hidden sm:block` (caché sur mobile) + texte gris discret. Les utilisateurs existants devaient se débrouiller pour trouver `/login`.
+- Maintenant : pill bordée visible sur toutes tailles d'écran, contraste fort.
+
+### Live updates Apple/Google instantanés (premier fix de la journée)
+- `/api/scan/route.ts` : `pushAppleWalletUpdate` et `syncLoyaltyObject` étaient en `void promise.catch(...)` (fire-and-forget). En serverless Vercel, dès que `NextResponse.json` part, le lambda termine immédiatement et tue l'APNs HTTP/2 push avant qu'il finisse.
+- Fix : migration vers `after()` de `next/server` qui étend la durée du lambda jusqu'à ce que les promesses settle. Caissier voit le retour instantanément + Apple+Google poussent vraiment leur live update.
+
+### Strip image : tampons vides visibles (premier fix de la journée)
+- `/api/wallet/banner/.../route.tsx::renderStamp()` : tampons vides étaient invisibles sur photo (fill 55% + bord 30% + icône 25%). Passés en blanc opaque + bord accent 1.6px + icône accent 22% + drop-shadow.
+
+### Audit produit complet — 5 pépites critiques restantes
+1. `void` lambda kill encore présent dans `/api/install` (bug même que `/api/scan` qu'on vient de fixer) → welcome offer jamais poussée + email merchant "nouveau client" jamais envoyé.
+2. Campaigns Pro : `Promise.allSettled` séquentiel sur 2000 destinataires = timeout silencieux après ~20 envois. À batcher avec p-limit + `after()`.
+3. Status page + Google Wallet route sans vérif `instance.status` → un merchant ne peut pas réellement révoquer une carte.
+4. Race condition double-scan : check de dedup non atomique → 2 caissiers / 1 double-clic = 2 tampons.
+5. Storage RLS trop permissive (un merchant peut écraser les assets d'un autre business si UUID connu).
+
+À traiter dans la session suivante.
+
+---
+
 ## 2026-05-05 — Fix live updates Apple/Google instantanés + tampons vides visibles
 
 ### Bug "live update pas instantané" (Apple+Google)
