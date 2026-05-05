@@ -35,12 +35,28 @@ function ensurePassTypeMatches(passTypeId: string): boolean {
 export async function POST(request: Request, ctx: RouteCtx) {
   const { deviceLibraryId, passTypeId, serialNumber } = await ctx.params;
 
+  console.info(
+    "[apple-register] iOS POST device=%s passType=%s serial=%s",
+    deviceLibraryId.slice(0, 8) + "...",
+    passTypeId,
+    serialNumber.slice(0, 8) + "..."
+  );
+
   if (!ensurePassTypeMatches(passTypeId)) {
+    console.warn(
+      "[apple-register] passTypeId mismatch (got %s, expected %s)",
+      passTypeId,
+      getApplePassTypeId()
+    );
     return new NextResponse(null, { status: 404 });
   }
 
   const auth = request.headers.get("authorization");
   if (!verifyApplePassAuthHeader(auth, serialNumber)) {
+    console.warn(
+      "[apple-register] auth header invalid for serial=%s",
+      serialNumber.slice(0, 8) + "..."
+    );
     return new NextResponse(null, { status: 401 });
   }
 
@@ -85,6 +101,15 @@ export async function POST(request: Request, ctx: RouteCtx) {
         .from("apple_pass_devices")
         .update({ push_token: pushToken, auth_token: authToken })
         .eq("id", existing.id);
+      console.info(
+        "[apple-register] push_token updated for serial=%s",
+        serialNumber.slice(0, 8) + "..."
+      );
+    } else {
+      console.info(
+        "[apple-register] already-registered serial=%s",
+        serialNumber.slice(0, 8) + "..."
+      );
     }
     return new NextResponse(null, { status: 200 });
   }
@@ -97,9 +122,13 @@ export async function POST(request: Request, ctx: RouteCtx) {
     auth_token: authToken,
   });
   if (insErr) {
-    console.error("[apple-wallet] register insert failed:", insErr);
+    console.error("[apple-register] insert failed:", insErr);
     return new NextResponse(null, { status: 500 });
   }
+  console.info(
+    "[apple-register] new device created for serial=%s",
+    serialNumber.slice(0, 8) + "..."
+  );
   return new NextResponse(null, { status: 201 });
 }
 

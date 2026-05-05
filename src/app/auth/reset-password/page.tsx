@@ -4,9 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import {
+  PasswordInput,
+  PasswordStrengthBar,
+} from "@/components/auth/password-input";
 
 /**
  * Password reset landing page. Reached from the email link sent by
@@ -31,7 +34,6 @@ export default function ResetPasswordPage() {
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [showPwd, setShowPwd] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
@@ -165,6 +167,10 @@ export default function ResetPasswordPage() {
       setPasswordError("Le mot de passe doit contenir au moins 8 caractères");
       return;
     }
+    if (!/[0-9]/.test(password)) {
+      setPasswordError("Le mot de passe doit contenir au moins un chiffre");
+      return;
+    }
     if (password !== confirm) {
       setConfirmError("Les mots de passe ne correspondent pas");
       return;
@@ -277,12 +283,11 @@ export default function ResetPasswordPage() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="relative">
-                  <Input
+                <div className="space-y-1.5">
+                  <PasswordInput
                     label="Nouveau mot de passe"
-                    type={showPwd ? "text" : "password"}
                     name="password"
-                    placeholder="Au moins 8 caractères"
+                    placeholder="Au moins 8 caractères, dont 1 chiffre"
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
@@ -293,23 +298,11 @@ export default function ResetPasswordPage() {
                     autoComplete="new-password"
                     minLength={8}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPwd((v) => !v)}
-                    className="absolute right-3 top-[34px] text-xs font-medium text-gray-500 hover:text-black transition-colors"
-                    aria-label={
-                      showPwd
-                        ? "Masquer le mot de passe"
-                        : "Afficher le mot de passe"
-                    }
-                  >
-                    {showPwd ? "Masquer" : "Afficher"}
-                  </button>
+                  <PasswordStrengthBar password={password} />
                 </div>
 
-                <Input
+                <PasswordInput
                   label="Confirmer le mot de passe"
-                  type={showPwd ? "text" : "password"}
                   name="confirm"
                   placeholder="Retapez votre mot de passe"
                   value={confirm}

@@ -310,14 +310,38 @@ export async function syncLoyaltyObject(
 
   try {
     const client = await auth.getClient();
-    await client.request({ url, method: "PATCH", data: body, timeout: 3000 });
+    const res = await client.request({
+      url,
+      method: "PATCH",
+      data: body,
+      timeout: 3000,
+    });
+    console.info(
+      "[google-sync] PATCH %s ok status=%s balance=%s",
+      objId,
+      (res as { status?: number })?.status ?? "n/a",
+      balanceString
+    );
     return { ok: true };
   } catch (err: unknown) {
     const status = (err as { response?: { status?: number } })?.response?.status;
-    if (status === 404) return { ok: false, status: 404 }; // pass jamais ajouté, normal
+    const message = (err as { message?: string })?.message ?? String(err);
+    if (status === 404) {
+      // 404 = le loyaltyObject n'existe pas côté Google. Normal SI l'utilisateur
+      // n'a pas encore appuyé sur "Ajouter à Google Wallet". S'il l'a fait
+      // ET que le sync 404e -> bug : objet jamais inséré côté Google. Ce log
+      // remonte dans Vercel pour diagnostiquer après une démo.
+      console.info(
+        "[google-sync] 404 (pass not yet saved by user?) objId=%s",
+        objId
+      );
+      return { ok: false, status: 404 };
+    }
     console.warn(
-      `[wallet-sync] PATCH ${objId} failed:`,
-      (err as { message?: string })?.message ?? err
+      "[google-sync] PATCH %s failed status=%s message=%s",
+      objId,
+      status ?? "n/a",
+      message
     );
     return { ok: false, status };
   }

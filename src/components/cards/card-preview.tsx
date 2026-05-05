@@ -160,9 +160,11 @@ function StripStamp({
           height: size,
           borderRadius: radius,
           overflow: "hidden",
-          opacity: filled ? 1 : 0.6,
+          opacity: filled ? 1 : 0.4,
           backgroundColor: "#ffffff",
-          boxShadow: "0 4px 10px rgba(0,0,0,0.18)",
+          boxShadow: filled
+            ? "0 6px 14px rgba(0,0,0,0.28)"
+            : "0 1px 3px rgba(0,0,0,0.08)",
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -179,11 +181,38 @@ function StripStamp({
 
   const shapePath = getShapePath(shape);
   const iconPath = getIconPath(iconKey);
-  const shapeFill = "#ffffff";
-  const shapeStroke = filled ? accent : "rgba(255,255,255,0.55)";
-  const shapeStrokeWidth = filled ? 0.5 : 0.8;
-  const iconFill = filled ? accent : "#9ca3af";
-  const iconOpacity = filled ? 1 : 0.3;
+
+  // Cohérence avec /api/wallet/banner/.../route.tsx :
+  //  - REMPLI : fond accent plein, icône blanche, ombre prononcée
+  //  - VIDE   : fond blanc semi-transparent, bord accent à 30 %, icône
+  //             grise à 25 % d'opacité
+  if (filled) {
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.25))",
+        }}
+      >
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          style={{ display: "block" }}
+        >
+          <path
+            d={shapePath}
+            fill={accent}
+            stroke={accent}
+            strokeWidth={0.5}
+            strokeLinejoin="round"
+          />
+          <path d={iconPath} fill="#ffffff" />
+        </svg>
+      </div>
+    );
+  }
 
   return (
     <svg
@@ -194,14 +223,20 @@ function StripStamp({
     >
       <path
         d={shapePath}
-        fill={shapeFill}
-        stroke={shapeStroke}
-        strokeWidth={shapeStrokeWidth}
+        fill="rgba(255,255,255,0.55)"
+        stroke={hexAlpha(accent, 0.3)}
+        strokeWidth={1.1}
         strokeLinejoin="round"
       />
-      <path d={iconPath} fill={iconFill} opacity={iconOpacity} />
+      <path d={iconPath} fill="#9ca3af" opacity={0.25} />
     </svg>
   );
+}
+
+function hexAlpha(hex: string, alpha: number): string {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((hex ?? "").trim());
+  if (!m) return `rgba(0,0,0,${alpha})`;
+  return `rgba(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}, ${alpha})`;
 }
 
 interface SinglePreviewProps {

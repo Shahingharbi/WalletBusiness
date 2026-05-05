@@ -12,6 +12,7 @@ import {
   X,
   ScanLine,
   MapPin,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -27,9 +28,18 @@ interface MobileNavProps {
   isOpen: boolean;
   onClose: () => void;
   user: MobileNavUser;
+  /** Rôle — affiche "Admin" si super_admin. */
+  role?: string;
 }
 
-const navItems = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  highlight?: boolean;
+}
+
+const baseNavItems: readonly NavItem[] = [
   { label: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
   { label: "Cartes", href: "/cards", icon: CreditCard },
   { label: "Scanner", href: "/scanner", icon: ScanLine, highlight: true },
@@ -38,9 +48,17 @@ const navItems = [
   { label: "Paramètres", href: "/settings", icon: Settings },
 ];
 
-export function MobileNav({ isOpen, onClose, user }: MobileNavProps) {
+export function MobileNav({ isOpen, onClose, user, role }: MobileNavProps) {
   const pathname = usePathname();
   const router = useRouter();
+
+  const navItems: readonly NavItem[] =
+    role === "super_admin"
+      ? [
+          ...baseNavItems,
+          { label: "Admin", href: "/admin", icon: Shield },
+        ]
+      : baseNavItems;
 
   const initials =
     ((user.firstName?.[0] ?? "") + (user.lastName?.[0] ?? "")).toUpperCase();

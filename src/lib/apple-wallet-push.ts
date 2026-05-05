@@ -140,13 +140,13 @@ function sendSinglePush(pushToken: string, passTypeId: string): Promise<ApnsPush
 export async function pushAppleWalletUpdate(serialNumber: string): Promise<void> {
   const passTypeId = getApplePassTypeId();
   if (!passTypeId) {
-    console.warn("[apple-wallet-push] APPLE_PASS_TYPE_ID not configured, skipping push");
+    console.warn("[apple-push] APPLE_PASS_TYPE_ID not configured, skipping push");
     return;
   }
 
   const creds = getApnsCredentials();
   if (!creds) {
-    console.warn("[apple-wallet-push] signer cert/key not configured, skipping push");
+    console.warn("[apple-push] signer cert/key not configured, skipping push");
     return;
   }
 
@@ -158,10 +158,19 @@ export async function pushAppleWalletUpdate(serialNumber: string): Promise<void>
     .eq("pass_type_id", passTypeId);
 
   if (error) {
-    console.error("[apple-wallet-push] failed to load devices:", error);
+    console.error("[apple-push] failed to load devices:", error);
     return;
   }
+  console.info(
+    `[apple-push] sending to serial=%s, devices=%d`,
+    serialNumber.slice(0, 8) + "...",
+    devices?.length ?? 0
+  );
   if (!devices || devices.length === 0) {
+    // Aucun device = soit le user n'a jamais ajouté le pass dans Wallet, soit
+    // iOS n'a pas appelé l'endpoint /v1/devices/.../registrations (config
+    // webServiceURL manquante dans le pass.json). On loggue pour faciliter
+    // le debug en prod.
     return;
   }
 
@@ -173,9 +182,18 @@ export async function pushAppleWalletUpdate(serialNumber: string): Promise<void>
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
     const dev = devices[i];
-    if (r.status === 200) continue;
+    if (r.status === 200) {
+      console.info(
+        `[apple-push] ok token=%s status=200`,
+        r.pushToken.slice(0, 8) + "..."
+      );
+      continue;
+    }
     console.warn(
-      `[apple-wallet-push] push failed token=${r.pushToken.slice(0, 8)}... status=${r.status} reason=${r.reason ?? "n/a"}`
+      `[apple-push] push failed token=%s status=%d reason=%s`,
+      r.pushToken.slice(0, 8) + "...",
+      r.status,
+      r.reason ?? "n/a"
     );
     // 410 Gone = device token n'est plus valide. 400 + reason BadDeviceToken aussi.
     if (
@@ -189,6 +207,7 @@ export async function pushAppleWalletUpdate(serialNumber: string): Promise<void>
   }
 
   if (stale.length > 0) {
+    console.info("[apple-push] removing %d stale device(s)", stale.length);
     await admin.from("apple_pass_devices").delete().in("id", stale);
   }
 }

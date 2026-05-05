@@ -9,16 +9,24 @@ import { pickContrast } from "@/lib/utils";
 interface InstallFormProps {
   cardId: string;
   accentColor: string;
-  businessName: string;
+  /**
+   * @deprecated le businessName n'est plus affiché dans le formulaire (la
+   * checkbox RGPD a été supprimée pour réduire la friction). Conservé en
+   * prop pour ne pas casser le call-site, mais inutilisé dans le rendu.
+   */
+  businessName?: string;
 }
 
 export function InstallForm({ cardId, accentColor, businessName }: InstallFormProps) {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [phone, setPhone] = useState("");
-  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Keep prop available for forward-compat (the parent page may render it
+  // elsewhere) but don't use it in the simplified form.
+  void businessName;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,11 +34,6 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
 
     if (!firstName.trim()) {
       setError("Le prénom est requis");
-      return;
-    }
-
-    if (!consent) {
-      setError("Vous devez accepter le traitement de vos données");
       return;
     }
 
@@ -42,7 +45,6 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
         body: JSON.stringify({
           first_name: firstName.trim(),
           phone: phone.trim() || null,
-          consent: true,
         }),
       });
 
@@ -86,30 +88,6 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
         hint="Optionnel - pour recevoir des notifications"
       />
 
-      <label className="flex items-start gap-2.5 cursor-pointer select-none py-1">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(e) => setConsent(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-black"
-          required
-        />
-        <span className="text-xs text-gray-600 leading-relaxed">
-          J&apos;accepte que mes données (prénom, téléphone) soient traitées
-          par <strong>{businessName}</strong> dans le cadre de cette carte de
-          fidélité. Voir la{" "}
-          <a
-            href="/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-black"
-          >
-            politique de confidentialité
-          </a>
-          .
-        </span>
-      </label>
-
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3">
           <p className="text-sm text-red-600">{error}</p>
@@ -120,7 +98,7 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
         type="submit"
         size="lg"
         loading={loading}
-        disabled={!consent || !firstName.trim()}
+        disabled={!firstName.trim()}
         className="w-full text-base font-semibold"
         style={{
           backgroundColor: accentColor,
@@ -133,6 +111,19 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
       >
         Obtenir ma carte de fidélité
       </Button>
+
+      <p className="text-[11px] leading-relaxed text-gray-500 text-center">
+        En vous inscrivant, vous acceptez notre{" "}
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-black"
+        >
+          politique de confidentialité
+        </a>
+        .
+      </p>
     </form>
   );
 }

@@ -332,3 +332,86 @@ mais n'ont pas été lues ligne par ligne. Si un bug se manifeste pendant
 la démo, regarder en priorité `cards/[id]/edit` (le merchant va sûrement
 modifier sa carte test).
 
+
+---
+
+## Wallet live updates — debug (2026-05-05)
+
+Le user a signalé que les tampons ne se mettent pas à jour live sur Apple ET
+Google après un scan. Voici les hypothèses + ce qui a été instrumenté pour
+trancher dès le prochain test prod.
+
+### État actuel vérifié via Supabase Mgmt API
+
+- `apple_pass_devices` contient **8 lignes** → iOS appelle bien
+  `POST /v1/devices/.../registrations/.../{serial}` au moins pour 8 passes.
+  Le webServiceURL est donc bien embarqué dans le `pass.json`.
+- Sample `pass.json` confirmé : `webServiceURL=https://aswallet.fr/api/apple-wallet`
+  + `authenticationToken` présent.
+- Sample JWT Google : `loyaltyClasses[0].locations` est `null` quand le merchant
+  n'a pas créé de location (normal). `textModulesData[0]` contient bien
+  `{header:"Notre offre", body:"<reward_text>"}`.
+
+### Logs ajoutés (à observer dans Vercel logs après le prochain scan)
+
+1. **Apple push** (`src/lib/apple-wallet-push.ts`) :
+   - `[apple-push] sending to serial=… devices=N`
+   - `[apple-push] ok token=… status=200` ou
+     `[apple-push] push failed token=… status=… reason=…`
+   - `[apple-push] removing N stale device(s)` quand on supprime un push token
+     périmé (410 / BadDeviceToken / Unregistered).
+
+2. **Apple register** (`/api/apple-wallet/v1/devices/.../{serial}` POST) :
+   - `[apple-register] iOS POST device=… passType=… serial=…`
+   - `[apple-register] passTypeId mismatch` si bug de config
+   - `[apple-register] auth header invalid` si auth token KO
+   - `[apple-register] new device created` ou
+     `[apple-register] already-registered` selon le cas.
+
+3. **Google sync** (`src/lib/google-wallet.ts syncLoyaltyObject`) :
+   - `[google-sync] PATCH … ok status=200 balance=X / Y` sur succès
+   - `[google-sync] 404 (pass not yet saved by user?)` quand le user n'a pas
+     encore cliqué "Ajouter à Google Wallet" (totalement normal au début)
+   - `[google-sync] PATCH … failed status=… message=…` sinon.
+
+### Procédure de test à dérouler côté user après deploy
+
+1. Sur un iPhone et un Android, ouvrir le lien `https://aswallet.fr/c/<cardId>`
+   d'une carte de démo. Renseigner prénom + tel, valider.
+2. Sur la page status, cliquer "Ajouter à Apple Wallet" (iOS) puis confirmer
+   l'ajout dans Wallet. Idem "Save to Google Wallet" (Android).
+3. **Vérifier dans Vercel logs** :
+   - iOS doit POST sur `/api/apple-wallet/v1/devices/.../registrations/...`
+     → log `[apple-register] new device created` apparaît.
+   - Une nouvelle ligne dans `apple_pass_devices` doit être créée
+     (`SELECT count(*) FROM apple_pass_devices` augmente).
+4. Côté commerçant, scanner la carte (incrémenter +1 tampon).
+5. **Vérifier dans Vercel logs** :
+   - `[apple-push] sending to serial=… devices=N` (N>=1).
+   - `[apple-push] ok token=… status=200`.
+   - `[google-sync] PATCH … ok status=200 balance=1 / 10` (Android).
+6. Sur le téléphone, le pass doit refléter `1/10` sous quelques secondes.
+
+### Cas où ça ne marche pas
+
+- **Apple `devices=0` malgré install** → iOS n'a pas appelé l'endpoint register.
+  Causes : webServiceURL HTTP (au lieu de HTTPS), ou pass installé avant le
+  déploiement de la version qui inclut `webServiceURL`. Demander au user de
+  retirer le pass de Wallet et de le réinstaller.
+- **Apple `status=403` ou `status=400 reason=BadCertificate`** → cert APNs
+  expiré (les certs Apple Pass Type ID expirent au bout de 1 an). Régénérer
+  via developer.apple.com et mettre à jour `APPLE_WALLET_SIGNER_CERT_BASE64` /
+  `_SIGNER_KEY_BASE64`.
+- **Google 404 systématique** → service account n'a pas les droits sur le
+  loyaltyObject (issuer mismatch), OU `imageModulesData[0].mainImage.sourceUri.uri`
+  contient un cache-bust qui change à chaque PATCH (le `count` dans l'URL fait
+  effectivement `cache-bust` côté Google car l'URL de l'image change → bon).
+- **Geo-push lockscreen iPhone qui ne sonne pas** → le merchant n'a pas créé
+  de point de vente (`locations` table vide pour son business). Vérifier via
+  `SELECT * FROM locations WHERE business_id = '<b>'`. Sinon, iOS exige aussi
+  que l'utilisateur ait activé "Suggestions" dans Réglages → Wallet & Apple Pay
+  (off par défaut sur certains téléphones).
+- **"Notre offre" invisible Google Wallet** → vérifier via JWT que
+  `loyaltyObjects[0].textModulesData` contient bien `{id:"offer",header:"Notre offre",body:"..."}`.
+  Si présent mais invisible côté Wallet UI → c'est juste qu'il faut scroller
+  ou cliquer "Détails" (Google rend les textModules sous le code-barres).

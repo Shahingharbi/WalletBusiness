@@ -5,13 +5,24 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
 });
 
-export const registerSchema = z.object({
-  firstName: z.string().min(1, "Le prénom est requis").max(50),
-  lastName: z.string().min(1, "Le nom est requis").max(50),
-  email: z.string().email("Adresse email invalide"),
-  password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
-  businessName: z.string().min(1, "Le nom du commerce est requis").max(100),
-});
+export const registerSchema = z
+  .object({
+    firstName: z.string().min(1, "Le prénom est requis").max(50),
+    lastName: z.string().min(1, "Le nom est requis").max(50),
+    email: z.string().email("Adresse email invalide"),
+    // Politique mot de passe : min 8 chars + au moins un chiffre. La force
+    // visuelle (faible/moyen/fort) est calculée côté UI sur la diversité.
+    password: z
+      .string()
+      .min(8, "Le mot de passe doit contenir au moins 8 caractères")
+      .regex(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre"),
+    confirmPassword: z.string(),
+    businessName: z.string().min(1, "Le nom du commerce est requis").max(100),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Les mots de passe ne correspondent pas",
+    path: ["confirmPassword"],
+  });
 
 export const cardSettingsSchema = z.object({
   name: z.string().min(1, "Le nom de la carte est requis").max(100),

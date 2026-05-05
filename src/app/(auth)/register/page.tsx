@@ -10,6 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import {
+  PasswordInput,
+  PasswordStrengthBar,
+} from "@/components/auth/password-input";
+import {
   PLANS,
   isPlanId,
   isStripePlanId,
@@ -67,6 +71,7 @@ function RegisterForm() {
     lastName: "",
     email: params.get("email") ?? "",
     password: "",
+    confirmPassword: "",
     businessName: params.get("business") ?? "",
   });
   const [errors, setErrors] = useState<
@@ -125,7 +130,7 @@ function RegisterForm() {
             ? "Un compte existe déjà avec cet email. Connectez-vous."
             : error.message.includes("Password should be") ||
                 error.message.includes("password")
-              ? "Le mot de passe doit contenir au moins 6 caractères."
+              ? "Le mot de passe doit contenir au moins 8 caractères."
               : error.message.includes("rate limit") || error.status === 429
                 ? "Trop de tentatives. Réessayez dans quelques minutes."
                 : error.message;
@@ -284,14 +289,26 @@ function RegisterForm() {
           autoComplete="email"
         />
 
-        <Input
-          label="Mot de passe"
-          type="password"
-          name="password"
-          placeholder="Minimum 6 caractères"
-          value={formData.password}
+        <div className="space-y-1.5">
+          <PasswordInput
+            label="Mot de passe"
+            name="password"
+            placeholder="Minimum 8 caractères, dont 1 chiffre"
+            value={formData.password}
+            onChange={handleChange}
+            error={errors.password}
+            autoComplete="new-password"
+          />
+          <PasswordStrengthBar password={formData.password} />
+        </div>
+
+        <PasswordInput
+          label="Confirmer le mot de passe"
+          name="confirmPassword"
+          placeholder="Retapez votre mot de passe"
+          value={formData.confirmPassword}
           onChange={handleChange}
-          error={errors.password}
+          error={errors.confirmPassword}
           autoComplete="new-password"
         />
 

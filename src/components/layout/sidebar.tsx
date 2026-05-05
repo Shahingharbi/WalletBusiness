@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ScanLine,
   MapPin,
+  Shield,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -25,9 +26,18 @@ interface SidebarUser {
 
 interface SidebarProps {
   user: SidebarUser;
+  /** Rôle utilisateur — affiche "Admin" uniquement si `super_admin`. */
+  role?: string;
 }
 
-const navItems = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  highlight?: boolean;
+}
+
+const baseNavItems: readonly NavItem[] = [
   { label: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
   { label: "Cartes", href: "/cards", icon: CreditCard },
   { label: "Scanner", href: "/scanner", icon: ScanLine, highlight: true },
@@ -36,9 +46,19 @@ const navItems = [
   { label: "Paramètres", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, role }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+
+  // Item "Admin" visible UNIQUEMENT pour les super_admin (gestion plateforme,
+  // création de comptes test illimités, promotion d'autres super_admin).
+  const navItems: readonly NavItem[] =
+    role === "super_admin"
+      ? [
+          ...baseNavItems,
+          { label: "Admin", href: "/admin", icon: Shield },
+        ]
+      : baseNavItems;
 
   return (
     <aside

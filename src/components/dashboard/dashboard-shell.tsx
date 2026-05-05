@@ -12,10 +12,15 @@ interface DashboardShellProps {
     email: string;
     businessName: string;
   };
+  /**
+   * Rôle du profil — sert à afficher l'item "Admin" dans la sidebar
+   * uniquement pour les `super_admin`.
+   */
+  role?: string;
   children: React.ReactNode;
 }
 
-export function DashboardShell({ user, children }: DashboardShellProps) {
+export function DashboardShell({ user, role, children }: DashboardShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleMenuClick = useCallback(() => {
@@ -28,8 +33,13 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar user={user} />
-      <MobileNav isOpen={mobileNavOpen} onClose={handleClose} user={user} />
+      <Sidebar user={user} role={role} />
+      <MobileNav
+        isOpen={mobileNavOpen}
+        onClose={handleClose}
+        user={user}
+        role={role}
+      />
 
       <div className="md:pl-60">
         <Topbar

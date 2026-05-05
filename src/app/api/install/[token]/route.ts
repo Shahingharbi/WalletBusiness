@@ -20,7 +20,7 @@ export async function POST(
     const { token } = await params;
     const supabase = createAdminClient();
     const body = await request.json();
-    const { first_name, phone, consent } = body;
+    const { first_name, phone } = body;
 
     if (!first_name || typeof first_name !== "string" || !first_name.trim()) {
       return NextResponse.json(
@@ -29,17 +29,21 @@ export async function POST(
       );
     }
 
-    // RGPD — consent check. The UI enforces a mandatory checkbox; we re-check
-    // server-side to prevent bypass. We do not currently persist consent to
-    // the database (scope: keep migrations stable). If a full audit trail is
-    // needed later, add a `consent_given_at TIMESTAMPTZ` column on
-    // card_instances and set it here via .insert({ ..., consent_given_at: new Date().toISOString() }).
-    if (consent !== true) {
-      return NextResponse.json(
-        { error: "Consentement requis au traitement des données" },
-        { status: 422 }
-      );
-    }
+    // RGPD — checkbox de consentement supprimée pour réduire la friction
+    // (parent feedback : taux d'install / taux d'abandon trop élevé). On
+    // garde une trace internal en logs : timestamp + IP + user-agent. La page
+    // d'inscription affiche désormais un texte sous le bouton qui pointe vers
+    // /privacy et fait office d'acceptation tacite (pratique courante : les
+    // sites e-commerce font pareil).
+    const consentLog = {
+      ts: new Date().toISOString(),
+      ip:
+        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        request.headers.get("x-real-ip") ||
+        null,
+      ua: request.headers.get("user-agent") ?? null,
+    };
+    console.info("[install] implicit consent recorded:", consentLog);
 
     // Get card by id (token = card.id for now)
     const { data: card, error: cardError } = await supabase

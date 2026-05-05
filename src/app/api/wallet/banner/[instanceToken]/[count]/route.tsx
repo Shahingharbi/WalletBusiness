@@ -408,6 +408,8 @@ function renderStamp(p: StampProps) {
   if (url) {
     // Image custom uploadée par le merchant — on garde le ratio sans masquage,
     // mais on respecte la shape via border-radius (compromis pratique).
+    // Tampon vide : on garde la même image mais à opacité 35 % pour signaler
+    // visuellement qu'il n'est pas encore validé.
     const radiusForImg =
       p.shape === "circle" ? "50%" : p.shape === "squircle" ? "30%" : "12%";
     return (
@@ -419,11 +421,13 @@ function renderStamp(p: StampProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          opacity: p.filled ? 1 : 0.6,
+          opacity: p.filled ? 1 : 0.4,
           borderRadius: radiusForImg,
           overflow: "hidden",
           backgroundColor: "#ffffff",
-          boxShadow: "0 6px 16px rgba(0,0,0,0.22)",
+          boxShadow: p.filled
+            ? "0 8px 18px rgba(0,0,0,0.32)"
+            : "0 2px 4px rgba(0,0,0,0.08)",
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -443,19 +447,50 @@ function renderStamp(p: StampProps) {
   // (incompatible Satori). La forme + l'icône suivent toujours le choix
   // merchant (stamp_shape + stamp_active_icon dans design).
   //
-  // Couleurs : la **couleur d'accent du merchant** est appliquée AUX DEUX états
-  // pour que la marque soit visible partout. Les tampons VIDES affichent quand
-  // même l'icône en accent_color mais à 35% d'opacité (au lieu de gris fixe).
-  // Comme ça même sur une carte neuve (0/10) on voit déjà la couleur de marque.
-  const shapeFill = "#ffffff";
-  const shapeStroke = p.accent;
-  const shapeStrokeWidth = p.filled ? 0.6 : 1.1;
-  const iconFill = p.accent;
-  const iconOpacity = p.filled ? 1 : 0.35;
-
+  // Contraste FORT validé / non validé (cf. brief merchant) :
+  //  - REMPLI  : fond accent_color plein, icône blanche, ombre prononcée
+  //  - VIDE    : fond blanc semi-transparent, bord accent_color 30 %,
+  //              icône grise opacity 25 %
+  //
+  // C'est le contraste qu'utilisent Stocard / Boomerangme : un client doit voir
+  // immédiatement où il en est, sans avoir à compter.
   const shapePath = getShapePath(p.shape);
   const iconPath = getIconPath(p.iconKey);
 
+  if (p.filled) {
+    return (
+      <div
+        key={p.key}
+        style={{
+          width: `${p.size}px`,
+          height: `${p.size}px`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          // Ombre portée prononcée pour donner un effet "validé / scellé".
+          filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.28))",
+        }}
+      >
+        <svg
+          width={p.size}
+          height={p.size}
+          viewBox="0 0 24 24"
+          style={{ display: "flex" }}
+        >
+          <path
+            d={shapePath}
+            fill={p.accent}
+            stroke={p.accent}
+            strokeWidth={0.5}
+            strokeLinejoin="round"
+          />
+          <path d={iconPath} fill="#ffffff" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Vide : silhouette discrète qui laisse voir la photo / le fond derrière.
   return (
     <div
       key={p.key}
@@ -473,16 +508,14 @@ function renderStamp(p: StampProps) {
         viewBox="0 0 24 24"
         style={{ display: "flex" }}
       >
-        {/* Forme extérieure */}
         <path
           d={shapePath}
-          fill={shapeFill}
-          stroke={shapeStroke}
-          strokeWidth={shapeStrokeWidth}
+          fill="rgba(255,255,255,0.55)"
+          stroke={hexWithAlpha(p.accent, 0.3)}
+          strokeWidth={1.1}
           strokeLinejoin="round"
         />
-        {/* Icône intérieure — même viewBox 24x24, donc centrée naturellement */}
-        <path d={iconPath} fill={iconFill} opacity={iconOpacity} />
+        <path d={iconPath} fill="#9ca3af" opacity={0.25} />
       </svg>
     </div>
   );
@@ -497,4 +530,15 @@ function darken(hex: string, amount: number): string {
   const g = f(parseInt(m[2], 16));
   const b = f(parseInt(m[3], 16));
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+// Convertit une couleur hex en rgba(...) avec l'alpha donné. Utilisé pour
+// le bord du tampon vide (accent_color à 30 %).
+function hexWithAlpha(hex: string, alpha: number): string {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((hex ?? "").trim());
+  if (!m) return `rgba(0,0,0,${alpha})`;
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }

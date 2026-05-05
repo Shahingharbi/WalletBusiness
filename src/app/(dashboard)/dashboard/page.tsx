@@ -12,11 +12,21 @@ import { createClient } from "@/lib/supabase/server";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { ScansChart } from "@/components/dashboard/scans-chart";
 import { RangeFilter } from "@/components/dashboard/range-filter";
+import { BillingBanner } from "@/components/dashboard/billing-banner";
 import { rangeToDates, type RangeId } from "@/lib/range";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatRelative } from "@/lib/utils";
+import {
+  isInTrial,
+  isLockedOut,
+  isPlanId,
+  trialDaysRemaining,
+  type BillingIntervalAlias,
+  type BusinessBillingState,
+  type PlanId,
+} from "@/lib/billing";
 
 interface DashboardPageProps {
   searchParams: Promise<{ range?: string }>;
@@ -48,6 +58,49 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .single();
 
   const businessId = profile!.business_id;
+
+  // Charge l'état billing pour décider d'afficher le bandeau d'essai/expiration.
+  const { data: business } = await supabase
+    .from("businesses")
+    .select(
+      "subscription_status, subscription_plan, trial_ends_at, intended_plan, intended_interval"
+    )
+    .eq("id", businessId)
+    .single();
+
+  const billingState: BusinessBillingState = {
+    subscription_status: business?.subscription_status ?? null,
+    subscription_plan: business?.subscription_plan ?? null,
+    trial_ends_at: business?.trial_ends_at ?? null,
+  };
+
+  const trialDays = trialDaysRemaining(billingState);
+  const trial = isInTrial(billingState);
+  const locked = isLockedOut(billingState);
+
+  // Affiche un bandeau :
+  //  - essai expiré (locked)                                      -> danger
+  //  - paiement en retard                                          -> danger
+  //  - essai actif avec ≤ 5 jours restants                         -> warning
+  //  - essai actif avec > 5 jours restants                         -> soft
+  const showBanner =
+    locked || business?.subscription_status === "past_due" || trial;
+
+  let bannerVariant: "danger" | "warning" | "soft" = "soft";
+  if (locked || business?.subscription_status === "past_due") {
+    bannerVariant = "danger";
+  } else if (trial && trialDays !== null && trialDays <= 5) {
+    bannerVariant = "warning";
+  }
+
+  const intendedPlan: PlanId | null = isPlanId(business?.intended_plan)
+    ? business.intended_plan
+    : null;
+  const intendedInterval: BillingIntervalAlias | null =
+    business?.intended_interval === "annual" ||
+    business?.intended_interval === "monthly"
+      ? business.intended_interval
+      : null;
 
   const [
     clientsRes,
@@ -205,6 +258,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <div className="space-y-6">
+      {showBanner && (
+        <BillingBanner
+          variant={bannerVariant}
+          locked={locked}
+          pastDue={business?.subscription_status === "past_due"}
+          trialDaysRemaining={trialDays}
+          intendedPlan={intendedPlan}
+          intendedInterval={intendedInterval}
+        />
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1
