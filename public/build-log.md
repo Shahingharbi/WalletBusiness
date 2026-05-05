@@ -5,6 +5,34 @@
 
 ---
 
+## 2026-05-05 — Fix live updates Apple/Google instantanés + tampons vides visibles
+
+### Bug "live update pas instantané" (Apple+Google)
+- **Cause racine identifiée** : dans `src/app/api/scan/route.ts`, `pushAppleWalletUpdate()` était appelé en `void promise.catch(...)` (fire-and-forget). En serverless Vercel, dès que `return NextResponse.json(...)` est exécuté le lambda **termine immédiatement** et tue toutes les promesses pending → l'APNs HTTP/2 push était souvent coupé avant d'avoir fini de se connecter / d'envoyer. Symptôme côté iPhone : la carte ne se mettait à jour qu'à la prochaine ouverture manuelle du wallet, pas instantanément.
+- **Fix** : migration vers `after()` de `next/server` (Next 16, stable depuis 15.1). `after()` étend la durée du lambda jusqu'à ce que toutes les promesses settle. Conséquences :
+  - Caissier voit le retour "Tampon ajouté" **instantanément** (plus d'attente 0-3s pour le PATCH Google synchrone)
+  - Apple APNs + Google PATCH sont **garantis de finir**, même quand la réponse est déjà partie au caissier
+  - Email reward (Resend) idem — ne bloque plus le scan
+- Aucun changement nécessaire côté Apple PassKit Web Service ni côté Google Wallet API : le code de push lui-même était correct, c'est l'invocation côté serverless qui était cassée.
+
+### Strip image : tampons vides visibles sur photo
+- **Cause** : `fill="rgba(255,255,255,0.55)"` + `stroke=accent@30%` + icône `#9ca3af@25%`. Sur fond photo (kebab, pizza, boulangerie…) les tampons vides étaient quasi invisibles. Le client voyait "1/10" et un seul tampon validé sans comprendre la progression visuelle.
+- **Fix** dans `src/app/api/wallet/banner/[instanceToken]/[count]/route.tsx::renderStamp()` :
+  - Vide SVG : `fill="#ffffff"` (opaque) + `stroke=accent` plein @1.6px + icône accent 22% + `drop-shadow(0 3px 6px rgba(0,0,0,0.22))`
+  - Vide image-uploadée : `border: 2px solid accent` + ombre 0.20 (au lieu de 0.08)
+  - Suppression de `hexWithAlpha()` devenu inutile
+- Validé en typecheck `npx tsc --noEmit` ✓
+
+### Validation à faire en réel par le user
+1. Désinstaller la carte test sur l'iPhone (la précédente était installée AVANT le déploiement de `webServiceURL`/APNs → pas enregistrée côté `/v1/devices/.../registrations`)
+2. Réinstaller depuis `aswallet.fr/c/[token]/status/[instanceToken]` après le deploy Vercel (~2min)
+3. Faire scanner une carte côté tablette caissier
+4. Vérifier que l'iPhone se met à jour seul, écran allumé, en quelques secondes
+5. Idem côté Android : ouvrir Google Wallet → faire scanner → vérifier que la carte refresh en temps réel sans rouvrir l'app
+6. Vérifier dans les logs Vercel `/api/scan` qu'on voit `[apple-push] sending to serial=…, devices=N` avec N≥1
+
+---
+
 ## 2026-05-03 — Pricing relaunch + Apple Wallet APNs + design preview Apple/Google + auto-flip + 360° polish
 
 ### Pricing (validé)
