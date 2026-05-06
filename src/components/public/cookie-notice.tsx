@@ -37,14 +37,17 @@ export function CookieNotice() {
 
   if (!visible) return null;
 
+  // Position : bottom-RIGHT (pas bottom-center) pour ne pas masquer les
+  // CTAs / formulaires / QR codes du contenu central. Largeur plafonnée à
+  // 320px et padding dans `env(safe-area-inset-bottom)` pour ne pas chevaucher
+  // les nav bottom iPhone. Accents français corrigés.
   return (
     <div
       role="status"
-      className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-40 rounded-xl bg-white border border-gray-200 shadow-lg px-4 py-3 flex items-start gap-3"
+      className="fixed bottom-3 right-3 z-40 max-w-[320px] rounded-xl bg-white border border-gray-200 shadow-lg px-3 py-2.5 flex items-start gap-2 pb-[max(env(safe-area-inset-bottom),10px)]"
     >
-      <p className="text-xs text-gray-700 leading-relaxed flex-1">
-        Ce site utilise uniquement des cookies techniques necessaires a votre
-        connexion. Aucun tracking, aucune publicite.
+      <p className="text-[11px] text-gray-700 leading-snug flex-1">
+        Cookies techniques uniquement. Aucun tracking, aucune publicité.
       </p>
       <button
         type="button"
