@@ -36,6 +36,16 @@ export async function GET(
       return NextResponse.json({ error: "Carte introuvable" }, { status: 404 });
     }
 
+    // Bloque les passes revoqués / archivés / expirés. Avant ce check le
+    // merchant qui suspendait une carte voyait quand même son client
+    // re-télécharger la carte sur Android sans broncher.
+    if (instance.status !== "active") {
+      return NextResponse.json(
+        { error: "Cette carte n'est plus active" },
+        { status: 410 }
+      );
+    }
+
     const card = instance.cards as unknown as {
       id: string;
       name: string;

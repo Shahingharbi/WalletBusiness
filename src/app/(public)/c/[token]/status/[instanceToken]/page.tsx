@@ -46,6 +46,36 @@ export default async function CardStatusPage({
     );
   }
 
+  // Carte révoquée / archivée / expirée par le merchant : on affiche un état
+  // explicite plutôt que de continuer comme si de rien (bug audit : avant,
+  // la carte revoked restait pleinement consultable, tampons + boutons
+  // wallet inclus, ce qui empêchait le merchant de vraiment la suspendre).
+  if (instance.status !== "active") {
+    const statusLabel: Record<string, string> = {
+      completed: "Carte terminée",
+      expired: "Carte expirée",
+      revoked: "Carte suspendue",
+    };
+    const label = statusLabel[instance.status as string] ?? "Carte non active";
+    return (
+      <div className="flex items-center justify-center min-h-[80vh] px-4">
+        <div className="text-center max-w-sm">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+            <svg className="h-8 w-8 text-amber-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.5a9 9 0 100 18 9 9 0 000-18z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">{label}</h1>
+          <p className="text-gray-500 text-sm">
+            Cette carte n&apos;est plus active. Contactez le commerce pour
+            plus d&apos;informations.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const card = instance.cards as unknown as {
     id: string;
     name: string;
