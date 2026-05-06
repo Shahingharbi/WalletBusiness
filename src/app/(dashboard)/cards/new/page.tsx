@@ -309,6 +309,7 @@ function NewCardForm() {
               <StepDesign
                 values={form.design}
                 onChange={(design) => setForm({ ...form, design })}
+                cardType={form.type}
               />
             )}
 

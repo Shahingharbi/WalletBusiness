@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown, Check, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
+import { DEFAULT_CARD_DESIGN, type CardType } from "@/lib/constants";
 import { STAMP_ICONS, type StampIconKey } from "@/lib/stamp-icons";
 import { COLOR_PRESETS, findMatchingPreset } from "@/lib/color-presets";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,13 @@ export type CardDesign = typeof DEFAULT_CARD_DESIGN;
 interface StepDesignProps {
   values: CardDesign;
   onChange: (values: CardDesign) => void;
+  /**
+   * Type de carte. Détermine si on affiche l'UI tampons (style, forme,
+   * images, label) ou seulement la partie design générale (couleurs,
+   * logo, bannière). Pour Discount/Membership, les contrôles tampons
+   * n'ont aucun sens car la carte n'a pas de compteur.
+   */
+  cardType?: CardType;
 }
 
 function ColorField({
@@ -74,10 +81,15 @@ const SHAPES: Array<{
   },
 ];
 
-export function StepDesign({ values, onChange }: StepDesignProps) {
+export function StepDesign({ values, onChange, cardType = "stamp" }: StepDesignProps) {
   const update = <K extends keyof CardDesign>(key: K, val: CardDesign[K]) => {
     onChange({ ...values, [key]: val });
   };
+
+  // Discount/Membership : pas de compteur de tampons -> on cache toute
+  // l'UI liée (icône, forme, images, label tampons). On garde uniquement
+  // les couleurs + logo + bannière + offre de bienvenue.
+  const showStampUI = cardType === "stamp" || cardType === "cashback";
 
   const accent = values.accent_color || "#e53e3e";
   const selectedIconKey = (values.stamp_icon || "check") as StampIconKey;
@@ -231,23 +243,26 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
         )}
       </div>
 
-      {/* Labels */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label='Label "tampons"'
-          value={values.label_stamps}
-          onChange={(e) => update("label_stamps", e.target.value)}
-          placeholder="Tampons avant récompense"
-          hint="Affiché au-dessus des tampons sur la carte"
-        />
-        <Input
-          label='Label "récompenses"'
-          value={values.label_rewards}
-          onChange={(e) => update("label_rewards", e.target.value)}
-          placeholder="Récompenses disponibles"
-          hint="Texte court visible dans le wallet"
-        />
-      </div>
+      {/* Labels — visible UNIQUEMENT pour stamp/cashback (Discount/Membership
+          n'ont pas de compteur, ces champs n'apparaissent nulle part). */}
+      {showStampUI && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label={cardType === "cashback" ? 'Label "visites"' : 'Label "tampons"'}
+            value={values.label_stamps}
+            onChange={(e) => update("label_stamps", e.target.value)}
+            placeholder={cardType === "cashback" ? "Visites" : "Tampons"}
+            hint="Affiché au-dessus du compteur sur la carte"
+          />
+          <Input
+            label='Label "récompenses"'
+            value={values.label_rewards}
+            onChange={(e) => update("label_rewards", e.target.value)}
+            placeholder="Récompenses"
+            hint="Texte court visible dans le wallet"
+          />
+        </div>
+      )}
 
       {/* Upload zones */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -293,73 +308,75 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
         />
       </div>
 
-      {/* Stamp icon */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Style de tampon
-        </label>
-        <div className="grid grid-cols-7 gap-2">
-          {(Object.entries(STAMP_ICONS) as Array<[StampIconKey, { label: string; Icon: React.FC<{ className?: string }> }]>).map(
-            ([key, { Icon, label }]) => {
-              const isSel = selectedIconKey === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => update("stamp_icon", key)}
-                  title={label}
-                  className={cn(
-                    "aspect-square rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer",
-                    isSel
-                      ? "border-black shadow-sm scale-105"
-                      : "border-gray-200 hover:border-gray-400 bg-white"
-                  )}
-                  style={isSel ? { backgroundColor: `${accent}12` } : undefined}
-                >
-                  <Icon className="h-5 w-5" />
-                </button>
-              );
-            }
-          )}
-        </div>
-      </div>
+      {/* Toute l'UI tampons (icône, forme, images) cachée pour Discount/
+          Membership : ces types n'ont pas de compteur visible, donc les
+          options de personnalisation des tampons sont sans effet. */}
+      {showStampUI && (
+        <>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Style de tampon
+            </label>
+            <div className="grid grid-cols-7 gap-2">
+              {(Object.entries(STAMP_ICONS) as Array<[StampIconKey, { label: string; Icon: React.FC<{ className?: string }> }]>).map(
+                ([key, { Icon, label }]) => {
+                  const isSel = selectedIconKey === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => update("stamp_icon", key)}
+                      title={label}
+                      className={cn(
+                        "aspect-square rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer",
+                        isSel
+                          ? "border-black shadow-sm scale-105"
+                          : "border-gray-200 hover:border-gray-400 bg-white"
+                      )}
+                      style={isSel ? { backgroundColor: `${accent}12` } : undefined}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </button>
+                  );
+                }
+              )}
+            </div>
+          </div>
 
-      {/* Stamp shape */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Forme du tampon
-        </label>
-        <div className="grid grid-cols-5 gap-2">
-          {SHAPES.map((s) => {
-            const isSel = values.stamp_shape === s.key;
-            return (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => update("stamp_shape", s.key)}
-                className={cn(
-                  "flex flex-col items-center gap-1.5 py-3 rounded-lg border-2 transition-all cursor-pointer",
-                  isSel
-                    ? "border-black shadow-sm"
-                    : "border-gray-200 hover:border-gray-400 bg-white"
-                )}
-              >
-                <div
-                  className={cn("h-7 w-7", s.cls)}
-                  style={{
-                    backgroundColor: accent,
-                    ...(s.style ?? {}),
-                  }}
-                />
-                <span className="text-[10px] text-gray-600">{s.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Forme du tampon
+            </label>
+            <div className="grid grid-cols-5 gap-2">
+              {SHAPES.map((s) => {
+                const isSel = values.stamp_shape === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => update("stamp_shape", s.key)}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 py-3 rounded-lg border-2 transition-all cursor-pointer",
+                      isSel
+                        ? "border-black shadow-sm"
+                        : "border-gray-200 hover:border-gray-400 bg-white"
+                    )}
+                  >
+                    <div
+                      className={cn("h-7 w-7", s.cls)}
+                      style={{
+                        backgroundColor: accent,
+                        ...(s.style ?? {}),
+                      }}
+                    />
+                    <span className="text-[10px] text-gray-600">{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-      {/* Custom stamp images (optional) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ImageUpload
           label="Tampon actif (image, optionnel)"
           value={values.stamp_active_url}
@@ -386,7 +403,9 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
               : "Optionnel — image affichée pour les tampons non encore obtenus."
           }
         />
-      </div>
+          </div>
+        </>
+      )}
 
       {/* Welcome offer (optional) */}
       <div className="space-y-1.5">

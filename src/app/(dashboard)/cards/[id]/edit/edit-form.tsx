@@ -130,7 +130,7 @@ export function EditCardForm({
             />
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-            <StepDesign values={design} onChange={setDesign} />
+            <StepDesign values={design} onChange={setDesign} cardType={cardType} />
           </div>
 
           {/* Desktop action row */}
