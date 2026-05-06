@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { canScan } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { syncLoyaltyObject } from "@/lib/google-wallet";
+import { pushAppleWalletUpdate } from "@/lib/apple-wallet-push";
 
 export async function POST(request: Request) {
   // Reward-redemption endpoint: authenticated scanner. Cap at 20/min
@@ -63,7 +65,10 @@ export async function POST(request: Request) {
     // Verify the instance belongs to the same business
     const { data: instance } = await supabase
       .from("card_instances")
-      .select("id, business_id, rewards_available")
+      .select(
+        `id, token, business_id, rewards_available, stamps_collected,
+         cards(card_type, stamp_count, design)`,
+      )
       .eq("id", card_instance_id)
       .single();
 
@@ -104,6 +109,49 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    // Live update wallet : la récompense vient de passer de N → N-1, le tel
+    // du client doit le voir tout de suite. Sans ce push, le client gardait
+    // visuellement "1 récompense disponible" jusqu'à la prochaine ouverture
+    // manuelle de la carte → mauvaise expérience.
+    const card = instance.cards as unknown as {
+      card_type: string | null;
+      stamp_count: number;
+      design: Record<string, unknown> | null;
+    } | null;
+    const labelStamps =
+      typeof card?.design?.label_stamps === "string"
+        ? (card.design.label_stamps as string)
+        : null;
+    const ck = card?.card_type;
+    const cardKind: "stamp" | "cashback" | "discount" | "membership" =
+      ck === "cashback" || ck === "discount" || ck === "membership"
+        ? ck
+        : "stamp";
+    const newRewards = Math.max(0, (instance.rewards_available ?? 1) - 1);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
+
+    after(async () => {
+      try {
+        await syncLoyaltyObject(
+          instance.token,
+          instance.stamps_collected,
+          newRewards,
+          appUrl,
+          undefined,
+          card?.stamp_count,
+          labelStamps,
+          cardKind,
+        );
+      } catch (err) {
+        console.error("[redeem/after] syncLoyaltyObject failed:", err);
+      }
+      try {
+        await pushAppleWalletUpdate(instance.token);
+      } catch (err) {
+        console.error("[redeem/after] pushAppleWalletUpdate failed:", err);
+      }
+    });
 
     return NextResponse.json({
       success: true,
