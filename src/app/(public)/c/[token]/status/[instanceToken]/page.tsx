@@ -166,6 +166,17 @@ export default async function CardStatusPage({
           Bonjour <span className="font-semibold text-gray-900">{client.first_name}</span> !
         </p>
 
+        {/* Wallet CTA — promoted ABOVE the fold. Avant ce composant était
+            tout en bas de la page → masqué par le cookie banner ou sous le
+            fold. C'est pourtant LE call-to-action principal d'un nouveau
+            visiteur (ajouter la carte au wallet pour la sortir vite chez
+            le commerçant). */}
+        <WalletButtons
+          instanceToken={instance.token}
+          appleWalletAvailable={appleWalletAvailable}
+          googleWalletAvailable={googleWalletAvailable}
+        />
+
         {/* Reward celebration */}
         {hasReward && (
           <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 p-5 text-center">
@@ -231,15 +242,6 @@ export default async function CardStatusPage({
             Présentez ce code lors de votre prochain passage
           </p>
         </div>
-
-        {/* Wallet buttons — client-side platform detection so we only show
-            Apple Wallet to iOS users and Google Wallet to Android users.
-            Desktops/other UAs see both for demo purposes. */}
-        <WalletButtons
-          instanceToken={instance.token}
-          appleWalletAvailable={appleWalletAvailable}
-          googleWalletAvailable={googleWalletAvailable}
-        />
 
         {/* Last scan */}
         {instance.last_scanned_at && (
