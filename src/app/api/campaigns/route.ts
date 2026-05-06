@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncLoyaltyObject } from "@/lib/google-wallet";
@@ -172,34 +172,20 @@ export async function POST(request: Request) {
     );
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
+    const trimmedMessage = message.trim();
 
-    // Push wallet en parallèle (best effort, on log les échecs).
-    let pushed = 0;
-    if (targets.length > 0) {
-      const results = await Promise.allSettled(
-        targets.map((t) =>
-          syncLoyaltyObject(
-            t.token,
-            t.stamps_collected,
-            t.rewards_available,
-            appUrl,
-            message,
-            card.stamp_count
-          )
-        )
-      );
-      for (const r of results) {
-        if (r.status === "fulfilled" && r.value?.ok) pushed++;
-      }
-    }
-
-    // Insère la campagne dans la DB (RLS via supabase auth).
+    // Insert la campagne en DB IMMÉDIATEMENT (recipients_count = ce qu'on
+    // s'apprête à pusher). Renvoie sa row au merchant tout de suite. Le
+    // push wallet (potentiellement long sur 2000 destinataires) part en
+    // arrière-plan via `after()` — sinon Vercel coupait silencieusement
+    // au-delà de ~20 destinataires (timeout 60s, Google rate-limite à
+    // 20 req/s donc 2000 dest = 100s mini en parallèle full).
     const { data: inserted, error: insertError } = await supabase
       .from("campaigns")
       .insert({
         card_id: cardId,
         business_id: profile.business_id,
-        message: message.trim(),
+        message: trimmedMessage,
         segment: seg,
         recipients_count: targets.length,
         created_by: profile.id,
@@ -215,6 +201,44 @@ export async function POST(request: Request) {
       );
     }
 
+    if (targets.length > 0) {
+      const stampsTotal = card.stamp_count;
+      after(async () => {
+        // Concurrency 8 : Google Wallet rate-limite à ~20 req/s par défaut.
+        // 8 en parallèle laisse de la marge sans saturer + ne pète pas
+        // les sockets HTTP/2 sortantes du lambda.
+        const CONCURRENCY = 8;
+        let ok = 0;
+        let fail = 0;
+        for (let i = 0; i < targets.length; i += CONCURRENCY) {
+          const batch = targets.slice(i, i + CONCURRENCY);
+          const results = await Promise.allSettled(
+            batch.map((t) =>
+              syncLoyaltyObject(
+                t.token,
+                t.stamps_collected,
+                t.rewards_available,
+                appUrl,
+                trimmedMessage,
+                stampsTotal,
+              ),
+            ),
+          );
+          for (const r of results) {
+            if (r.status === "fulfilled" && r.value?.ok) ok++;
+            else fail++;
+          }
+        }
+        console.info(
+          "[campaigns/after] campaign=%s targets=%d ok=%d fail=%d",
+          inserted.id,
+          targets.length,
+          ok,
+          fail,
+        );
+      });
+    }
+
     // TODO Apple Wallet phase 2 : APNs push live nécessite un certificat APNs
     // séparé du Pass Type cert. En phase 1, le message s'affichera dans le
     // back-of-card lorsque l'utilisateur ouvrira la carte (cf. backFields).
@@ -223,7 +247,9 @@ export async function POST(request: Request) {
       id: inserted.id,
       sent_at: inserted.sent_at,
       recipients: targets.length,
-      pushed_to_google: pushed,
+      // pushed_to_google n'est plus retourné : le push a lieu en background
+      // et finit après la réponse. Le front affichera "X destinataires
+      // ciblés, l'envoi est en cours" au lieu de mentir avec un faux compteur.
     });
   } catch (err) {
     console.error("POST /api/campaigns error:", err);
