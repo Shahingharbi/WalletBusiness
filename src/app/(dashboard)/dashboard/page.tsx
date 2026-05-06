@@ -165,7 +165,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .lte("created_at", end.toISOString()),
     supabase
       .from("transactions")
-      .select("id, type, created_at, card_instance_id, card_instances(card_id, cards(name), clients(first_name, last_name))")
+      .select("id, type, created_at, card_instance_id, card_instances(card_id, cards(id, name), client_id, clients(id, first_name, last_name))")
       .eq("business_id", businessId)
       .order("created_at", { ascending: false })
       .limit(8),
@@ -429,15 +429,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <div className="divide-y divide-gray-100">
               {transactions.map((tx) => {
                 const ci = tx.card_instances as unknown as {
-                  cards: { name: string } | null;
-                  clients: { first_name: string | null; last_name: string | null } | null;
+                  cards: { id: string; name: string } | null;
+                  clients: { id: string; first_name: string | null; last_name: string | null } | null;
                 } | null;
                 const clientName = ci?.clients
                   ? `${ci.clients.first_name ?? ""} ${ci.clients.last_name ?? ""}`.trim() || "Anonyme"
                   : "Client";
                 const cardName = ci?.cards?.name ?? "";
-                return (
-                  <div key={tx.id} className="flex items-center justify-between py-3">
+                const clientHref = ci?.clients?.id ? `/clients/${ci.clients.id}` : null;
+                const inner = (
+                  <>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900">
                         {clientName}
@@ -452,6 +453,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     <p className="text-xs text-gray-400 shrink-0 ml-3">
                       {formatRelative(tx.created_at)}
                     </p>
+                  </>
+                );
+                // Lien vers la fiche client si on a un client_id (entrée riche
+                // qui mène quelque part). Sinon row statique. Avant: tout
+                // était statique → "feed visuelle frustrante" disait l'audit.
+                return clientHref ? (
+                  <Link
+                    key={tx.id}
+                    href={clientHref}
+                    className="flex items-center justify-between py-3 -mx-2 px-2 rounded hover:bg-beige/50 transition-colors"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={tx.id} className="flex items-center justify-between py-3">
+                    {inner}
                   </div>
                 );
               })}
