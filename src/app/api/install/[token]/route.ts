@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email";
@@ -167,22 +167,39 @@ export async function POST(
       });
     }
 
-    // Notify the merchant — fire-and-forget so it never blocks the response.
-    void notifyMerchantCardInstalled(supabase, card.business_id, card.id);
-
-    if (welcomeReward && clientId) {
-      // Best-effort : push wallet + email client si on a un email.
-      void deliverWelcomeOffer({
-        supabase,
-        instanceToken: instance.token,
-        clientId,
-        cardId: card.id,
-        cardName: card.name,
-        businessId: card.business_id,
-        welcomeReward,
-        initialRewards,
-      });
-    }
+    // Side-effects post-install (email merchant + welcome offer push wallet
+    // + email client). DOIVENT passer par `after()` car on est en serverless
+    // Vercel : un `void promise.catch()` est tué dès que la response part →
+    // l'email merchant et la welcome offer n'arrivaient JAMAIS en prod.
+    // `after()` étend la durée du lambda jusqu'à ce que tout settle.
+    const cardId = card.id;
+    const cardName = card.name;
+    const businessId = card.business_id;
+    const instanceToken = instance.token;
+    const finalClientId = clientId;
+    after(async () => {
+      try {
+        await notifyMerchantCardInstalled(supabase, businessId, cardId);
+      } catch (err) {
+        console.error("[install/after] notifyMerchant failed:", err);
+      }
+      if (welcomeReward && finalClientId) {
+        try {
+          await deliverWelcomeOffer({
+            supabase,
+            instanceToken,
+            clientId: finalClientId,
+            cardId,
+            cardName,
+            businessId,
+            welcomeReward,
+            initialRewards,
+          });
+        } catch (err) {
+          console.error("[install/after] deliverWelcomeOffer failed:", err);
+        }
+      }
+    });
 
     return NextResponse.json(
       { instance_token: instance.token },
@@ -227,13 +244,19 @@ async function deliverWelcomeOffer(args: {
 
     // Push Google Wallet (no-op si l'utilisateur n'a pas encore ajouté la
     // carte à Google Wallet — totalement normal au moment de l'install).
-    void syncLoyaltyObject(
-      instanceToken,
-      0,
-      initialRewards,
-      appUrl,
-      `Bienvenue ! Voici votre offre : ${welcomeReward}`
-    ).catch(() => undefined);
+    // Awaited maintenant qu'on est sous `after()` côté caller : le push
+    // Google avait jusqu'ici 0 chance de finir (lambda terminait avant).
+    try {
+      await syncLoyaltyObject(
+        instanceToken,
+        0,
+        initialRewards,
+        appUrl,
+        `Bienvenue ! Voici votre offre : ${welcomeReward}`,
+      );
+    } catch {
+      // silencieux : l'install ne doit pas casser si Google hoquette
+    }
 
     // Email client si on connait son email (form actuel ne le capture pas
     // mais un commerçant peut renseigner un email sur la fiche client).
