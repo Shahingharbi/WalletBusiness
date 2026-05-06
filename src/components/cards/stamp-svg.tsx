@@ -142,8 +142,11 @@ export function StampSvg({
     );
   }
 
-  // Vide : fond BLANC opaque + bord accent FORT + icône accent 22 % + ombre.
-  // Visible sur photo, fond accent vif, fond sombre, fond clair — peu importe.
+  // Vide : fond BLANC opaque + bord accent FORT + ombre douce.
+  // PAS d'icône à l'intérieur (avant on rendait l'icône à 22% d'opacité,
+  // mais ça donnait l'illusion d'un tampon validé pour les clients).
+  // Le cercle vide est maintenant CLAIREMENT vide visuellement, comme dans
+  // les vraies cartes de fidélité papier.
   return (
     <div
       style={{
@@ -152,7 +155,7 @@ export function StampSvg({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.22))",
+        filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.18))",
       }}
     >
       <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block" }}>
@@ -162,8 +165,8 @@ export function StampSvg({
           stroke={accent}
           strokeWidth={1.6}
           strokeLinejoin="round"
+          strokeOpacity={0.5}
         />
-        <path d={iconPath} fill={accent} opacity={0.22} />
       </svg>
     </div>
   );

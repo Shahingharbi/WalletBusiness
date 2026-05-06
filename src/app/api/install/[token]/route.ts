@@ -20,7 +20,7 @@ export async function POST(
     const { token } = await params;
     const supabase = createAdminClient();
     const body = await request.json();
-    const { first_name, phone } = body;
+    const { first_name, phone, consent } = body;
 
     if (!first_name || typeof first_name !== "string" || !first_name.trim()) {
       return NextResponse.json(
@@ -29,12 +29,19 @@ export async function POST(
       );
     }
 
-    // RGPD — checkbox de consentement supprimée pour réduire la friction
-    // (parent feedback : taux d'install / taux d'abandon trop élevé). On
-    // garde une trace internal en logs : timestamp + IP + user-agent. La page
-    // d'inscription affiche désormais un texte sous le bouton qui pointe vers
-    // /privacy et fait office d'acceptation tacite (pratique courante : les
-    // sites e-commerce font pareil).
+    // RGPD : consent OBLIGATOIRE côté serveur. Avant on acceptait sans
+    // checkbox (acceptation tacite) → pas conforme CNIL (le consentement
+    // doit être un acte positif clair art. 4 §11 RGPD). On rejette les
+    // requêtes sans consent: true.
+    if (consent !== true) {
+      return NextResponse.json(
+        {
+          error:
+            "Vous devez accepter le traitement de vos données pour recevoir votre carte de fidélité.",
+        },
+        { status: 422 }
+      );
+    }
     const consentLog = {
       ts: new Date().toISOString(),
       ip:
@@ -43,7 +50,7 @@ export async function POST(
         null,
       ua: request.headers.get("user-agent") ?? null,
     };
-    console.info("[install] implicit consent recorded:", consentLog);
+    console.info("[install] explicit consent recorded:", consentLog);
 
     // Get card by id (token = card.id for now)
     const { data: card, error: cardError } = await supabase

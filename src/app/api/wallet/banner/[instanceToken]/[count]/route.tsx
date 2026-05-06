@@ -512,11 +512,9 @@ function renderStamp(p: StampProps) {
     );
   }
 
-  // Vide : tampon "scellé en attente" — disque blanc opaque, bord accent FORT,
-  // ombre, icône fanée. Il faut qu'il soit AUSSI VISIBLE qu'un tampon validé
-  // sur photo de kebab/pizza/etc. (sinon le client voit "1/10" au lieu de
-  // "1 sur 10 tampons" → mauvais signal d'état). Le contraste vide vs validé
-  // se joue sur la COULEUR DU FOND (blanc vs accent), pas sur l'opacité.
+  // Vide : disque blanc + bord accent à 50% (clairement "en attente").
+  // PAS d'icône interne (avant on l'affichait à 22% mais le client confondait
+  // avec un tampon validé). Cohérent avec <StampSvg /> côté preview.
   return (
     <div
       key={p.key}
@@ -526,9 +524,7 @@ function renderStamp(p: StampProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        // Ombre plus discrète que le validé pour distinguer les deux états
-        // au premier coup d'œil.
-        filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.22))",
+        filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.18))",
       }}
     >
       <svg
@@ -543,8 +539,8 @@ function renderStamp(p: StampProps) {
           stroke={p.accent}
           strokeWidth={1.6}
           strokeLinejoin="round"
+          strokeOpacity={0.5}
         />
-        <path d={iconPath} fill={p.accent} opacity={0.22} />
       </svg>
     </div>
   );

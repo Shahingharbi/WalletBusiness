@@ -37,13 +37,48 @@ export function ShareCard({ qrDataUrl, cardPublicUrl, cardName }: ShareCardProps
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
+    // 1) Tentative API moderne (HTTPS + focus required).
     try {
       await navigator.clipboard.writeText(cardPublicUrl);
       setCopied(true);
       toast.success("Lien copié dans le presse-papier");
       setTimeout(() => setCopied(false), 1800);
+      return;
     } catch {
-      toast.error("Impossible de copier");
+      // navigator.clipboard peut throw si la page n'a pas le focus, ou
+      // dans certains contextes embedded. On retombe sur le fallback DOM.
+    }
+
+    // 2) Fallback document.execCommand("copy") via textarea hors-écran.
+    // Marche dans 99% des navigateurs même quand clipboard API plante.
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = cardPublicUrl;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-9999px";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, cardPublicUrl.length);
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (ok) {
+        setCopied(true);
+        toast.success("Lien copié dans le presse-papier");
+        setTimeout(() => setCopied(false), 1800);
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    // 3) Dernier recours : afficher l'URL sélectionnable via prompt() pour
+    // que l'utilisateur puisse copier à la main.
+    if (typeof window !== "undefined") {
+      window.prompt("Copiez le lien manuellement :", cardPublicUrl);
+    } else {
+      toast.error("Impossible de copier le lien");
     }
   };
 
