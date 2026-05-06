@@ -215,64 +215,137 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-gray-100 bg-gray-50/50">
-                <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                  <th className="px-5 py-3 font-medium">Client</th>
-                  <th className="px-5 py-3 font-medium">Téléphone</th>
-                  <th className="px-5 py-3 font-medium">Cartes</th>
-                  <th className="px-5 py-3 font-medium">Tampons</th>
-                  <th className="px-5 py-3 font-medium">Récompenses</th>
-                  <th className="px-5 py-3 font-medium">Dernier scan</th>
-                  <th className="px-5 py-3 font-medium">Segment</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map((c) => {
-                  const segMeta = SEGMENT_LABELS[c.segment];
-                  const segVariant: "success" | "secondary" | "warning" | "default" =
-                    c.segment === "champion"
-                      ? "success"
-                      : c.segment === "loyal"
-                        ? "default"
-                        : c.segment === "at_risk"
-                          ? "warning"
-                          : "secondary";
-                  return (
-                    <tr key={c.id} className="hover:bg-gray-50/50">
-                      <td className="px-5 py-3">
-                        <Link href={`/clients/${c.id}`} className="font-medium text-gray-900 hover:text-emerald-600 hover:underline">
-                          {c.first_name || "Anonyme"} {c.last_name ?? ""}
-                        </Link>
-                      </td>
-                      <td className="px-5 py-3 text-gray-600">{c.phone ?? "-"}</td>
-                      <td className="px-5 py-3 text-gray-900">{c.cards_count}</td>
-                      <td className="px-5 py-3 text-gray-900">{c.total_stamps}</td>
-                      <td className="px-5 py-3">
-                        {c.rewards > 0 ? (
-                          <span className="text-amber-600 font-semibold">{c.rewards}</span>
-                        ) : (
-                          <span className="text-gray-400">0</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-gray-500">
+        <>
+          {/* Mobile : cards stack — le tableau 7 colonnes est illisible sur
+              375px (les colonnes "Tampons / Récompenses / Dernier scan / Segment"
+              s'écrasent en "TAMPO..." / "RÉCOM..."). On rend chaque client
+              comme une mini-card avec les infos clés. */}
+          <div className="md:hidden space-y-2">
+            {filtered.map((c) => {
+              const segMeta = SEGMENT_LABELS[c.segment];
+              const segVariant: "success" | "secondary" | "warning" | "default" =
+                c.segment === "champion"
+                  ? "success"
+                  : c.segment === "loyal"
+                    ? "default"
+                    : c.segment === "at_risk"
+                      ? "warning"
+                      : "secondary";
+              return (
+                <Link
+                  key={c.id}
+                  href={`/clients/${c.id}`}
+                  className="block bg-white rounded-lg border border-gray-100 px-4 py-3 hover:border-gray-300 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-gray-900 truncate">
+                        {c.first_name || "Anonyme"} {c.last_name ?? ""}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {c.phone ?? "Pas de téléphone"}
+                      </p>
+                    </div>
+                    <Badge variant={segVariant} className="shrink-0">
+                      <span className="mr-1">{segMeta.emoji}</span>
+                      {segMeta.label.replace(/s$/, "")}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <p className="text-gray-400 uppercase tracking-wider text-[10px]">
+                        Tampons
+                      </p>
+                      <p className="font-medium text-gray-900">{c.total_stamps}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 uppercase tracking-wider text-[10px]">
+                        Récompenses
+                      </p>
+                      <p
+                        className={
+                          c.rewards > 0
+                            ? "font-semibold text-amber-600"
+                            : "text-gray-400"
+                        }
+                      >
+                        {c.rewards}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 uppercase tracking-wider text-[10px]">
+                        Dernier scan
+                      </p>
+                      <p className="text-gray-700 truncate">
                         {c.last_scan ? formatRelative(c.last_scan) : "Jamais"}
-                      </td>
-                      <td className="px-5 py-3">
-                        <Badge variant={segVariant}>
-                          <span className="mr-1">{segMeta.emoji}</span>
-                          {segMeta.label.replace(/s$/, "")}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
-        </Card>
+
+          {/* Desktop : tableau classique 7 colonnes. */}
+          <Card className="hidden md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-gray-100 bg-gray-50/50">
+                  <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="px-5 py-3 font-medium">Client</th>
+                    <th className="px-5 py-3 font-medium">Téléphone</th>
+                    <th className="px-5 py-3 font-medium">Cartes</th>
+                    <th className="px-5 py-3 font-medium">Tampons</th>
+                    <th className="px-5 py-3 font-medium">Récompenses</th>
+                    <th className="px-5 py-3 font-medium">Dernier scan</th>
+                    <th className="px-5 py-3 font-medium">Segment</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filtered.map((c) => {
+                    const segMeta = SEGMENT_LABELS[c.segment];
+                    const segVariant: "success" | "secondary" | "warning" | "default" =
+                      c.segment === "champion"
+                        ? "success"
+                        : c.segment === "loyal"
+                          ? "default"
+                          : c.segment === "at_risk"
+                            ? "warning"
+                            : "secondary";
+                    return (
+                      <tr key={c.id} className="hover:bg-gray-50/50">
+                        <td className="px-5 py-3">
+                          <Link href={`/clients/${c.id}`} className="font-medium text-gray-900 hover:text-emerald-600 hover:underline">
+                            {c.first_name || "Anonyme"} {c.last_name ?? ""}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-3 text-gray-600">{c.phone ?? "-"}</td>
+                        <td className="px-5 py-3 text-gray-900">{c.cards_count}</td>
+                        <td className="px-5 py-3 text-gray-900">{c.total_stamps}</td>
+                        <td className="px-5 py-3">
+                          {c.rewards > 0 ? (
+                            <span className="text-amber-600 font-semibold">{c.rewards}</span>
+                          ) : (
+                            <span className="text-gray-400">0</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-gray-500">
+                          {c.last_scan ? formatRelative(c.last_scan) : "Jamais"}
+                        </td>
+                        <td className="px-5 py-3">
+                          <Badge variant={segVariant}>
+                            <span className="mr-1">{segMeta.emoji}</span>
+                            {segMeta.label.replace(/s$/, "")}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
       )}
     </div>
   );
