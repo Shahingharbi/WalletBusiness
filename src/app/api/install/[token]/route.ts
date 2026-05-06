@@ -48,7 +48,7 @@ export async function POST(
     // Get card by id (token = card.id for now)
     const { data: card, error: cardError } = await supabase
       .from("cards")
-      .select("id, business_id, status, name, reward_text, design")
+      .select("id, business_id, card_type, status, name, reward_text, design, stamp_count")
       .eq("id", token)
       .single();
 
@@ -185,6 +185,15 @@ export async function POST(
       }
       if (welcomeReward && finalClientId) {
         try {
+          const ck = (card as { card_type?: string | null }).card_type;
+          const cardKind: "stamp" | "cashback" | "discount" | "membership" =
+            ck === "cashback" || ck === "discount" || ck === "membership"
+              ? ck
+              : "stamp";
+          const labelStamps =
+            typeof (card.design as Record<string, unknown> | null)?.label_stamps === "string"
+              ? ((card.design as Record<string, unknown>).label_stamps as string)
+              : null;
           await deliverWelcomeOffer({
             supabase,
             instanceToken,
@@ -194,6 +203,9 @@ export async function POST(
             businessId,
             welcomeReward,
             initialRewards,
+            cardKind,
+            labelStamps,
+            stampsTotal: (card as { stamp_count?: number }).stamp_count ?? 8,
           });
         } catch (err) {
           console.error("[install/after] deliverWelcomeOffer failed:", err);
@@ -228,6 +240,9 @@ async function deliverWelcomeOffer(args: {
   businessId: string;
   welcomeReward: string;
   initialRewards: number;
+  cardKind: "stamp" | "cashback" | "discount" | "membership";
+  labelStamps: string | null;
+  stampsTotal: number;
 }): Promise<void> {
   const {
     supabase,
@@ -238,6 +253,9 @@ async function deliverWelcomeOffer(args: {
     businessId,
     welcomeReward,
     initialRewards,
+    cardKind,
+    labelStamps,
+    stampsTotal,
   } = args;
   try {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
@@ -253,6 +271,9 @@ async function deliverWelcomeOffer(args: {
         initialRewards,
         appUrl,
         `Bienvenue ! Voici votre offre : ${welcomeReward}`,
+        stampsTotal,
+        labelStamps,
+        cardKind,
       );
     } catch {
       // silencieux : l'install ne doit pas casser si Google hoquette

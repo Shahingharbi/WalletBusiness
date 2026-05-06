@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     // + auto_push_settings.
     const { data: cards } = await supabase
       .from("cards")
-      .select("id, name, stamp_count, reward_text, auto_push_settings")
+      .select("id, name, card_type, stamp_count, reward_text, design, auto_push_settings")
       .eq("business_id", biz.id)
       .eq("status", "active");
 
@@ -101,13 +101,36 @@ export async function GET(request: Request) {
     const cardById = new Map(cards.map((c) => [c.id, c]));
 
     for (const inst of instances) {
-      const card = cardById.get(inst.card_id);
+      const card = cardById.get(inst.card_id) as
+        | {
+            id: string;
+            name: string;
+            card_type: string | null;
+            stamp_count: number;
+            reward_text: string;
+            design: Record<string, unknown> | null;
+            auto_push_settings: unknown;
+          }
+        | undefined;
       if (!card) continue;
       const settings = (card.auto_push_settings ?? {}) as {
         inactive_30d?: { enabled?: boolean; message?: string };
         near_reward_80?: { enabled?: boolean; message?: string };
         birthday?: { enabled?: boolean; message?: string };
       };
+      // CardKind + label_stamps : à propager à syncLoyaltyObject pour ne
+      // pas pousser un compteur sur des cartes Discount/Membership.
+      const ck = card.card_type;
+      const cardKind: "stamp" | "cashback" | "discount" | "membership" =
+        ck === "cashback" || ck === "discount" || ck === "membership"
+          ? ck
+          : "stamp";
+      const labelStamps =
+        typeof card.design?.label_stamps === "string"
+          ? (card.design.label_stamps as string)
+          : null;
+      // Skip near_reward_80 pour les cartes sans compteur (n'a aucun sens).
+      const isCounter = cardKind === "stamp" || cardKind === "cashback";
 
       const lastScanIso = inst.last_scanned_at;
       const client = inst.clients as unknown as {
@@ -133,7 +156,9 @@ export async function GET(request: Request) {
             inst.rewards_available,
             appUrl,
             msg,
-            card.stamp_count
+            card.stamp_count,
+            labelStamps,
+            cardKind,
           );
           if (r.ok) {
             totalInactivePushed++;
@@ -148,7 +173,9 @@ export async function GET(request: Request) {
 
       // ── Trigger 2: near_reward_80 ───────────────────────────────
       // Cooldown : 7j (sinon spam si stamps_collected stagne).
-      if (settings.near_reward_80?.enabled !== false) {
+      // Skip pour Discount/Membership : pas de compteur → "Plus que N
+      // tampons pour gagner..." n'a aucun sens.
+      if (isCounter && settings.near_reward_80?.enabled !== false) {
         const lastSent = lastByKey.get(`${inst.id}::near_reward_80`);
         const stale = !lastSent || lastSent < sevenDaysAgo;
         const ratio =
@@ -173,7 +200,9 @@ export async function GET(request: Request) {
             inst.rewards_available,
             appUrl,
             msg,
-            card.stamp_count
+            card.stamp_count,
+            labelStamps,
+            cardKind,
           );
           if (r.ok) {
             totalNearRewardPushed++;

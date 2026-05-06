@@ -147,7 +147,7 @@ export async function POST(request: Request) {
     // Vérifie que la carte appartient bien au commerce.
     const { data: card } = await supabase
       .from("cards")
-      .select("id, business_id, stamp_count")
+      .select("id, business_id, card_type, stamp_count, design")
       .eq("id", cardId)
       .eq("business_id", profile.business_id)
       .single();
@@ -203,6 +203,17 @@ export async function POST(request: Request) {
 
     if (targets.length > 0) {
       const stampsTotal = card.stamp_count;
+      const ck = (card as { card_type?: string | null }).card_type;
+      const cardKind: "stamp" | "cashback" | "discount" | "membership" =
+        ck === "cashback" || ck === "discount" || ck === "membership"
+          ? ck
+          : "stamp";
+      const labelStamps =
+        typeof (card as { design?: { label_stamps?: unknown } }).design
+          ?.label_stamps === "string"
+          ? ((card as { design: { label_stamps: string } }).design.label_stamps)
+          : null;
+
       after(async () => {
         // Concurrency 8 : Google Wallet rate-limite à ~20 req/s par défaut.
         // 8 en parallèle laisse de la marge sans saturer + ne pète pas
@@ -221,6 +232,8 @@ export async function POST(request: Request) {
                 appUrl,
                 trimmedMessage,
                 stampsTotal,
+                labelStamps,
+                cardKind,
               ),
             ),
           );
