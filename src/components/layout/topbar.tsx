@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, Bell, ScanLine } from "lucide-react";
+import { Menu, ScanLine } from "lucide-react";
 import { UserMenu } from "./user-menu";
 
 interface TopbarUser {
@@ -46,12 +46,9 @@ export function Topbar({ user, businessName, onMenuClick }: TopbarProps) {
           <span className="hidden sm:inline">Scanner</span>
         </Link>
 
-        <button
-          className="relative p-2 rounded-full text-muted-foreground hover:bg-beige hover:text-foreground transition-colors cursor-pointer"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-        </button>
+        {/* Bell de notifications retirée — pas de système de notifs implémenté
+            côté backend, le bouton n'avait aucun handler donc cliquer ne
+            faisait rien. À ré-ajouter quand les notifs seront en place. */}
 
         <UserMenu user={user} variant="topbar" />
       </div>

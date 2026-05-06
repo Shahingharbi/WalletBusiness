@@ -84,7 +84,7 @@ export function Sidebar({ user, role }: SidebarProps) {
               className="text-2xl font-bold text-foreground"
               style={{ fontFamily: "var(--font-ginto-nord)" }}
             >
-              F
+              a
             </span>
           )}
         </Link>

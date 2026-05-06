@@ -106,7 +106,7 @@ export function UserMenu({ user, variant = "topbar", compact = false }: UserMenu
             role="menuitem"
           >
             <Settings className="h-4 w-4" />
-            Parametres
+            Paramètres
           </Link>
           <button
             type="button"
@@ -116,7 +116,7 @@ export function UserMenu({ user, variant = "topbar", compact = false }: UserMenu
             role="menuitem"
           >
             <LogOut className="h-4 w-4" />
-            {signingOut ? "Deconnexion..." : "Deconnexion"}
+            {signingOut ? "Déconnexion…" : "Déconnexion"}
           </button>
         </div>
       )}
