@@ -152,6 +152,23 @@ export async function POST(request: Request) {
       );
     }
 
+    // RPC retourne `{ success: false, error: '...' }` quand la dedup atomique
+    // rejette (migration 012). Avant ce check, l'API refetchait card_instances,
+    // voyait stamps_collected inchangé, et retournait success: true ATypiquement
+    // — le caissier croyait avoir validé alors que rien n'avait été incrémenté.
+    if (
+      stampResult &&
+      typeof stampResult === "object" &&
+      "success" in stampResult &&
+      stampResult.success === false
+    ) {
+      const rpcError =
+        ("error" in stampResult && typeof stampResult.error === "string"
+          ? (stampResult.error as string)
+          : null) || "Tampon refusé";
+      return NextResponse.json({ error: rpcError }, { status: 429 });
+    }
+
     // The RPC should return updated stamp count, but let's refetch to be safe
     const { data: updated } = await supabase
       .from("card_instances")
