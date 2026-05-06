@@ -409,7 +409,9 @@ interface StampProps {
 }
 
 function renderStamp(p: StampProps) {
-  const url = p.filled ? p.activeUrl : p.inactiveUrl;
+  // Si le merchant n'a uploadé QUE le tampon actif, on le réutilise pour
+  // les vides à opacité réduite (sinon mélange image/SVG-fallback moche).
+  const url = p.filled ? p.activeUrl : (p.inactiveUrl ?? p.activeUrl);
   if (url) {
     // Image custom uploadée par le merchant — on garde le ratio sans masquage,
     // mais on respecte la shape via border-radius (compromis pratique).

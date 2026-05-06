@@ -69,7 +69,14 @@ export function StampSvg({
   // Branche "image custom" : le merchant a uploadé une photo de tampon.
   // On approxime la shape via border-radius (compromis pratique : Satori
   // côté banner endpoint fait pareil — pixel-parity assurée).
-  const url = filled ? activeUrl : inactiveUrl;
+  //
+  // Important : si le merchant a uploadé SEULEMENT l'image active (cas
+  // courant : "ma photo de logo"), on la réutilise aussi pour les tampons
+  // vides à opacité réduite. Avant ce fallback, les remplis montraient
+  // l'image et les vides un SVG fallback générique → look schizophrénique.
+  const url = filled
+    ? activeUrl
+    : inactiveUrl ?? activeUrl;
   if (url) {
     const radius =
       normalizedShape === "circle"
