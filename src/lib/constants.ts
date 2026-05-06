@@ -60,8 +60,12 @@ export const DEFAULT_CARD_DESIGN = {
   stamp_inactive_icon: "circle",
   stamp_active_url: null as string | null,
   stamp_inactive_url: null as string | null,
-  label_stamps: "Tampons avant récompense",
-  label_rewards: "Récompenses disponibles",
+  // Labels courts UNIQUEMENT — Apple Wallet et Google Wallet rendent ces
+  // labels dans des slots étroits (~60px), ils tronquent à ~14-18 chars en
+  // ellipsis. "Tampons avant récompense" devenait "Tampons avant ré..." →
+  // moche et inutile. On reste sur 1 seul mot par défaut.
+  label_stamps: "Tampons",
+  label_rewards: "Récompenses",
   /** Offre de bienvenue affichée et débloquée à l'installation (optionnel). */
   welcome_reward: "" as string,
 };

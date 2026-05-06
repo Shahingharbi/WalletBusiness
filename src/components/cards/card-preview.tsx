@@ -164,21 +164,21 @@ function SinglePreview({
 
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
-  // Couleurs : règles spécifiques à chaque plate-forme.
+  // Couleurs : depuis l'overhaul cohérence, les DEUX plateformes utilisent le
+  // même `effectiveBgColor` (auto-flip vers sombre si fond merchant trop
+  // clair, sinon respect du choix). Garantit que le merchant voit la même
+  // carte des 2 côtés sur ses 2 téléphones — fini les "Apple blanc / Google
+  // sombre" qui rendaient le designer schizophrénique.
   const designBg = design.background_color || "#1a1a1a";
   const accentColor = design.accent_color || "#e53e3e";
   const designTextColor = (design.text_color || "").trim();
-
-  // Apple : merchant pilote la couleur de texte. Si vide -> auto-contraste.
-  // Google : on auto-flippe le fond vers du sombre si le merchant a choisi
-  // clair (Google force le texte blanc -> illisible). Texte toujours blanc.
-  const cardBg =
-    platform === "apple" ? designBg : googleEffectiveBgColor(designBg, accentColor);
+  const cardBg = googleEffectiveBgColor(designBg, accentColor);
+  // Apple respecte text_color du merchant (texte custom). Google force blanc.
   const onCardText =
     platform === "apple"
       ? designTextColor.length > 0
         ? designTextColor
-        : luminance(designBg) > 0.6
+        : luminance(cardBg) > 0.6
           ? "#141414"
           : "#ffffff"
       : "#ffffff";

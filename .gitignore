@@ -46,3 +46,6 @@ google-wallet-key.json
 
 # Apple Wallet certs (privée + cer + p12 — JAMAIS commiter)
 .apple-wallet/
+
+# QA artifacts (screenshots, decoded pkpass, etc.)
+.qa/

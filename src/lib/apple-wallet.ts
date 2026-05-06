@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import { googleEffectiveBgColor, shortLabel } from "./wallet-colors";
 
 /**
  * Localisation embarquée dans un pass Apple/Google.
@@ -273,17 +274,28 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   //
   // Cas user "fond blanc + texte blanc" -> auto-fix : on force foreground
   // noir car luminance(white) > 0.6.
-  const bgColor = hexToRgb(p.backgroundColor);
+  // COHÉRENCE Apple ↔ Google : on aligne le fond Apple sur celui que Google
+  // utilisera côté Android. Sans ça, un merchant qui choisit du blanc voit
+  // Apple = blanc + Google = sombre auto-flippé → 2 cartes visuellement
+  // différentes sur ses 2 téléphones. C'est le bug que les utilisateurs
+  // remontent en boucle.
+  //
+  // Règle : si le fond merchant est sombre/contrasté (luminance ≤ 0.6), on
+  // le garde tel quel des deux côtés. Si trop clair, on bascule sur la
+  // version "effective Google" partout. Apple n'est plus libre côté fond,
+  // mais en échange le merchant a UNE SEULE carte cohérente.
+  const effectiveBgHex = googleEffectiveBgColor(
+    p.backgroundColor,
+    p.accentColor,
+  );
+  const bgColor = hexToRgb(effectiveBgHex);
   const textColorHex =
     p.textColor && p.textColor.trim().length > 0
       ? p.textColor.trim()
       : null;
   const fgColor = textColorHex
     ? hexToRgb(textColorHex)
-    : autoForeground(p.backgroundColor);
-  // labelColor : on prend la même teinte que foreground mais légèrement
-  // dégradée (Apple les rend en uppercase + plus petit, donc on doit garantir
-  // qu'ils restent lisibles). Pour simplicité on les garde identiques au fg.
+    : autoForeground(effectiveBgHex);
   const labelColor = fgColor;
 
   // PassKit Web Service : si on a un AUTH_SECRET, on embarque le webServiceURL
@@ -309,7 +321,11 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
       passTypeIdentifier: PASS_TYPE_ID,
       teamIdentifier: TEAM_ID,
       serialNumber: p.customerInstanceToken,
-      description: `${p.cardName} — ${p.businessName}`,
+      // Apple n'affiche jamais `description` visuellement — c'est utilisé
+      // par Spotlight Search et VoiceOver. Juste le nom de la carte suffit
+      // (avant: "Carte fidélité — Demo aswallet" → polluait le résultat de
+      // recherche avec le nom interne du business).
+      description: p.cardName,
       organizationName: p.businessName,
       foregroundColor: fgColor,
       backgroundColor: bgColor,
@@ -357,15 +373,11 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   // surchargeaient la carte sans valeur informationnelle pour le client.
   pass.type = "storeCard";
 
-  // Label compteur : par défaut "Tampons" mais le merchant peut customiser
-  // ("Visites", "Cafés", "Achats", etc.). On tronque à 18 chars pour rester
-  // lisible dans le headerField étroit d'Apple Wallet.
-  const stampsLabel =
-    (p.stampsLabel && p.stampsLabel.trim().slice(0, 18)) || "Tampons";
-
+  // Label compteur : on utilise `shortLabel()` qui garde le 1er mot quand
+  // c'est trop long (au lieu de tronquer en "Tampons avant ré...").
   pass.headerFields.push({
     key: "points",
-    label: stampsLabel,
+    label: shortLabel(p.stampsLabel, "Tampons", 14),
     value: `${p.stampsCollected} / ${p.stampsTotal}`,
   });
 

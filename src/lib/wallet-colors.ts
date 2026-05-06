@@ -1,8 +1,40 @@
 /**
- * Helpers couleur partagés entre le générateur Google Wallet (server) et le
- * composant `<CardPreview />` (client). Aucune dépendance Node/server ici
- * pour rester importable depuis un module client sans alourdir le bundle.
+ * Helpers couleur ET typo partagés entre le générateur Google Wallet (server)
+ * et le composant `<CardPreview />` (client). Aucune dépendance Node/server
+ * ici pour rester importable depuis un module client sans alourdir le bundle.
  */
+
+/**
+ * Normalise un label de wallet (Tampons / Visites / etc.) pour qu'il rentre
+ * dans les slots étroits d'Apple/Google sans être tronqué bêtement.
+ *
+ * Stratégie :
+ *   - vide / null  → fallback (par défaut "Tampons")
+ *   - ≤ MAX chars  → utilisé tel quel
+ *   - > MAX chars  → on prend le 1er mot, et si le 1er mot est lui-même trop
+ *                    long on tronque ce mot avec "..." (cas extrême)
+ *
+ * Exemples avec MAX=14 :
+ *   ""                           → "Tampons"
+ *   "Tampons"                    → "Tampons"
+ *   "Visites"                    → "Visites"
+ *   "Tampons avant récompense"   → "Tampons"          (au lieu de "Tampons avant ré...")
+ *   "Café offert tous les 10"    → "Café"
+ *   "Achetez plus pour gagner"   → "Achetez"
+ *   "Récompenses superlongues"   → "Récompenses…"
+ */
+export function shortLabel(
+  raw: string | null | undefined,
+  fallback: string = "Tampons",
+  max: number = 14,
+): string {
+  const s = (raw ?? "").trim();
+  if (!s) return fallback;
+  if (s.length <= max) return s;
+  const firstWord = s.split(/\s+/, 1)[0];
+  if (firstWord.length <= max) return firstWord;
+  return firstWord.slice(0, max - 1) + "…";
+}
 
 // Calcule la luminance perçue d'une couleur hex (0..1). >0.6 = couleur claire.
 export function luminance(hex: string): number {

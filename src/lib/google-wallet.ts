@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { GoogleAuth } from "google-auth-library";
 import type { PassLocation } from "./apple-wallet";
-import { googleEffectiveBgColor } from "./wallet-colors";
+import { googleEffectiveBgColor, shortLabel } from "./wallet-colors";
 
 // Re-export pour rester compatible avec les call-sites qui importent depuis
 // "@/lib/google-wallet" (l'aperçu côté client utilise plutôt l'import direct
@@ -113,9 +113,11 @@ function buildLoyaltyClass(p: PassParams) {
     rewardsTierLabel: "Programme",
     accountIdLabel: "Client",
     accountNameLabel: "Nom",
-    // programDetails apparaît au verso de la carte Google Wallet — on y met
-    // la récompense + le footer "Propulsé par aswallet".
-    programDetails: `${p.rewardText}\n\nPropulsé par aswallet`,
+    // programDetails au verso de la carte Google Wallet : juste le crédit
+    // "Propulsé par aswallet". L'offre (`rewardText`) est déjà dans
+    // `textModulesData` côté loyaltyObject — la mettre ici aussi la
+    // dupliquait visuellement au verso de la carte (info affichée 2 fois).
+    programDetails: "Propulsé par aswallet",
     ...(locations ? { locations } : {}),
   };
 }
@@ -172,7 +174,7 @@ function buildLoyaltyObject(p: PassParams) {
     // number, and matches the Apple headerFields value.
     loyaltyPoints: {
       balance: { string: `${p.stampsCollected} / ${p.stampsTotal}` },
-      label: (p.stampsLabel && p.stampsLabel.trim().slice(0, 18)) || "Tampons",
+      label: shortLabel(p.stampsLabel, "Tampons", 14),
     },
     // PAS de secondaryLoyaltyPoints — Google les rend comme une rangée de
     // ronds génériques en bas de la carte (catastrophique visuellement vu
@@ -265,7 +267,7 @@ export async function syncLoyaltyObject(
     // point balances cannot be set".
     loyaltyPoints: {
       balance: { string: balanceString, int: null },
-      label: (stampsLabel && stampsLabel.trim().slice(0, 18)) || "Tampons",
+      label: shortLabel(stampsLabel, "Tampons", 14),
     },
     // Clear l'ancien secondaryLoyaltyPoints si l'objet existant en avait.
     secondaryLoyaltyPoints: null,
