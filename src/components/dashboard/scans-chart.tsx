@@ -14,8 +14,16 @@ interface ScansChartProps {
 export function ScansChart({ data, accent = "#10b981" }: ScansChartProps) {
   const max = Math.max(1, ...data.map((d) => d.count));
   const total = data.reduce((acc, d) => acc + d.count, 0);
-  const showLabels = data.length <= 14;
-  const labelEvery = data.length > 60 ? Math.ceil(data.length / 6) : 1;
+  // Cap le nombre de labels affichés à ~6 pour rester lisible. Avant
+  // `labelEvery=1` quand data.length entre 15 et 60 → tous les labels
+  // s'affichaient mais étaient tronqués à 1 char ("0.0.1.1.1.2.2..." sur
+  // 30 jours mobile). Maintenant on en affiche au max 6 répartis.
+  const targetLabelCount = 6;
+  const labelEvery =
+    data.length <= targetLabelCount
+      ? 1
+      : Math.ceil(data.length / targetLabelCount);
+  const showAllLabels = data.length <= targetLabelCount;
 
   return (
     <div className="w-full">
@@ -47,11 +55,15 @@ export function ScansChart({ data, accent = "#10b981" }: ScansChartProps) {
       </div>
       <div className="flex justify-between text-[10px] text-gray-400 mt-2 px-0.5 overflow-hidden">
         {data.map((d, i) => {
-          if (!showLabels && i % labelEvery !== 0 && i !== data.length - 1) {
+          // Labels: first, last, et tous les `labelEvery` au milieu.
+          const isFirst = i === 0;
+          const isLast = i === data.length - 1;
+          const onStep = i % labelEvery === 0;
+          if (!showAllLabels && !isFirst && !isLast && !onStep) {
             return <span key={i} className="flex-1" />;
           }
           return (
-            <span key={i} className="flex-1 text-center truncate">
+            <span key={i} className="flex-1 text-center whitespace-nowrap">
               {d.label ?? d.date.slice(5)}
             </span>
           );

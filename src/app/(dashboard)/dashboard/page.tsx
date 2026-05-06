@@ -192,7 +192,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       icon: CreditCard,
     },
     {
-      title: "Scans (période)",
+      // "Scans" tout court : le filtre période est juste au-dessus dans
+      // RangeFilter, redondant de répéter dans le label de la KPI card.
+      title: "Scans",
       value: scansPeriod.count ?? 0,
       previous: scansPrev.count ?? undefined,
       icon: ScanLine,
@@ -278,7 +280,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             Tableau de bord
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Bienvenue {profile?.first_name ?? ""} &mdash; voici ce qui se passe sur votre commerce
+            Bienvenue{profile?.first_name ? ` ${profile.first_name}` : ""} — voici ce qui se passe sur votre commerce
           </p>
         </div>
         <RangeFilter />

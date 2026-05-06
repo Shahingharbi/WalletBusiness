@@ -41,10 +41,10 @@ export function KpiCard({
         placeholder && "bg-gray-50/60"
       )}
     >
-      <div className="flex items-start justify-between">
-        <div className="space-y-2 min-w-0">
+      <div className="flex items-start justify-between gap-2">
+        <div className="space-y-2 min-w-0 flex-1">
           <p
-            className="text-xs uppercase tracking-wider text-muted-foreground truncate font-semibold"
+            className="text-[11px] sm:text-xs uppercase tracking-wider text-muted-foreground font-semibold leading-tight"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
             {title}

@@ -116,9 +116,9 @@ export function CameraScanner({ onResult, paused = false }: CameraScannerProps) 
             className="absolute inset-0 flex flex-col items-center justify-center text-white cursor-pointer hover:bg-white/5 transition-colors"
           >
             <Camera className="h-12 w-12 mb-3 text-gray-300" />
-            <span className="text-sm font-medium">Activer la camera</span>
+            <span className="text-sm font-medium">Activer la caméra</span>
             <span className="text-xs text-gray-400 mt-1">
-              Autorisez l&apos;acces a la camera
+              Autorisez l&apos;accès à la caméra
             </span>
           </button>
         )}
@@ -126,7 +126,7 @@ export function CameraScanner({ onResult, paused = false }: CameraScannerProps) 
         {starting && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
             <Loader2 className="h-10 w-10 animate-spin mb-2" />
-            <span className="text-sm">Demarrage...</span>
+            <span className="text-sm">Démarrage…</span>
           </div>
         )}
 
