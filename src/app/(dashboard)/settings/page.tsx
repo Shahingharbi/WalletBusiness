@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ShieldCheck, ChevronRight, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { isOwnerOrAdmin } from "@/lib/rbac";
 import { SettingsForms } from "./settings-forms";
 import { InvitationsManager } from "./invitations-manager";
 
@@ -59,17 +60,21 @@ export default async function SettingsPage() {
           phone: business?.phone ?? "",
           logo_url: business?.logo_url ?? null,
         }}
-        canEditBusiness={profile?.role === "business_owner"}
+        canEditBusiness={isOwnerOrAdmin(profile?.role)}
       />
 
-      {profile?.role === "business_owner" && (
+      {/* Sections visibles aussi pour super_admin (le compte test l'est).
+          Avant, le check était juste `=== "business_owner"` ce qui cachait
+          billing + invitations aux super_admin qui possèdent leur propre
+          business — incohérent. */}
+      {isOwnerOrAdmin(profile?.role) && (
         <InvitationsManager
           invitations={invitations ?? []}
           employees={employees ?? []}
         />
       )}
 
-      {profile?.role === "business_owner" && (
+      {isOwnerOrAdmin(profile?.role) && (
         <Link
           href="/settings/billing"
           className="flex items-center justify-between gap-3 rounded-2xl border border-beige-dark bg-white p-5 hover:border-foreground transition-colors group"
