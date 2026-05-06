@@ -126,6 +126,25 @@ function NewCardForm() {
     return true;
   };
 
+  /**
+   * Message d'aide quand "Suivant" est désactivé. Avant le bouton restait
+   * gris sans explication → cause #1 d'abandon dans un wizard à 4 étapes.
+   */
+  const blockedReason = (): string | null => {
+    if (step === 1 && form.templateId === null) {
+      return "Choisissez un modèle (ou « Repartir de zéro ») pour continuer.";
+    }
+    if (step === 3) {
+      const missing: string[] = [];
+      if (!form.settings.name.trim()) missing.push("le nom de la carte");
+      if (!form.settings.rewardText.trim()) missing.push("la récompense");
+      if (missing.length > 0) {
+        return `Renseignez ${missing.join(" et ")} pour continuer.`;
+      }
+    }
+    return null;
+  };
+
   const validateStep3 = (): Record<string, string> => {
     const errs: Record<string, string> = {};
     if (!form.settings.name.trim()) errs.name = "Le nom de la carte est requis";
@@ -314,29 +333,36 @@ function NewCardForm() {
             )}
 
             {/* Navigation buttons (desktop) */}
-            <div className="hidden lg:flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
-              <Button
-                variant="ghost"
-                onClick={handleBack}
-                disabled={step === 1}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Retour
-              </Button>
-
-              {step < 4 ? (
-                <Button onClick={handleNext} disabled={!canProceed()}>
-                  Suivant
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              ) : (
-                <Button onClick={handleSubmit} disabled={submitting}>
-                  {submitting && (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  )}
-                  Créer la carte
-                </Button>
+            <div className="hidden lg:flex flex-col gap-2 mt-8 pt-6 border-t border-gray-100">
+              {blockedReason() && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 self-end">
+                  {blockedReason()}
+                </p>
               )}
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  onClick={handleBack}
+                  disabled={step === 1}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Retour
+                </Button>
+
+                {step < 4 ? (
+                  <Button onClick={handleNext} disabled={!canProceed()}>
+                    Suivant
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button onClick={handleSubmit} disabled={submitting}>
+                    {submitting && (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    )}
+                    Créer la carte
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -363,9 +389,14 @@ function NewCardForm() {
 
       {/* Sticky bottom action bar (mobile only) */}
       <div
-        className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md px-4 pt-3"
+        className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md px-4 pt-2"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
       >
+        {blockedReason() && (
+          <p className="text-[11px] text-amber-700 mb-2 text-center">
+            {blockedReason()}
+          </p>
+        )}
         <div className="flex items-center gap-3">
           <Button
             variant="secondary"
