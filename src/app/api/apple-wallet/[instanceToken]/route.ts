@@ -29,7 +29,7 @@ export async function GET(
       .select(`
         id, token, business_id, stamps_collected, rewards_available, status,
         clients(first_name),
-        cards(id, name, stamp_count, reward_text, design, wallet_business_name, businesses(name, logo_url))
+        cards(id, name, card_type, stamp_count, reward_text, design, wallet_business_name, businesses(name, logo_url))
       `)
       .eq("token", instanceToken)
       .single();
@@ -48,6 +48,7 @@ export async function GET(
     const card = instance.cards as unknown as {
       id: string;
       name: string;
+      card_type: string | null;
       stamp_count: number;
       reward_text: string;
       design: Record<string, unknown>;
@@ -69,9 +70,18 @@ export async function GET(
     // Geo-push : embed les points de vente actifs dans le pass.
     const locations = await fetchPassLocations(supabase, instance.business_id);
 
+    // Card kind : on accepte uniquement les 4 types qui ont un rendu wallet
+    // implémenté. Tout le reste retombe sur "stamp" (rétro-compat safe).
+    const ck = card.card_type;
+    const cardKind =
+      ck === "cashback" || ck === "discount" || ck === "membership"
+        ? ck
+        : "stamp";
+
     const buffer = await generateApplePassBuffer({
       cardId: card.id,
       cardName: card.name,
+      cardKind,
       businessName,
       walletBusinessName: card.wallet_business_name,
       customerInstanceToken: instance.token,

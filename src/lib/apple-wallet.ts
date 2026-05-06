@@ -16,10 +16,26 @@ export interface PassLocation {
   relevantText?: string | null;
 }
 
+/**
+ * Type de carte stocké en DB. Détermine si on rend un compteur (stamp/cashback)
+ * ou juste l'offre en grand (discount/membership).
+ */
+export type CardKind =
+  | "stamp"
+  | "cashback"
+  | "discount"
+  | "membership";
+
 interface ApplePassParams {
   cardId: string;
   cardName: string;
   businessName: string;
+  /**
+   * Type de carte. Quand absent ou inconnu, traité comme "stamp" (rétro-compat).
+   * - stamp / cashback : strip image + headerField "X / Y"
+   * - discount / membership : pas de compteur, l'offre prend toute la place
+   */
+  cardKind?: CardKind | null;
   /**
    * Override optionnel du nom affiché en logoText (top-left du pass Apple).
    * Si fourni et non vide, remplace `businessName` pour le branding du wallet.
@@ -221,8 +237,12 @@ async function fetchStrip(
   appUrl: string,
   token: string,
   count: number,
+  kind: CardKind,
 ): Promise<{ "strip.png"?: Buffer; "strip@2x.png"?: Buffer; "strip@3x.png"?: Buffer }> {
-  const url = `${appUrl}/api/wallet/banner/${token}/${count}`;
+  // Le banner endpoint peut rendre différemment selon le type :
+  // - stamp/cashback : grille de tampons
+  // - discount/membership : juste la bannière avec overlay icône
+  const url = `${appUrl}/api/wallet/banner/${token}/${count}?kind=${kind}`;
   try {
     // 4s timeout — si l'endpoint plante, on génère le pass sans strip plutôt que d'échouer.
     const ctrl = new AbortController();
@@ -256,9 +276,10 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   void p.rewardsAvailable;
 
   // Parallel fetch : merchant logo + strip image (gain de temps).
+  const passKind: CardKind = (p.cardKind as CardKind) ?? "stamp";
   const [merchantLogo, stripBuffers] = await Promise.all([
     fetchMerchantLogo(p.logoUrl),
-    fetchStrip(p.appUrl, p.customerInstanceToken, p.stampsCollected),
+    fetchStrip(p.appUrl, p.customerInstanceToken, p.stampsCollected, passKind),
   ]);
   // Order matters: defaults first, merchant logo overrides them, strip last.
   const buffers = { ...loadIconBuffers(), ...merchantLogo, ...stripBuffers };
@@ -355,28 +376,29 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   );
 
   // Type "storeCard" = carte de fidélité Apple Wallet (avec strip image visuelle).
-  // Stratégie de mise en page simplifiée (post-relaunch pricing) :
-  //  - logoText (top-left, à côté du logo)            -> nom du commerce
-  //  - headerFields (top-right)                        -> compteur "X / Y"
-  //  - primaryFields (par-dessus le strip)             -> "Notre offre" si court
-  //                                                       (≤ 18 chars), sinon vide
-  //  - secondaryFields                                 -> "Bonjour <prénom>" + offre
-  //                                                       (selon longueur)
-  //  - auxiliaryFields                                 -> "Notre offre" (long)
-  //  - backFields (verso, accessible via "...")        -> détails complets
-  //
-  // On a explicitement RETIRÉ "Prochaine récompense" (X tampons restants) et
-  // "Récompenses dispo" (toujours 0 sur cartes neuves) — ces deux slots
-  // surchargeaient la carte sans valeur informationnelle pour le client.
+  // Le rendu s'adapte au type de carte :
+  //  - stamp / cashback : headerField "X / Y" + strip image avec grille
+  //  - discount / membership : pas de compteur, juste l'offre en grand
   pass.type = "storeCard";
 
-  // Label compteur : on utilise `shortLabel()` qui garde le 1er mot quand
-  // c'est trop long (au lieu de tronquer en "Tampons avant ré...").
-  pass.headerFields.push({
-    key: "points",
-    label: shortLabel(p.stampsLabel, "Tampons", 14),
-    value: `${p.stampsCollected} / ${p.stampsTotal}`,
-  });
+  const kind: CardKind = (p.cardKind as CardKind) ?? "stamp";
+  const isCounter = kind === "stamp" || kind === "cashback";
+
+  // Compteur "X / Y" UNIQUEMENT pour stamp/cashback. Avant ce check, les
+  // cartes Discount/Membership affichaient "Tampons 0/8" ce qui n'avait
+  // aucun sens (Membership = pas de compteur, Discount = avantage permanent).
+  if (isCounter) {
+    pass.headerFields.push({
+      key: "points",
+      // Pour cashback, le label par défaut est "Visites" plutôt que "Tampons".
+      label: shortLabel(
+        p.stampsLabel,
+        kind === "cashback" ? "Visites" : "Tampons",
+        14,
+      ),
+      value: `${p.stampsCollected} / ${p.stampsTotal}`,
+    });
+  }
 
   // Récompense : un SEUL champ "Notre offre" dont la taille s'adapte.
   // Apple rend chaque slot à une taille différente (primary > secondary >

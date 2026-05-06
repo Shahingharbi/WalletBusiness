@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { GoogleAuth } from "google-auth-library";
-import type { PassLocation } from "./apple-wallet";
+import type { CardKind, PassLocation } from "./apple-wallet";
 import { googleEffectiveBgColor, shortLabel } from "./wallet-colors";
 
 // Re-export pour rester compatible avec les call-sites qui importent depuis
@@ -41,6 +41,11 @@ interface PassParams {
    * dans le designer côté merchant, persisté dans `design.label_stamps`.
    */
   stampsLabel?: string | null;
+  /**
+   * Type de carte. Détermine si on rend un compteur (stamp/cashback) ou
+   * juste l'offre (discount/membership). Default "stamp" pour rétro-compat.
+   */
+  cardKind?: CardKind | null;
 }
 
 const ISSUER_ID = process.env.GOOGLE_WALLET_ISSUER_ID!;
@@ -122,19 +127,27 @@ function buildLoyaltyClass(p: PassParams) {
   };
 }
 
-function bannerUri(appUrl: string, token: string, stamps: number): string {
-  return `${appUrl}/api/wallet/banner/${token}/${stamps}`;
+function bannerUri(
+  appUrl: string,
+  token: string,
+  stamps: number,
+  kind: CardKind,
+): string {
+  return `${appUrl}/api/wallet/banner/${token}/${stamps}?kind=${kind}`;
 }
 
 function buildLoyaltyObject(p: PassParams) {
   const homepageUri = `${p.appUrl}/c/${p.cardId}/status/${p.customerInstanceToken}`;
   const accountName = (p.customerName ?? "").trim() || "Client";
   const rewardText = (p.rewardText ?? "").trim();
+  const kind: CardKind = (p.cardKind as CardKind) ?? "stamp";
+  const isCounter = kind === "stamp" || kind === "cashback";
 
   const stampsBannerUri = bannerUri(
     p.appUrl,
     p.customerInstanceToken,
     p.stampsCollected,
+    kind,
   );
 
   const obj: Record<string, unknown> = {
@@ -143,8 +156,9 @@ function buildLoyaltyObject(p: PassParams) {
     state: "ACTIVE",
     accountId: p.customerInstanceToken,
     accountName,
-    // Per-user heroImage: dynamic PNG with the visual stamp grid only.
-    // Visible quand la carte est ouverte plein écran sur Android.
+    // Per-user heroImage: dynamic PNG. Pour stamp/cashback c'est la grille
+    // de tampons, pour discount/membership c'est juste la bannière+icône
+    // (pas de compteur trompeur).
     heroImage: {
       sourceUri: { uri: stampsBannerUri },
       contentDescription: {
@@ -164,18 +178,14 @@ function buildLoyaltyObject(p: PassParams) {
           contentDescription: {
             defaultValue: {
               language: "fr",
-              value: `Progression: ${p.stampsCollected} sur ${p.stampsTotal} tampons`,
+              value: isCounter
+                ? `Progression: ${p.stampsCollected} sur ${p.stampsTotal} tampons`
+                : "Carte de fidélité",
             },
           },
         },
       },
     ],
-    // "X / Y" string instead of a raw count: clearer than a single big
-    // number, and matches the Apple headerFields value.
-    loyaltyPoints: {
-      balance: { string: `${p.stampsCollected} / ${p.stampsTotal}` },
-      label: shortLabel(p.stampsLabel, "Tampons", 14),
-    },
     // PAS de secondaryLoyaltyPoints — Google les rend comme une rangée de
     // ronds génériques en bas de la carte (catastrophique visuellement vu
     // qu'on a déjà notre grille custom dans heroImage/imageModules).
@@ -196,6 +206,20 @@ function buildLoyaltyObject(p: PassParams) {
       ],
     },
   };
+
+  // Compteur "X / Y" UNIQUEMENT pour stamp/cashback. Avant ce check, les
+  // cartes Discount/Membership affichaient "Tampons 0/8" sans aucun sens
+  // (Membership est sans compteur, Discount est un avantage permanent).
+  if (isCounter) {
+    obj.loyaltyPoints = {
+      balance: { string: `${p.stampsCollected} / ${p.stampsTotal}` },
+      label: shortLabel(
+        p.stampsLabel,
+        kind === "cashback" ? "Visites" : "Tampons",
+        14,
+      ),
+    };
+  }
 
   // textModulesData : un SEUL module — "Notre offre" — pour rester focalisé
   // sur l'info clé (ce que le client gagne). Le compte de tampons est déjà
@@ -247,11 +271,14 @@ export async function syncLoyaltyObject(
   message?: string,
   stampsTotal?: number,
   stampsLabel?: string | null,
+  cardKind?: CardKind | null,
 ): Promise<{ ok: boolean; status?: number }> {
   if (!isGoogleWalletConfigured()) return { ok: false };
 
   const objId = objectId(instanceToken);
   const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${objId}`;
+  const kind: CardKind = (cardKind as CardKind) ?? "stamp";
+  const isCounter = kind === "stamp" || kind === "cashback";
   // Mirror the buildLoyaltyObject shape: balance.string "X / Y" so the
   // wallet card stays consistent across initial save and subsequent
   // PATCHes. When stampsTotal is unknown, fall back to a bare number.
@@ -259,16 +286,26 @@ export async function syncLoyaltyObject(
     typeof stampsTotal === "number"
       ? `${stampsCollected} / ${stampsTotal}`
       : `${stampsCollected}`;
-  const stampsBannerUri = bannerUri(appUrl, instanceToken, stampsCollected);
+  const stampsBannerUri = bannerUri(
+    appUrl,
+    instanceToken,
+    stampsCollected,
+    kind,
+  );
 
   const body: Record<string, unknown> = {
-    // balance.int explicitement null -> on clear l'ancien format si l'objet
-    // existant l'avait, sinon Google refuse "More than one type of loyalty
-    // point balances cannot be set".
-    loyaltyPoints: {
-      balance: { string: balanceString, int: null },
-      label: shortLabel(stampsLabel, "Tampons", 14),
-    },
+    // Pour discount/membership : on EXPLICITEMENT clear le compteur (au cas
+    // où une ancienne version l'aurait set). Pour stamp/cashback : compteur normal.
+    loyaltyPoints: isCounter
+      ? {
+          balance: { string: balanceString, int: null },
+          label: shortLabel(
+            stampsLabel,
+            kind === "cashback" ? "Visites" : "Tampons",
+            14,
+          ),
+        }
+      : null,
     // Clear l'ancien secondaryLoyaltyPoints si l'objet existant en avait.
     secondaryLoyaltyPoints: null,
     // Aucun textModulesData côté sync -> on ne tente plus de pousser un

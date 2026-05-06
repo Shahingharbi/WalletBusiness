@@ -26,7 +26,7 @@ export async function GET(
       .from("card_instances")
       .select(`
         id, token, business_id, stamps_collected, rewards_available, status,
-        cards(id, name, stamp_count, reward_text, design, barcode_type, wallet_business_name, businesses(name, logo_url)),
+        cards(id, name, card_type, stamp_count, reward_text, design, barcode_type, wallet_business_name, businesses(name, logo_url)),
         clients(first_name, last_name)
       `)
       .eq("token", instanceToken)
@@ -49,6 +49,7 @@ export async function GET(
     const card = instance.cards as unknown as {
       id: string;
       name: string;
+      card_type: string | null;
       stamp_count: number;
       reward_text: string;
       design: Record<string, unknown>;
@@ -56,6 +57,11 @@ export async function GET(
       wallet_business_name: string | null;
       businesses: { name: string; logo_url: string | null } | null;
     };
+    const ck = card.card_type;
+    const cardKind =
+      ck === "cashback" || ck === "discount" || ck === "membership"
+        ? ck
+        : "stamp";
     const client = instance.clients as unknown as {
       first_name: string | null;
       last_name: string | null;
@@ -100,6 +106,7 @@ export async function GET(
       barcodeType: card.barcode_type ?? "qr",
       locations,
       stampsLabel: (design.label_stamps as string | null) ?? null,
+      cardKind,
     });
 
     return NextResponse.redirect(url);

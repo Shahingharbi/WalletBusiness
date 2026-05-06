@@ -182,11 +182,23 @@ function errorImage(message: string) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ instanceToken: string; count: string }> },
 ) {
   try {
     const { instanceToken } = await params;
+    // Le `?kind=` du query param détermine si on rend la grille de tampons
+    // (stamp/cashback) ou juste la bannière+icône (discount/membership).
+    // Apple/Google passent ce param via apple-wallet.ts::fetchStrip et
+    // google-wallet.ts::bannerUri.
+    const kindParam = new URL(request.url).searchParams.get("kind");
+    const cardKind: "stamp" | "cashback" | "discount" | "membership" =
+      kindParam === "cashback" ||
+      kindParam === "discount" ||
+      kindParam === "membership"
+        ? kindParam
+        : "stamp";
+    const showStampsGrid = cardKind === "stamp" || cardKind === "cashback";
     const supabase = createAdminClient();
 
     const { data: instance, error } = await supabase
@@ -335,46 +347,47 @@ export async function GET(
             />
           )}
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: `${gap}px`,
-              alignItems: "center",
-              justifyContent: "center",
-              position: "relative",
-              zIndex: 1,
-            }}
-          >
-            {rowsArr.map((row, rIdx) => (
-              <div
-                key={rIdx}
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  gap: `${gap}px`,
-                  justifyContent: "center",
-                }}
-              >
-                {row.map((s) =>
-                  renderStamp({
-                    filled: s.filled,
-                    size: stampSize,
-                    shape,
-                    accent,
-                    activeUrl: stampActiveUrl,
-                    inactiveUrl: stampInactiveUrl,
-                    iconKey: s.filled ? filledIconKey : emptyIconKey,
-                    key: s.idx,
-                  }),
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Footer "Powered by aswallet" supprimé — on ne signe plus la
-              strip image. Le crédit "Propulsé par aswallet" est désormais affiché
-              sous le code-barres (altText du barcode Apple/Google). */}
+          {/* Grille de tampons UNIQUEMENT pour stamp/cashback. Pour
+              discount/membership, on rend juste la bannière (Apple/Google
+              superposent leurs propres champs avec l'offre par-dessus). */}
+          {showStampsGrid && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: `${gap}px`,
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                zIndex: 1,
+              }}
+            >
+              {rowsArr.map((row, rIdx) => (
+                <div
+                  key={rIdx}
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: `${gap}px`,
+                    justifyContent: "center",
+                  }}
+                >
+                  {row.map((s) =>
+                    renderStamp({
+                      filled: s.filled,
+                      size: stampSize,
+                      shape,
+                      accent,
+                      activeUrl: stampActiveUrl,
+                      inactiveUrl: stampInactiveUrl,
+                      iconKey: s.filled ? filledIconKey : emptyIconKey,
+                      key: s.idx,
+                    }),
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ),
       {
