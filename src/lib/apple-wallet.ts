@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
-import { googleEffectiveBgColor, shortLabel } from "./wallet-colors";
+import { shortLabel } from "./wallet-colors";
 
 /**
  * Localisation embarquée dans un pass Apple/Google.
@@ -274,28 +274,25 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   //
   // Cas user "fond blanc + texte blanc" -> auto-fix : on force foreground
   // noir car luminance(white) > 0.6.
-  // COHÉRENCE Apple ↔ Google : on aligne le fond Apple sur celui que Google
-  // utilisera côté Android. Sans ça, un merchant qui choisit du blanc voit
-  // Apple = blanc + Google = sombre auto-flippé → 2 cartes visuellement
-  // différentes sur ses 2 téléphones. C'est le bug que les utilisateurs
-  // remontent en boucle.
+  // Apple Wallet RESPECTE le choix du merchant — c'est une force d'Apple
+  // d'accepter foregroundColor + backgroundColor + labelColor custom (fond
+  // clair + texte sombre = parfaitement valide ici).
   //
-  // Règle : si le fond merchant est sombre/contrasté (luminance ≤ 0.6), on
-  // le garde tel quel des deux côtés. Si trop clair, on bascule sur la
-  // version "effective Google" partout. Apple n'est plus libre côté fond,
-  // mais en échange le merchant a UNE SEULE carte cohérente.
-  const effectiveBgHex = googleEffectiveBgColor(
-    p.backgroundColor,
-    p.accentColor,
-  );
-  const bgColor = hexToRgb(effectiveBgHex);
+  // Google Wallet ne peut pas en faire autant : Google force le texte en
+  // blanc, donc on auto-flippe le fond vers sombre côté Google uniquement
+  // (cf. `googleEffectiveBgColor`). Conséquence assumée : si le merchant
+  // choisit un fond clair, Apple rendra clair + texte sombre, Google rendra
+  // sombre + texte blanc — DIFFÉRENT mais chacun OPTIMAL pour sa plateforme.
+  // Le designer affiche clairement les deux previews via le toggle pour que
+  // le merchant ne soit pas surpris.
+  const bgColor = hexToRgb(p.backgroundColor);
   const textColorHex =
     p.textColor && p.textColor.trim().length > 0
       ? p.textColor.trim()
       : null;
   const fgColor = textColorHex
     ? hexToRgb(textColorHex)
-    : autoForeground(effectiveBgHex);
+    : autoForeground(p.backgroundColor);
   const labelColor = fgColor;
 
   // PassKit Web Service : si on a un AUTH_SECRET, on embarque le webServiceURL

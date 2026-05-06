@@ -164,21 +164,25 @@ function SinglePreview({
 
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
-  // Couleurs : depuis l'overhaul cohérence, les DEUX plateformes utilisent le
-  // même `effectiveBgColor` (auto-flip vers sombre si fond merchant trop
-  // clair, sinon respect du choix). Garantit que le merchant voit la même
-  // carte des 2 côtés sur ses 2 téléphones — fini les "Apple blanc / Google
-  // sombre" qui rendaient le designer schizophrénique.
+  // Couleurs : Apple respecte vraiment le choix merchant (foregroundColor
+  // + backgroundColor libres). Google a une contrainte d'API → texte blanc
+  // forcé, donc on auto-flippe le fond vers sombre uniquement côté Google.
+  //
+  // Conséquence visible dans le toggle : si fond clair choisi, Apple rend
+  // clair + texte custom, Google rend sombre + texte blanc. Différent mais
+  // honnête — ce sont les VRAIS rendus du wallet sur chaque plateforme.
   const designBg = design.background_color || "#1a1a1a";
   const accentColor = design.accent_color || "#e53e3e";
   const designTextColor = (design.text_color || "").trim();
-  const cardBg = googleEffectiveBgColor(designBg, accentColor);
-  // Apple respecte text_color du merchant (texte custom). Google force blanc.
+  const cardBg =
+    platform === "apple"
+      ? designBg
+      : googleEffectiveBgColor(designBg, accentColor);
   const onCardText =
     platform === "apple"
       ? designTextColor.length > 0
         ? designTextColor
-        : luminance(cardBg) > 0.6
+        : luminance(designBg) > 0.6
           ? "#141414"
           : "#ffffff"
       : "#ffffff";
