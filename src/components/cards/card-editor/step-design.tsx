@@ -191,11 +191,25 @@ export function StepDesign({ values, onChange }: StepDesignProps) {
                 value={values.background_color}
                 onChange={(v) => update("background_color", v)}
               />
-              <ColorField
-                label="Couleur du texte"
-                value={values.text_color}
-                onChange={(v) => update("text_color", v)}
-              />
+              <div className="flex flex-col gap-1.5">
+                <ColorField
+                  label="Couleur du texte"
+                  value={values.text_color}
+                  onChange={(v) => update("text_color", v)}
+                />
+                {/* "Auto-contraste" vide text_color → Apple choisit blanc/noir
+                    selon la luminance du fond. Évite "fond clair + texte blanc"
+                    invisible quand le merchant change que le fond. */}
+                <button
+                  type="button"
+                  onClick={() => update("text_color", "")}
+                  className="text-[11px] text-gray-500 underline underline-offset-2 hover:text-gray-900 cursor-pointer self-start"
+                >
+                  {values.text_color
+                    ? "Utiliser auto-contraste"
+                    : "Auto-contraste actif"}
+                </button>
+              </div>
               <ColorField
                 label="Couleur d'accent"
                 value={values.accent_color}
