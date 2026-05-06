@@ -37,12 +37,16 @@ export const cardSettingsSchema = z.object({
 
 export const cardDesignSchema = z.object({
   background_color: z.string(),
+  // text_color vide = auto-contraste selon luminance du fond.
   text_color: z.string(),
   accent_color: z.string(),
   label_stamps: z.string().max(50),
   label_rewards: z.string().max(50),
-  stamp_active_icon: z.string(),
-  stamp_inactive_icon: z.string(),
+  // stamp_icon : SEULE source de vérité pour l'icône (cf. card-preview +
+  // banner endpoint). stamp_active_icon/stamp_inactive_icon supprimés
+  // (legacy double-naming qui court-circuitait le choix merchant).
+  stamp_icon: z.string(),
+  stamp_shape: z.enum(["circle", "squircle", "shield", "star", "hex"]),
 });
 
 export const businessProfileSchema = z.object({

@@ -56,8 +56,11 @@ export const DEFAULT_CARD_DESIGN = {
   accent_color: "#e53e3e",
   stamp_icon: "check" as string,
   stamp_shape: "circle" as "circle" | "squircle" | "shield" | "star" | "hex",
-  stamp_active_icon: "check",
-  stamp_inactive_icon: "circle",
+  // stamp_active_icon / stamp_inactive_icon REMOVED (legacy double-naming).
+  // Avant : le designer écrivait `stamp_icon` mais preview + wallet lisaient
+  // `stamp_active_icon || stamp_icon || "check"`. `stamp_active_icon` valait
+  // toujours "check" par défaut → court-circuitait le choix merchant.
+  // Maintenant : `stamp_icon` est la SEULE source de vérité.
   stamp_active_url: null as string | null,
   stamp_inactive_url: null as string | null,
   // Labels courts UNIQUEMENT — Apple Wallet et Google Wallet rendent ces

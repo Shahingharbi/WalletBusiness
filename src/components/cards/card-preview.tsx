@@ -196,11 +196,12 @@ function SinglePreview({
   const stampsCollected = Math.max(0, Math.min(collectedStamps, stampsTotal));
 
   const shape = normalizeShape(design.stamp_shape);
+  // SEULE source de vérité = `stamp_icon` (celle que le designer écrit
+  // au clic sur l'icône). Avant on lisait `stamp_active_icon` qui valait
+  // toujours "check" par défaut → court-circuitait le choix merchant.
   const iconKey = normalizeIconKey(
-    (design.stamp_active_icon as string | undefined) ||
-      (design.stamp_icon as string | undefined) ||
-      "check",
-    "check"
+    (design.stamp_icon as string | undefined) ?? null,
+    "check",
   );
 
   // Token QR stable côté preview.

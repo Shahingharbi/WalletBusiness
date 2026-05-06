@@ -234,17 +234,17 @@ export async function GET(
       (design.inactiveImageUrl as string | null) ||
       null;
     const shape = normalizeShape(design.stamp_shape);
-    // L'icône intérieure : on accepte plusieurs conventions de nommage et on
-    // tombe sur le legacy `stamp_icon` si jamais `stamp_active_icon` est vide.
+    // SEULE source de vérité = `design.stamp_icon` (celle que le designer
+    // met à jour au clic). Avant ce code lisait `stamp_active_icon` qui
+    // était toujours "check" par défaut → fallback chain || court-circuitait
+    // le vrai choix merchant. Conséquence : le stamp_icon choisi (kebab,
+    // coffee, etc.) n'apparaissait JAMAIS sur le wallet réel ni dans la
+    // preview. Bug confirmé par le merchant.
     const filledIconKey = normalizeIconKey(
-      (design.stamp_active_icon as string) ||
-        (design.stamp_icon as string) ||
-        "check",
+      (design.stamp_icon as string | undefined) ?? null,
       "check",
     );
-    // Pour les tampons vides, on AFFICHE LA MÊME ICÔNE (à faible opacité)
-    // plutôt qu'une silhouette générique : c'est plus clair pour le client de
-    // voir la même forme partout, juste fanée tant qu'elle n'est pas obtenue.
+    // Tampons vides : même icône à opacité réduite (cohérence visuelle).
     const emptyIconKey = filledIconKey;
 
     const stampsTotal = Math.max(1, Math.min(20, card.stamp_count));
