@@ -189,14 +189,22 @@ export default async function CardDetailPage({
                         {CARD_TYPES[card.card_type as keyof typeof CARD_TYPES]?.label ?? "Tampon"}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wider">
-                        Tampons
-                      </p>
-                      <p className="text-sm font-medium text-gray-900 mt-1">
-                        {card.stamp_count}
-                      </p>
-                    </div>
+                    {/* Compteur affiché UNIQUEMENT pour stamp/cashback. Pour
+                        Discount/Membership, il n'y a pas de progression
+                        comptée → afficher "Tampons 8" était incohérent. */}
+                    {(card.card_type === "stamp" ||
+                      card.card_type === "cashback") && (
+                      <div>
+                        <p className="text-xs text-gray-400 uppercase tracking-wider">
+                          {card.card_type === "cashback"
+                            ? "Visites avant cashback"
+                            : "Tampons"}
+                        </p>
+                        <p className="text-sm font-medium text-gray-900 mt-1">
+                          {card.stamp_count}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-wider">
                         Récompense
