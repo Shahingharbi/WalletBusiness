@@ -20,8 +20,17 @@ export function KpiCard({
   format = "number",
   placeholder = false,
 }: KpiCardProps) {
+  // Affiche la comparaison UNIQUEMENT si on a un base period non-trivial
+  // (au moins 1 entrée). Avec previousValue=0 et value=0, "0 vs 0" affichait
+  // "0 vs période précédente" → bruit visuel inutile. Avec previousValue=0
+  // et value>0, on affichait juste "+N" sans %, OK. Avec previousValue>0 et
+  // value=0, on affichait "-100%" rouge alarmant — exact mais effrayant
+  // (filtre "Aujourd'hui" matin précoce, normal qu'on n'ait pas encore de
+  // scans). On garde -100% mais avec un wording moins anxiogène.
   const hasComparison =
-    typeof previousValue === "number" && previousValue !== undefined;
+    typeof previousValue === "number" &&
+    previousValue !== undefined &&
+    !(previousValue === 0 && value === 0);
   const delta = hasComparison ? value - previousValue : 0;
   const pctChange =
     hasComparison && previousValue > 0
