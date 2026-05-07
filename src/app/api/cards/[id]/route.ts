@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { isOwnerOrAdmin } from "@/lib/rbac";
+import { isOwnerOrAdmin, isSuperAdmin } from "@/lib/rbac";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
 
 async function getOwnedCard(id: string) {
@@ -30,11 +31,16 @@ async function getOwnedCard(id: string) {
     .single();
 
   if (!card) return { error: "Carte introuvable", status: 404 } as const;
-  if (card.business_id !== profile.business_id) {
+  // super_admin contourne la check d'appartenance — il peut supprimer
+  // n'importe quelle carte test peu importe le business owner.
+  if (
+    card.business_id !== profile.business_id &&
+    !isSuperAdmin(profile.role)
+  ) {
     return { error: "Cette carte ne vous appartient pas", status: 403 } as const;
   }
 
-  return { supabase, card } as const;
+  return { supabase, card, role: profile.role } as const;
 }
 
 export async function PATCH(
@@ -102,17 +108,56 @@ export async function PATCH(
   }
 }
 
+/**
+ * DELETE /api/cards/[id]
+ *
+ * Comportement par défaut : SOFT-DELETE (status = 'archived'). La carte
+ * disparaît du dashboard mais reste en DB pour conservation des données.
+ *
+ * `?hard=true` : HARD-DELETE physique de la row + cascade sur
+ * card_instances → transactions → auto_push_log. Autorisé pour tout
+ * business_owner sur SES propres cartes (la check d'appartenance est
+ * déjà faite dans getOwnedCard()) ET pour super_admin sur n'importe
+ * quelle carte. Utilise le service role pour bypass RLS DELETE qui
+ * pourrait être restrictive.
+ *
+ * UX: Le bouton "Supprimer définitivement" remplace l'archivage quand
+ * le merchant a juste fait un test et veut nettoyer sa liste.
+ */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const url = new URL(request.url);
+    const hardDelete = url.searchParams.get("hard") === "true";
+
     const result = await getOwnedCard(id);
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
+    if (hardDelete) {
+      // Tout business_owner peut hard-delete SA propre carte (la check
+      // card.business_id === profile.business_id est déjà faite plus haut
+      // dans getOwnedCard, sauf pour super_admin qui bypass).
+      // Bypass RLS via service role : ON DELETE CASCADE est en place sur
+      // card_instances → transactions → auto_push_log, tout part en une
+      // seule requête atomique.
+      const admin = createAdminClient();
+      const { error } = await admin.from("cards").delete().eq("id", id);
+      if (error) {
+        console.error("[cards] hard-delete failed:", error);
+        return NextResponse.json(
+          { error: "Erreur lors de la suppression définitive" },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json({ success: true, hard: true });
+    }
+
+    // Soft-delete : archivage classique.
     const { error } = await result.supabase
       .from("cards")
       .update({ status: "archived" })

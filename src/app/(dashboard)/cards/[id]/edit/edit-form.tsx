@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardPreview } from "@/components/cards/card-preview";
 import { MobileStickyPreview } from "@/components/cards/card-editor/mobile-sticky-preview";
@@ -41,6 +41,8 @@ export function EditCardForm({
   const [design, setDesign] = useState<CardDesign>(initialDesign);
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [hardDeleting, setHardDeleting] = useState(false);
+  const [showDangerMenu, setShowDangerMenu] = useState(false);
 
   const save = async () => {
     setSaving(true);
@@ -83,6 +85,44 @@ export function EditCardForm({
       toast.error("Erreur lors de l'archivage");
     } finally {
       setArchiving(false);
+    }
+  };
+
+  /**
+   * Suppression définitive : DELETE physique + cascade sur card_instances
+   * + transactions + auto_push_log. Utile pour nettoyer les cartes test.
+   * Le merchant doit taper le nom exact de la carte pour confirmer (évite
+   * les clics accidentels sur les vraies cartes en prod).
+   */
+  const hardDelete = async () => {
+    const expected = (initialSettings.name || "").trim();
+    const typed = window.prompt(
+      `Suppression DÉFINITIVE — irréversible.\n\nCette action supprime :\n• La carte elle-même\n• Tous les clients qui l'ont installée (${expected ? `« ${expected} »` : ""})\n• Toutes les transactions liées\n• Tous les logs auto-push\n\nPour confirmer, tapez le nom exact de la carte :`,
+      "",
+    );
+    if (typed === null) return; // cancel
+    if (typed.trim() !== expected) {
+      toast.error("Nom de carte incorrect — suppression annulée.");
+      return;
+    }
+
+    setHardDeleting(true);
+    try {
+      const res = await fetch(`/api/cards/${cardId}?hard=true`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string }).error || "Erreur lors de la suppression",
+        );
+      }
+      toast.success("Carte supprimée définitivement");
+      router.push("/cards");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setHardDeleting(false);
     }
   };
 
@@ -135,15 +175,56 @@ export function EditCardForm({
 
           {/* Desktop action row */}
           <div className="hidden lg:flex items-center justify-between gap-3">
-            <Button
-              variant="ghost"
-              onClick={archive}
-              disabled={archiving || status === "archived"}
-              className="text-red-600 hover:bg-red-50"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {archiving ? "..." : "Archiver"}
-            </Button>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                onClick={() => setShowDangerMenu((v) => !v)}
+                disabled={archiving || hardDeleting}
+                className="text-red-600 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Supprimer
+              </Button>
+              {showDangerMenu && (
+                <div
+                  role="menu"
+                  className="absolute left-0 bottom-full mb-2 w-72 bg-white border border-gray-200 rounded-xl shadow-lg p-1.5 z-50 animate-fade-in-up"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDangerMenu(false);
+                      archive();
+                    }}
+                    disabled={status === "archived"}
+                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <p className="text-sm font-semibold text-gray-900">
+                      Archiver
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      La carte disparaît du dashboard mais reste en base. Les clients qui l&apos;ont installée gardent leur progression.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDangerMenu(false);
+                      hardDelete();
+                    }}
+                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-red-50 cursor-pointer mt-1"
+                  >
+                    <p className="text-sm font-semibold text-red-700 flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Supprimer définitivement
+                    </p>
+                    <p className="text-[11px] text-red-600/80 mt-0.5">
+                      Suppression irréversible : carte + clients liés + transactions. À utiliser pour purger une carte de test.
+                    </p>
+                  </button>
+                </div>
+              )}
+            </div>
             <Button onClick={save} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Enregistrer
@@ -176,15 +257,56 @@ export function EditCardForm({
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
       >
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            onClick={archive}
-            disabled={archiving || status === "archived"}
-            className="text-red-600 hover:bg-red-50 flex-1"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            {archiving ? "..." : "Archiver"}
-          </Button>
+          <div className="relative flex-1">
+            <Button
+              variant="ghost"
+              onClick={() => setShowDangerMenu((v) => !v)}
+              disabled={archiving || hardDeleting}
+              className="text-red-600 hover:bg-red-50 w-full"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Supprimer
+            </Button>
+            {showDangerMenu && (
+              <div
+                role="menu"
+                className="absolute left-0 bottom-full mb-2 w-[280px] bg-white border border-gray-200 rounded-xl shadow-lg p-1.5 z-50 animate-fade-in-up"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDangerMenu(false);
+                    archive();
+                  }}
+                  disabled={status === "archived"}
+                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-amber-50 disabled:opacity-50 cursor-pointer"
+                >
+                  <p className="text-sm font-semibold text-gray-900">
+                    Archiver
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Disparaît du dashboard, reste en base.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDangerMenu(false);
+                    hardDelete();
+                  }}
+                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-red-50 cursor-pointer mt-1"
+                >
+                  <p className="text-sm font-semibold text-red-700 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Supprimer définitivement
+                  </p>
+                  <p className="text-[11px] text-red-600/80 mt-0.5">
+                    Irréversible. Pour purger une carte test.
+                  </p>
+                </button>
+              </div>
+            )}
+          </div>
           <Button onClick={save} disabled={saving} className="flex-[1.4]">
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Enregistrer
