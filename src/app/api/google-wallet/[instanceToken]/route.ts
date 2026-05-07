@@ -81,7 +81,7 @@ export async function GET(
     // Geo-push : embed les points de vente actifs dans la LoyaltyClass.
     const locations = await fetchPassLocations(supabase, instance.business_id);
 
-    const url = generateGoogleWalletPassUrl({
+    const url = await generateGoogleWalletPassUrl({
       cardId: card.id,
       cardName: card.name,
       businessName,

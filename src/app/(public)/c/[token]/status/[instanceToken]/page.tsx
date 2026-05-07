@@ -140,15 +140,18 @@ export default async function CardStatusPage({
           />
         )}
         <div className="relative flex items-center gap-3">
+          {/* Logo en disque parfait (rounded-full) avec ring blanche +
+              ombre marquée -> rendu premium type Stocard/Boomerangme.
+              Avant: rounded-xl + ring fine -> look "carrelage" amateur. */}
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={businessName}
-              className="h-12 w-12 rounded-xl object-cover bg-white shadow-md ring-2 ring-white/30 shrink-0"
+              className="h-14 w-14 rounded-full object-cover bg-white shadow-lg ring-[3px] ring-white shrink-0"
             />
           ) : (
-            <div className="h-12 w-12 rounded-xl bg-white/90 shadow-md flex items-center justify-center ring-2 ring-white/30 shrink-0">
-              <span className="text-lg font-bold text-gray-700">
+            <div className="h-14 w-14 rounded-full bg-white shadow-lg flex items-center justify-center ring-[3px] ring-white shrink-0">
+              <span className="text-xl font-bold text-gray-700">
                 {businessName.charAt(0)}
               </span>
             </div>

@@ -95,7 +95,11 @@ export async function POST(request: Request) {
         expiration_days: body.expiration_days || null,
         wallet_business_name: walletBusinessName,
         design,
-        status: "draft",
+        // Activation immédiate (avant: 'draft' qui obligeait le merchant
+        // à cliquer un bouton "Activer" supplémentaire pour rendre la
+        // carte installable). 99% des merchants veulent une carte
+        // immédiatement utilisable - pas de raison de friction.
+        status: "active",
       })
       .select("id, name, status, stamp_count, card_type")
       .single();

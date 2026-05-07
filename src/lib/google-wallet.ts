@@ -235,9 +235,94 @@ function buildLoyaltyObject(p: PassParams) {
   return obj;
 }
 
-export function generateGoogleWalletPassUrl(p: PassParams): string {
+/**
+ * Upsert la loyaltyClass côté Google Wallet API REST avant le save JWT.
+ *
+ * Pourquoi : si on embarque la classe dans le JWT et qu'elle existe déjà
+ * côté Google avec une config différente (ex: ancien `programDetails` qu'on
+ * a depuis modifié), Google refuse silencieusement → l'utilisateur voit
+ * "Un problème est survenu, veuillez réessayer". Bug récurrent pour les
+ * cartes créées avant un refactor du LoyaltyClass shape.
+ *
+ * Solution : on tente PATCH (update) en premier ; si 404 (classe pas
+ * encore créée côté Google), on tente INSERT. Best-effort : si ça plante
+ * on retourne false et on tombe en fallback sur le JWT-embedded classique.
+ */
+async function upsertLoyaltyClass(p: PassParams): Promise<boolean> {
+  try {
+    const cls = buildLoyaltyClass(p);
+    const auth = new GoogleAuth({
+      credentials: {
+        client_email: SERVICE_ACCOUNT_EMAIL,
+        private_key: PRIVATE_KEY,
+      },
+      scopes: ["https://www.googleapis.com/auth/wallet_object.issuer"],
+    });
+    const client = await auth.getClient();
+    const accessToken = await client.getAccessToken();
+    if (!accessToken.token) return false;
+    const headers = {
+      Authorization: `Bearer ${accessToken.token}`,
+      "Content-Type": "application/json",
+    } as const;
+    const classUrl = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass/${cls.id}`;
+
+    // 1) PATCH (update). Si la classe n'existe pas → 404 → on bascule INSERT.
+    const patchRes = await fetch(classUrl, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(cls),
+    });
+    if (patchRes.ok) return true;
+    if (patchRes.status === 404) {
+      const insertRes = await fetch(
+        "https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass",
+        { method: "POST", headers, body: JSON.stringify(cls) },
+      );
+      if (insertRes.ok) return true;
+      const errBody = await insertRes.text().catch(() => "");
+      console.warn(
+        "[google-wallet] INSERT class failed status=%d body=%s",
+        insertRes.status,
+        errBody.slice(0, 400),
+      );
+      return false;
+    }
+    const errBody = await patchRes.text().catch(() => "");
+    console.warn(
+      "[google-wallet] PATCH class failed status=%d body=%s",
+      patchRes.status,
+      errBody.slice(0, 400),
+    );
+    return false;
+  } catch (err) {
+    console.warn("[google-wallet] upsertLoyaltyClass exception:", err);
+    return false;
+  }
+}
+
+/**
+ * Génère l'URL Google Wallet save-to-wallet.
+ *
+ * Tente d'abord d'upsert la loyaltyClass via API REST (évite les conflits
+ * avec une classe pré-existante). Si succès, le JWT n'embarque QUE le
+ * loyaltyObject. Si échec, fallback sur le JWT-embedded classique
+ * (loyaltyClasses + loyaltyObjects ensemble) — Google se débrouillera.
+ */
+export async function generateGoogleWalletPassUrl(p: PassParams): Promise<string> {
   if (!isGoogleWalletConfigured()) {
     throw new Error("Google Wallet not configured");
+  }
+
+  const classUpserted = await upsertLoyaltyClass(p);
+
+  const payload: Record<string, unknown> = {
+    loyaltyObjects: [buildLoyaltyObject(p)],
+  };
+  // Fallback : si l'upsert REST a échoué, on envoie quand même la classe
+  // dans le JWT pour que Google tente sa propre création.
+  if (!classUpserted) {
+    payload.loyaltyClasses = [buildLoyaltyClass(p)];
   }
 
   const claims = {
@@ -246,10 +331,7 @@ export function generateGoogleWalletPassUrl(p: PassParams): string {
     typ: "savetowallet",
     iat: Math.floor(Date.now() / 1000),
     origins: [p.appUrl],
-    payload: {
-      loyaltyClasses: [buildLoyaltyClass(p)],
-      loyaltyObjects: [buildLoyaltyObject(p)],
-    },
+    payload,
   };
 
   const token = jwt.sign(claims, PRIVATE_KEY, { algorithm: "RS256" });
