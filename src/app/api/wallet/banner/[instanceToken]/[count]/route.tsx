@@ -8,6 +8,7 @@ import {
   normalizeShape,
   type StampShape,
 } from "@/lib/stamp-render";
+import { pickContrast as pickContrastSync } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -480,6 +481,11 @@ function renderStamp(p: StampProps) {
   const iconPath = getIconPath(p.iconKey);
 
   if (p.filled) {
+    // Couleur de l'icône AUTO-CONTRAST par rapport au fond accent.
+    // Avant: hardcoded "#ffffff" → invisible quand l'accent est clair (or
+    // doré, jaune, beige, blanc...). Maintenant on calcule la luminance
+    // de l'accent : sombre → icône blanche, clair → icône noire.
+    const iconColor = pickContrastSync(p.accent);
     return (
       <div
         key={p.key}
@@ -506,7 +512,7 @@ function renderStamp(p: StampProps) {
             strokeWidth={0.5}
             strokeLinejoin="round"
           />
-          <path d={iconPath} fill="#ffffff" />
+          <path d={iconPath} fill={iconColor} />
         </svg>
       </div>
     );

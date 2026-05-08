@@ -7,6 +7,7 @@ import {
   normalizeShape,
   type StampShape,
 } from "@/lib/stamp-render";
+import { pickContrast } from "@/lib/utils";
 
 /**
  * Source de vérité UNIQUE pour le rendu visuel d'un tampon dans le client React.
@@ -116,6 +117,10 @@ export function StampSvg({
   }
 
   if (filled) {
+    // Couleur de l'icône AUTO-CONTRAST par rapport au fond accent.
+    // Avant: hardcoded blanc → invisible quand accent clair (or, jaune, beige).
+    // Maintenant: blanc sur accent sombre, noir sur accent clair.
+    const iconColor = pickContrast(accent);
     return (
       <div
         style={{
@@ -136,7 +141,7 @@ export function StampSvg({
             strokeWidth={0.5}
             strokeLinejoin="round"
           />
-          <path d={iconPath} fill="#ffffff" />
+          <path d={iconPath} fill={iconColor} />
         </svg>
       </div>
     );
