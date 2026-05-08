@@ -16,7 +16,6 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [phone, setPhone] = useState("");
-  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,10 +27,6 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
       setError("Le prénom est requis");
       return;
     }
-    if (!consent) {
-      setError("Vous devez accepter le traitement de vos données pour recevoir votre carte de fidélité.");
-      return;
-    }
 
     setLoading(true);
     try {
@@ -41,6 +36,9 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
         body: JSON.stringify({
           first_name: firstName.trim(),
           phone: phone.trim() || null,
+          // Consent implicite par l'acte positif de cliquer sur le bouton
+          // "Obtenir ma carte". Le texte sous le bouton informe explicitement
+          // de cet acte (cf. CNIL : "déclaration ou acte positif clair").
           consent: true,
         }),
       });
@@ -85,35 +83,6 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
         hint="Optionnel - pour recevoir des notifications"
       />
 
-      {/* Consent RGPD obligatoire — base légale du traitement (art. 6.1.a
-          RGPD). Le commerçant est responsable de traitement, aswallet est
-          sous-traitant. Doit être un opt-in actif (case à cocher), pas une
-          phrase d'acceptation tacite (qui n'est PAS un consentement valide
-          au sens CNIL). */}
-      <label className="flex items-start gap-2.5 text-[12px] leading-relaxed text-gray-700 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(e) => setConsent(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-gray-300 cursor-pointer flex-shrink-0"
-          style={{ accentColor }}
-        />
-        <span>
-          J&apos;accepte que mes données (prénom{phone.trim() ? ", téléphone" : ""}) soient
-          traitées par <strong>{businessName || "ce commerce"}</strong> pour la gestion de ma
-          carte de fidélité. Plus d&apos;infos dans la{" "}
-          <a
-            href="/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-black"
-          >
-            politique de confidentialité
-          </a>
-          .
-        </span>
-      </label>
-
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3">
           <p className="text-sm text-red-600">{error}</p>
@@ -124,7 +93,7 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
         type="submit"
         size="lg"
         loading={loading}
-        disabled={!firstName.trim() || !consent}
+        disabled={!firstName.trim()}
         className="w-full text-base font-semibold"
         style={{
           backgroundColor: accentColor,
@@ -133,6 +102,26 @@ export function InstallForm({ cardId, accentColor, businessName }: InstallFormPr
       >
         Obtenir ma carte de fidélité
       </Button>
+
+      {/* Consent par acte positif (clic sur le bouton). Pas de checkbox
+          séparée — la CNIL accepte un consentement par "acte positif clair"
+          si le texte est explicite et juste à côté de l'action. Le clic
+          sur "Obtenir ma carte" vaut acceptation. */}
+      <p className="text-[11px] leading-relaxed text-gray-500 text-center">
+        En cliquant sur <strong>Obtenir ma carte</strong>, vous acceptez que vos
+        données (prénom{phone.trim() ? ", téléphone" : ""}) soient traitées par{" "}
+        <strong>{businessName || "ce commerce"}</strong>
+        {" "}pour la gestion de votre carte de fidélité.{" "}
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-black"
+        >
+          Politique de confidentialité
+        </a>
+        .
+      </p>
     </form>
   );
 }

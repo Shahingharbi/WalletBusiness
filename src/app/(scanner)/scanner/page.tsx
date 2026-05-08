@@ -245,23 +245,29 @@ export default function ScannerPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
+            {/* Bouton "Valider" RENFORCÉ : avant le bouton noir sur fond
+                noir était quasi invisible pour le caissier. Maintenant
+                gros bouton vert vif avec contour clair, ombre, taille
+                generous (h-16 = 64px) -> impossible à rater dans le rush
+                d'une caisse. Le bouton "Annuler" reste discret pour ne
+                pas concurrencer visuellement. */}
+            <div className="space-y-3">
               <Button
                 onClick={submitScan}
                 loading={loading}
                 size="lg"
-                className="w-full text-base font-semibold h-14"
+                className="w-full text-lg font-bold h-16 bg-emerald-500 hover:bg-emerald-400 text-black border-2 border-emerald-300 shadow-[0_0_0_4px_rgba(16,185,129,0.25)] active:shadow-[0_0_0_8px_rgba(16,185,129,0.30)] transition-shadow"
               >
+                <Check className="h-6 w-6 mr-2" strokeWidth={3} />
                 Valider {stamps} tampon{stamps > 1 ? "s" : ""}
               </Button>
-              <Button
+              <button
+                type="button"
                 onClick={handleReset}
-                variant="secondary"
-                size="lg"
-                className="w-full text-base bg-gray-800 border-gray-700 text-white hover:bg-gray-700 h-14"
+                className="w-full text-sm text-gray-400 hover:text-white py-2 transition-colors cursor-pointer"
               >
                 Annuler
-              </Button>
+              </button>
             </div>
 
             {error && (
