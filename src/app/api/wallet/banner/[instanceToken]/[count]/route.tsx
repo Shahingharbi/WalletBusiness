@@ -544,10 +544,16 @@ function renderStamp(p: StampProps) {
           d={shapePath}
           fill="#ffffff"
           stroke={p.accent}
-          strokeWidth={1.6}
+          strokeWidth={2}
           strokeLinejoin="round"
         />
-        <path d={iconPath} fill={p.accent} />
+        <path
+          d={iconPath}
+          fill={p.accent}
+          stroke={p.accent}
+          strokeWidth={0.6}
+          strokeLinejoin="round"
+        />
       </svg>
     </div>
   );

@@ -170,10 +170,16 @@ export function StampSvg({
           d={shapePath}
           fill="#ffffff"
           stroke={accent}
-          strokeWidth={1.6}
+          strokeWidth={2}
           strokeLinejoin="round"
         />
-        <path d={iconPath} fill={accent} />
+        <path
+          d={iconPath}
+          fill={accent}
+          stroke={accent}
+          strokeWidth={0.6}
+          strokeLinejoin="round"
+        />
       </svg>
     </div>
   );
