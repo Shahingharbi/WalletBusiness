@@ -518,9 +518,10 @@ function renderStamp(p: StampProps) {
     );
   }
 
-  // Vide : disque blanc + bord accent à 50% (clairement "en attente").
-  // PAS d'icône interne (avant on l'affichait à 22% mais le client confondait
-  // avec un tampon validé). Cohérent avec <StampSvg /> côté preview.
+  // Vide : fond BLANC + bord accent + icône ACCENT pleine au centre.
+  // Cohérent avec <StampSvg /> côté preview client. Le contraste vide ↔
+  // rempli se joue sur l'INVERSION fond/icône (vide = blanc dominant +
+  // icône accent ; rempli = accent dominant + icône blanc/noir).
   return (
     <div
       key={p.key}
@@ -545,8 +546,8 @@ function renderStamp(p: StampProps) {
           stroke={p.accent}
           strokeWidth={1.6}
           strokeLinejoin="round"
-          strokeOpacity={0.5}
         />
+        <path d={iconPath} fill={p.accent} />
       </svg>
     </div>
   );

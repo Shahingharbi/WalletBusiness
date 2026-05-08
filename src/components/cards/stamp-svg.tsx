@@ -147,11 +147,13 @@ export function StampSvg({
     );
   }
 
-  // Vide : fond BLANC opaque + bord accent FORT + ombre douce.
-  // PAS d'icône à l'intérieur (avant on rendait l'icône à 22% d'opacité,
-  // mais ça donnait l'illusion d'un tampon validé pour les clients).
-  // Le cercle vide est maintenant CLAIREMENT vide visuellement, comme dans
-  // les vraies cartes de fidélité papier.
+  // Vide : fond BLANC + bord accent + icône ACCENT pleine au centre.
+  // Le contraste vide ↔ rempli se joue sur l'INVERSION fond/icône :
+  //   - Vide   : fond blanc dominant + icône accent (visible, en couleur)
+  //   - Rempli : fond accent dominant + icône contraste (blanc ou noir)
+  // Avant j'avais retiré l'icône → cercle blanc tout vide, on ne voyait
+  // pas la forme du tampon (étoile, café, kebab...) tant qu'il n'était
+  // pas validé. Maintenant l'icône est visible dès le départ en accent.
   return (
     <div
       style={{
@@ -170,8 +172,8 @@ export function StampSvg({
           stroke={accent}
           strokeWidth={1.6}
           strokeLinejoin="round"
-          strokeOpacity={0.5}
         />
+        <path d={iconPath} fill={accent} />
       </svg>
     </div>
   );
