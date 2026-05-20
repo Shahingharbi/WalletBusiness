@@ -10,6 +10,14 @@ import Image from "next/image";
  * suffit — pas de frame iPhone supplémentaire qui ferait double.
  */
 
+/**
+ * Cartes polish via scripts/polish-wallet-captures.mjs : tight crop sur la
+ * carte (no status bar, no bezel, no indicators), saturation +8%, coins
+ * légèrement arrondis. Taille finale 746×1147 (ratio ~0.65).
+ *
+ * Affichage : ombre portée prononcée + halo accent autour pour faire
+ * ressortir la carte sur le fond beige de la LP.
+ */
 function WalletCard({
   src,
   alt,
@@ -21,13 +29,17 @@ function WalletCard({
 }) {
   return (
     <div
-      className={`relative rounded-[32px] overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.45)] ring-1 ring-black/20 ${className}`}
+      className={`relative ${className}`}
+      style={{
+        filter:
+          "drop-shadow(0 25px 50px rgba(0,0,0,0.25)) drop-shadow(0 10px 20px rgba(0,0,0,0.12))",
+      }}
     >
       <Image
         src={src}
         alt={alt}
-        width={828}
-        height={1398}
+        width={746}
+        height={1147}
         className="w-full h-auto"
         priority
       />
