@@ -30,20 +30,21 @@ export function HeroSection() {
                 fontWeight: 500,
               }}
             >
-              Vos clients reviennent,
+              Transformez vos clients{" "}
+              <span className="bg-yellow px-2 rounded-md">occasionnels</span>
               <br />
-              directement depuis leur{" "}
-              <span className="bg-yellow px-2 rounded-md">wallet</span>.
+              en clients habitués.
             </h1>
 
             <p
               className="text-sm sm:text-base lg:text-xl leading-relaxed lg:leading-[30px] max-w-[560px] mt-5 sm:mt-6 text-foreground"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              La carte de fidélité digitale pensée pour les kebabs, boulangeries,
-              pizzerias, instituts et fleuristes. Zéro app à télécharger, zéro
-              matériel : un QR code sur votre comptoir, et vos clients
-              l&apos;ajoutent à Apple Wallet ou Google Wallet en 2&nbsp;clics.
+              Aidez vos clients à revenir plus souvent grâce à un système de
+              fidélisation pensé pour les commerces de proximité. Zéro app à
+              télécharger, zéro matériel : un QR code sur votre comptoir, et
+              vos clients l&apos;ajoutent à Apple Wallet ou Google Wallet en
+              2&nbsp;clics.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
