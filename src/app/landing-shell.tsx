@@ -8,6 +8,7 @@ import { TrustBar } from "@/components/landing/TrustBar";
 import { SocialProofSection } from "@/components/landing/SocialProofSection";
 import { WhyWalletSection } from "@/components/landing/WhyWalletSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
+import { ProductShowcaseSection } from "@/components/landing/ProductShowcaseSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { UseCasesSection } from "@/components/landing/UseCasesSection";
 import { WalletStatsSection } from "@/components/landing/WalletStatsSection";
@@ -31,6 +32,7 @@ export function LandingShell() {
           <SocialProofSection />
           <WhyWalletSection />
           <HowItWorksSection />
+          <ProductShowcaseSection />
           <FeaturesSection />
           <UseCasesSection />
           <WalletStatsSection />
