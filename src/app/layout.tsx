@@ -85,6 +85,17 @@ export const metadata: Metadata = {
   alternates: {
     canonical: SITE_URL,
   },
+  // Favicon : "a" noir sur fond jaune (cohérent avec le wordmark du header).
+  // Avant on utilisait icon.svg (gradient générique).
+  icons: {
+    icon: [
+      { url: "/brand/aswallet-favicon-256.png", sizes: "256x256", type: "image/png" },
+      { url: "/brand/aswallet-favicon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/brand/aswallet-favicon-512.png", sizes: "512x512" },
+    ],
+  },
 };
 
 export default function RootLayout({
