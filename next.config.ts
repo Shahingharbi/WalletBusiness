@@ -75,6 +75,24 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Image optimization config :
+  // - `unoptimized: true` court-circuite le proxy /_next/image de Vercel.
+  //   Sur le plan Hobby le quota est 1000 transformations / mois → vite
+  //   épuisé sur une landing publique avec quelques mockups. Quand le
+  //   quota est plein, Vercel renvoie 402 OPTIMIZED_IMAGE_REQUEST_PAYMENT_
+  //   REQUIRED → toutes les images affichaient cassé. En désactivant
+  //   l'optim, on sert le fichier raw (déjà compressé/sized via sharp
+  //   au build), pas de quota consommé.
+  // - `remotePatterns` au cas où on repasserait en optim plus tard,
+  //   pour les hôtes externes utilisés sur la LP.
+  images: {
+    unoptimized: true,
+    remotePatterns: [
+      { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "api.dicebear.com" },
+      { protocol: "https", hostname: "cdn.simpleicons.org" },
+    ],
+  },
 };
 
 // Wrap with Sentry — uploads source maps at build time when SENTRY_AUTH_TOKEN
