@@ -1,27 +1,87 @@
 "use client";
 
+import Image from "next/image";
 import { CardPreview } from "@/components/cards/card-preview";
 
 /**
- * Empilement de 2 cartes Apple Wallet rendues via le VRAI composant
- * <CardPreview /> (le même utilisé dans l'éditeur merchant). Garantit
- * que la landing montre exactement ce que les commerçants auront
- * comme résultat, sans mockup CSS de fausse carte qui ne ressemble à
- * rien de réel.
+ * Empilement de 2 cartes Apple Wallet pour le Hero de la landing.
  *
- * Carte arrière : tons sombres + accent or (luxe / restauration).
- * Carte avant   : tons clairs + accent corail (boulangerie / café).
+ * Par défaut : rend via <CardPreview /> (le composant de l'éditeur merchant).
+ * Mode "vraies captures" : si tu poses tes screenshots Apple Wallet dans
+ *   `public/landing-mockups/wallet-front.png` et `wallet-back.png`,
+ *   passe `USE_REAL_PHOTOS = true` et le hero affichera tes vraies images
+ *   dans des frames iPhone. Pratique quand tu as une carte sur ton tel et
+ *   tu veux la mettre en vitrine.
  */
-export function HeroMockup() {
+const USE_REAL_PHOTOS = false;
+
+function PhoneFrame({
+  src,
+  alt,
+  className = "",
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
   return (
-    <div className="relative w-full max-w-[420px] mx-auto py-8">
-      {/* Carte ARRIÈRE — décalée, rotation légère, opacité réduite */}
+    <div className={`relative ${className}`}>
+      <div className="rounded-[40px] bg-neutral-900 p-[3px] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.45)] ring-1 ring-black/30">
+        <div className="relative rounded-[37px] overflow-hidden bg-black">
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 w-20 sm:w-24 h-5 sm:h-6 bg-black rounded-full" />
+          <Image
+            src={src}
+            alt={alt}
+            width={414}
+            height={896}
+            className="w-full h-auto"
+            priority
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function HeroMockup() {
+  if (USE_REAL_PHOTOS) {
+    // Mode vraies captures iPhone (Safari Burger / Kaptainfry / etc.)
+    return (
+      <div className="relative w-full max-w-[460px] mx-auto py-6">
+        <div
+          className="absolute top-0 left-1/2 w-[58%] sm:w-[62%] origin-center hidden sm:block"
+          style={{
+            transform: "translate(calc(-50% + 70px), 16px) rotate(7deg)",
+            opacity: 0.95,
+          }}
+        >
+          <PhoneFrame
+            src="/landing-mockups/wallet-back.png"
+            alt="Carte de fidélité partenaire dans Apple Wallet"
+          />
+        </div>
+        <div
+          className="relative w-[68%] sm:w-[60%] mx-auto"
+          style={{ transform: "translate(-6%, 0) rotate(-3deg)" }}
+        >
+          <PhoneFrame
+            src="/landing-mockups/wallet-front.png"
+            alt="Carte de fidélité partenaire dans Apple Wallet"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Mode CardPreview — rend deux vraies cartes via le composant de l'éditeur
+  return (
+    <div className="relative w-full max-w-[460px] mx-auto py-6">
+      {/* Carte ARRIÈRE */}
       <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[300px] sm:max-w-[320px] origin-center"
+        className="absolute top-0 left-1/2 w-[300px] sm:w-[320px] origin-center hidden sm:block"
         style={{
-          transform:
-            "translate(calc(-50% + 28px), 24px) rotate(6deg)",
-          opacity: 0.92,
+          transform: "translate(calc(-50% + 70px), 16px) rotate(7deg)",
+          opacity: 0.95,
           filter: "drop-shadow(0 30px 40px rgba(0,0,0,0.15))",
         }}
       >
@@ -50,11 +110,11 @@ export function HeroMockup() {
         />
       </div>
 
-      {/* Carte AVANT — taille normale, légère contre-rotation */}
+      {/* Carte AVANT */}
       <div
-        className="relative w-full max-w-[300px] sm:max-w-[320px] mx-auto"
+        className="relative w-[300px] sm:w-[320px] mx-auto"
         style={{
-          transform: "translate(-12px, 0) rotate(-3deg)",
+          transform: "translate(-6%, 0) rotate(-3deg)",
           filter: "drop-shadow(0 30px 45px rgba(0,0,0,0.22))",
         }}
       >
@@ -83,8 +143,8 @@ export function HeroMockup() {
         />
       </div>
 
-      {/* Floating chip "+1 tampon" — fait vivre la composition */}
-      <div className="hidden sm:flex absolute -right-4 lg:right-2 top-20 items-center gap-2 bg-foreground text-white rounded-full pl-2 pr-4 py-2 shadow-xl ring-1 ring-black/5">
+      {/* Floating chip */}
+      <div className="hidden sm:flex absolute -right-2 lg:right-6 top-24 items-center gap-2 bg-foreground text-white rounded-full pl-2 pr-4 py-2 shadow-xl ring-1 ring-black/10">
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow text-foreground font-bold text-sm">
           +1
         </span>
@@ -94,8 +154,8 @@ export function HeroMockup() {
         </div>
       </div>
 
-      {/* Floating badge stat */}
-      <div className="hidden lg:flex absolute -left-4 bottom-10 flex-col bg-white rounded-2xl px-4 py-3 shadow-xl ring-1 ring-black/5">
+      {/* Floating badge */}
+      <div className="hidden lg:flex absolute -left-2 bottom-10 flex-col bg-white rounded-2xl px-4 py-3 shadow-xl ring-1 ring-black/5">
         <p
           className="text-2xl text-foreground leading-none"
           style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}

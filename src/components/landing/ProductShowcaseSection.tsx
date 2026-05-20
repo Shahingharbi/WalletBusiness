@@ -117,28 +117,41 @@ export function ProductShowcaseSection() {
           </div>
         </div>
 
-        {/* SCANNER — frame iPhone */}
+        {/* ÉDITEUR — frame laptop, preview Apple Wallet live à droite.
+            Bien plus parlant que le scanner sombre : le merchant voit
+            exactement ce qu'il manipule au moment de la création. */}
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           <div className="relative order-1">
-            {/* iPhone frame */}
-            <div className="relative mx-auto w-[260px] sm:w-[300px]">
-              <div className="rounded-[42px] bg-neutral-900 p-2.5 shadow-2xl ring-1 ring-black/20">
-                <div className="relative rounded-[34px] overflow-hidden bg-black">
-                  {/* Dynamic Island */}
-                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 w-24 h-6 bg-black rounded-full" />
+            <div className="relative mx-auto max-w-[640px]">
+              <div className="rounded-t-2xl bg-neutral-800 p-2 shadow-2xl">
+                <div className="rounded-t-xl bg-neutral-900 overflow-hidden">
+                  <div className="flex items-center gap-1.5 px-3 py-2 bg-neutral-800/60">
+                    <span className="h-3 w-3 rounded-full bg-red-500" />
+                    <span className="h-3 w-3 rounded-full bg-yellow-500" />
+                    <span className="h-3 w-3 rounded-full bg-green-500" />
+                  </div>
                   <Image
-                    src="/landing-mockups/scanner-mobile.png"
-                    alt="Scanner caissier aswallet"
-                    width={414}
-                    height={896}
+                    src="/landing-mockups/editor-desktop.png"
+                    alt="Éditeur aswallet avec aperçu Apple Wallet en direct"
+                    width={1440}
+                    height={900}
                     className="w-full h-auto"
                   />
                 </div>
               </div>
-              {/* Floating "Valider" tag */}
-              <div className="absolute -right-2 sm:-right-6 top-1/3 bg-emerald-500 text-black rounded-2xl px-4 py-3 shadow-xl ring-1 ring-emerald-300 rotate-3">
-                <p className="text-xs font-bold leading-tight">3 secondes</p>
-                <p className="text-[10px] leading-tight">pour valider</p>
+              <div
+                className="mx-auto h-3 bg-gradient-to-b from-neutral-700 to-neutral-900 rounded-b-2xl"
+                style={{ width: "108%", marginLeft: "-4%" }}
+              />
+              <div
+                className="mx-auto h-1 bg-neutral-800 rounded-b-xl"
+                style={{ width: "30%" }}
+              />
+
+              {/* Floating tag aperçu temps réel */}
+              <div className="absolute -right-3 sm:-right-8 top-16 bg-yellow text-foreground rounded-2xl px-4 py-3 shadow-xl ring-1 ring-amber-300 rotate-3">
+                <p className="text-xs font-bold leading-tight">Aperçu live</p>
+                <p className="text-[10px] leading-tight">Apple + Google</p>
               </div>
             </div>
           </div>
@@ -148,22 +161,23 @@ export function ProductShowcaseSection() {
               className="text-2xl sm:text-3xl text-foreground leading-tight"
               style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}
             >
-              Le scanner du caissier, ultra simple.
+              Vous designez. Vous voyez le résultat.
             </h3>
             <p
               className="mt-4 text-base text-foreground/70 leading-relaxed"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              Caméra, scan du QR, validation. Pas de formation, pas de
-              matériel, pas de logiciel à installer. N&apos;importe quel
-              téléphone ou tablette fait l&apos;affaire.
+              Choisissez vos couleurs, votre logo, votre photo, votre offre.
+              L&apos;aperçu Apple Wallet et Google Wallet se met à jour en
+              direct, sans recharger. Ce que vous voyez = ce que vos clients
+              auront dans leur téléphone.
             </p>
             <ul className="mt-6 space-y-3">
               {[
-                "Scan caméra ou saisie manuelle en backup",
-                "Choix du nombre de tampons en 1 tap",
-                "Carte du client mise à jour automatiquement",
-                "Marche sur n'importe quel smartphone ou tablette",
+                "12 palettes de couleurs prêtes à l'emploi + édition fine",
+                "Logo, photo bannière, icône de tampon personnalisable",
+                "Toggle Apple ↔ Google pour comparer les deux rendus",
+                "Aucune compétence design requise",
               ].map((item) => (
                 <li
                   key={item}
