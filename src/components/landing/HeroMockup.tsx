@@ -1,21 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { CardPreview } from "@/components/cards/card-preview";
 
 /**
- * Empilement de 2 cartes Apple Wallet pour le Hero de la landing.
- *
- * Par défaut : rend via <CardPreview /> (le composant de l'éditeur merchant).
- * Mode "vraies captures" : si tu poses tes screenshots Apple Wallet dans
- *   `public/landing-mockups/wallet-front.png` et `wallet-back.png`,
- *   passe `USE_REAL_PHOTOS = true` et le hero affichera tes vraies images
- *   dans des frames iPhone. Pratique quand tu as une carte sur ton tel et
- *   tu veux la mettre en vitrine.
+ * Hero mockup — empilement de 2 vraies captures Apple Wallet du user
+ * (Safari Burger orange + Kaptainfry rouge), cropées pour virer
+ * l'indicateur de pile en bas. Les screenshots iPhone ont déjà la
+ * status bar + le fond noir iPhone, donc juste un border-radius + shadow
+ * suffit — pas de frame iPhone supplémentaire qui ferait double.
  */
-const USE_REAL_PHOTOS = false;
 
-function PhoneFrame({
+function WalletCard({
   src,
   alt,
   className = "",
@@ -25,126 +20,51 @@ function PhoneFrame({
   className?: string;
 }) {
   return (
-    <div className={`relative ${className}`}>
-      <div className="rounded-[40px] bg-neutral-900 p-[3px] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.45)] ring-1 ring-black/30">
-        <div className="relative rounded-[37px] overflow-hidden bg-black">
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 w-20 sm:w-24 h-5 sm:h-6 bg-black rounded-full" />
-          <Image
-            src={src}
-            alt={alt}
-            width={414}
-            height={896}
-            className="w-full h-auto"
-            priority
-          />
-        </div>
-      </div>
+    <div
+      className={`relative rounded-[32px] overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.45)] ring-1 ring-black/20 ${className}`}
+    >
+      <Image
+        src={src}
+        alt={alt}
+        width={828}
+        height={1398}
+        className="w-full h-auto"
+        priority
+      />
     </div>
   );
 }
 
 export function HeroMockup() {
-  if (USE_REAL_PHOTOS) {
-    // Mode vraies captures iPhone (Safari Burger / Kaptainfry / etc.)
-    return (
-      <div className="relative w-full max-w-[460px] mx-auto py-6">
-        <div
-          className="absolute top-0 left-1/2 w-[58%] sm:w-[62%] origin-center hidden sm:block"
-          style={{
-            transform: "translate(calc(-50% + 70px), 16px) rotate(7deg)",
-            opacity: 0.95,
-          }}
-        >
-          <PhoneFrame
-            src="/landing-mockups/wallet-back.png"
-            alt="Carte de fidélité partenaire dans Apple Wallet"
-          />
-        </div>
-        <div
-          className="relative w-[68%] sm:w-[60%] mx-auto"
-          style={{ transform: "translate(-6%, 0) rotate(-3deg)" }}
-        >
-          <PhoneFrame
-            src="/landing-mockups/wallet-front.png"
-            alt="Carte de fidélité partenaire dans Apple Wallet"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // Mode CardPreview — rend deux vraies cartes via le composant de l'éditeur
   return (
-    <div className="relative w-full max-w-[460px] mx-auto py-6">
-      {/* Carte ARRIÈRE */}
+    <div className="relative w-full max-w-[480px] mx-auto py-6">
+      {/* Carte ARRIÈRE — Kaptainfry (rouge/noir), décalée + rotation */}
       <div
-        className="absolute top-0 left-1/2 w-[300px] sm:w-[320px] origin-center hidden sm:block"
+        className="absolute top-0 left-1/2 w-[55%] sm:w-[58%] origin-center hidden sm:block"
         style={{
-          transform: "translate(calc(-50% + 70px), 16px) rotate(7deg)",
-          opacity: 0.95,
-          filter: "drop-shadow(0 30px 40px rgba(0,0,0,0.15))",
+          transform: "translate(calc(-50% + 68px), 10px) rotate(7deg)",
+          opacity: 0.96,
         }}
       >
-        <CardPreview
-          cardName="Carte fidélité"
-          cardType="stamp"
-          stampCount={10}
-          rewardText="10 cafés = 1 offert"
-          businessName="Café Numidia"
-          design={{
-            background_color: "#1f1410",
-            text_color: "#ffffff",
-            accent_color: "#d4a574",
-            banner_url: null,
-            logo_url: null,
-            icon_url: null,
-            stamp_icon: "coffee",
-            stamp_shape: "circle",
-            stamp_active_url: null,
-            stamp_inactive_url: null,
-            label_stamps: "Cafés",
-            label_rewards: "Récompenses",
-            welcome_reward: "",
-          }}
-          platform="apple"
+        <WalletCard
+          src="/landing-mockups/wallet-kaptainfry.png"
+          alt="Carte de fidélité Kaptainfry dans Apple Wallet"
         />
       </div>
 
-      {/* Carte AVANT */}
+      {/* Carte AVANT — Safari Burger (orange) */}
       <div
-        className="relative w-[300px] sm:w-[320px] mx-auto"
-        style={{
-          transform: "translate(-6%, 0) rotate(-3deg)",
-          filter: "drop-shadow(0 30px 45px rgba(0,0,0,0.22))",
-        }}
+        className="relative w-[60%] sm:w-[58%] mx-auto"
+        style={{ transform: "translate(-6%, 0) rotate(-3deg)" }}
       >
-        <CardPreview
-          cardName="Carte fidélité"
-          cardType="stamp"
-          stampCount={10}
-          rewardText="10 burgers = 1 offert"
-          businessName="Safari Burger"
-          design={{
-            background_color: "#fef6e4",
-            text_color: "#1a1410",
-            accent_color: "#e8743c",
-            banner_url: null,
-            logo_url: null,
-            icon_url: null,
-            stamp_icon: "check",
-            stamp_shape: "squircle",
-            stamp_active_url: null,
-            stamp_inactive_url: null,
-            label_stamps: "Tampons",
-            label_rewards: "Récompenses",
-            welcome_reward: "",
-          }}
-          platform="apple"
+        <WalletCard
+          src="/landing-mockups/wallet-safariburger.png"
+          alt="Carte de fidélité Safari Burger dans Apple Wallet"
         />
       </div>
 
-      {/* Floating chip */}
-      <div className="hidden sm:flex absolute -right-2 lg:right-6 top-24 items-center gap-2 bg-foreground text-white rounded-full pl-2 pr-4 py-2 shadow-xl ring-1 ring-black/10">
+      {/* Floating chip "+1 tampon" — donne vie à la composition */}
+      <div className="hidden sm:flex absolute right-0 lg:right-6 top-24 items-center gap-2 bg-foreground text-white rounded-full pl-2 pr-4 py-2 shadow-xl ring-1 ring-black/10 z-10">
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow text-foreground font-bold text-sm">
           +1
         </span>
@@ -154,8 +74,8 @@ export function HeroMockup() {
         </div>
       </div>
 
-      {/* Floating badge */}
-      <div className="hidden lg:flex absolute -left-2 bottom-10 flex-col bg-white rounded-2xl px-4 py-3 shadow-xl ring-1 ring-black/5">
+      {/* Floating badge stat */}
+      <div className="hidden lg:flex absolute -left-4 bottom-12 flex-col bg-white rounded-2xl px-4 py-3 shadow-xl ring-1 ring-black/5 z-10">
         <p
           className="text-2xl text-foreground leading-none"
           style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}
