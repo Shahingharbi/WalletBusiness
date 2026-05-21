@@ -39,6 +39,7 @@ interface InstanceLite {
   last_scanned_at: string | null;
   status: string;
   created_at: string;
+  total_stamps_ever?: number;
 }
 
 interface ClientLite {
@@ -59,16 +60,28 @@ export default async function MarketingPage() {
     .select("business_id")
     .eq("id", user!.id)
     .single();
-  const businessId = profile!.business_id;
+  if (!profile?.business_id) {
+    // Pas de business associé → render skeleton vide plutôt que de crasher.
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        <p>Aucun commerce associé à votre compte.</p>
+      </div>
+    );
+  }
+  const businessId = profile.business_id;
 
-  // Fetch en parallèle : cartes, instances, clients, transactions (pour
-  // calcul segments RFM), campagnes 30 derniers jours.
+  // Fetch en parallèle. Toutes les queries sont défensives — un fail
+  // n'empêche pas le reste de charger. Limits explicites partout pour
+  // éviter les timeouts sur les comptes volumineux.
   const thirtyDaysAgo = new Date(
     Date.now() - 30 * 24 * 60 * 60 * 1000,
   ).toISOString();
+  const ninetyDaysAgo = new Date(
+    Date.now() - 90 * 24 * 60 * 60 * 1000,
+  ).toISOString();
 
   const [cardsRes, instancesRes, clientsRes, txRes, campaignsRes] =
-    await Promise.all([
+    await Promise.allSettled([
       supabase
         .from("cards")
         .select(
@@ -79,35 +92,57 @@ export default async function MarketingPage() {
       supabase
         .from("card_instances")
         .select(
-          "id, client_id, card_id, stamps_collected, rewards_available, last_scanned_at, status, created_at",
+          "id, client_id, card_id, stamps_collected, rewards_available, last_scanned_at, status, created_at, total_stamps_ever",
         )
         .eq("business_id", businessId)
-        .eq("status", "active"),
+        .eq("status", "active")
+        .limit(2000),
       supabase
         .from("clients")
         .select("id, first_name, last_name, phone, birthday")
-        .eq("business_id", businessId),
+        .eq("business_id", businessId)
+        .limit(2000),
+      // Transactions : limit aux 90 derniers jours (suffisant pour
+      // segmentation RFM qui ne regarde que la fenêtre 90j). Avant: pas
+      // de limit, plantage possible sur businesses très volumineux.
       supabase
         .from("transactions")
         .select("created_at, type, card_instance_id")
         .eq("business_id", businessId)
-        .eq("type", "stamp_add"),
+        .eq("type", "stamp_add")
+        .gte("created_at", ninetyDaysAgo)
+        .limit(20000),
+      // Campaigns : fetch sans join, on remonte cardName via la map des
+      // cartes déjà chargée. Évite les soucis de FK relationships côté
+      // PostgREST qui peuvent renvoyer 500 si l'inférence rate.
       supabase
         .from("campaigns")
-        .select(
-          "id, card_id, message, segment, recipients_count, sent_at, cards(name)",
-        )
+        .select("id, card_id, message, segment, recipients_count, sent_at")
         .eq("business_id", businessId)
         .gte("sent_at", thirtyDaysAgo)
         .order("sent_at", { ascending: false })
         .limit(10),
     ]);
 
-  const cards = (cardsRes.data ?? []) as CardLite[];
-  const instances = (instancesRes.data ?? []) as InstanceLite[];
-  const clients = (clientsRes.data ?? []) as ClientLite[];
-  const transactions = txRes.data ?? [];
-  const recentCampaigns = campaignsRes.data ?? [];
+  const unwrap = <T,>(r: PromiseSettledResult<{ data?: T[] | null }>): T[] =>
+    r.status === "fulfilled" ? (r.value.data ?? []) : [];
+
+  const cards = unwrap<CardLite>(cardsRes);
+  const instances = unwrap<InstanceLite>(instancesRes);
+  const clients = unwrap<ClientLite>(clientsRes);
+  const transactions = unwrap<{
+    created_at: string;
+    type: string;
+    card_instance_id: string;
+  }>(txRes);
+  const recentCampaigns = unwrap<{
+    id: string;
+    card_id: string;
+    message: string;
+    segment: string;
+    recipients_count: number;
+    sent_at: string;
+  }>(campaignsRes);
 
   const activeCards = cards.filter((c) => c.status === "active");
 
@@ -169,6 +204,48 @@ export default async function MarketingPage() {
   }
 
   const campaignsLast30d = recentCampaigns.length;
+
+  // ─── KPIs engagement CLIENT ────────────────────────────────────────
+  // Pour mesurer la valeur du programme fidélité — ce que le merchant
+  // doit voir pour évaluer l'efficacité de sa carte (vs son intuition).
+  const totalClients = clients.length;
+  const totalVisits = transactions.length; // = sum stamp_add transactions
+
+  // Clients récurrents (au moins 2 visites)
+  const recurrent = Array.from(visitsByClient.values()).filter(
+    (v) => v.length >= 2,
+  ).length;
+  const recurrenceRate = totalClients > 0 ? recurrent / totalClients : 0;
+
+  // Visites moyennes par client (parmi ceux qui ont au moins 1 visite)
+  const clientsWithVisits = visitsByClient.size;
+  const avgVisits =
+    clientsWithVisits > 0 ? totalVisits / clientsWithVisits : 0;
+
+  // Clients actifs 30j (dernière visite <= 30j)
+  const thirtyDaysAgoTs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  let active30dCount = 0;
+  for (const visits of visitsByClient.values()) {
+    const lastTs = Math.max(
+      ...visits.map((v) => new Date(v.created_at).getTime()).filter(Number.isFinite),
+    );
+    if (lastTs >= thirtyDaysAgoTs) active30dCount++;
+  }
+  const active30dRate = totalClients > 0 ? active30dCount / totalClients : 0;
+
+  // Taux de complétion carte : instances qui ont déjà rempli au moins
+  // une carte complète (total_stamps_ever >= stamp_count). Utilise
+  // total_stamps_ever pour capturer même les cycles déjà rachetés.
+  let completedAtLeastOnce = 0;
+  for (const inst of instances) {
+    const card = cardById.get(inst.card_id);
+    if (!card || card.stamp_count < 1) continue;
+    const total = (inst as InstanceLite & { total_stamps_ever?: number })
+      .total_stamps_ever ?? 0;
+    if (total >= card.stamp_count) completedAtLeastOnce++;
+  }
+  const completionRate =
+    instances.length > 0 ? completedAtLeastOnce / instances.length : 0;
 
   const ACTION_CARDS = [
     {
@@ -347,6 +424,53 @@ export default async function MarketingPage() {
         </div>
       </section>
 
+      {/* Performance engagement client — KPIs qui mesurent VRAIMENT la
+          valeur du programme fidélité. Calculés depuis les transactions
+          stamp_add + instances. */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2
+            className="text-lg font-bold text-foreground"
+            style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+          >
+            Performance engagement
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            Sur les 90 derniers jours
+          </span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <PerformanceCard
+            label="Taux de visite récurrente"
+            value={`${Math.round(recurrenceRate * 100)}%`}
+            sub={`${recurrent} client${recurrent > 1 ? "s" : ""} ≥ 2 visites`}
+            target="Objectif : > 40%"
+            achieved={recurrenceRate >= 0.4}
+          />
+          <PerformanceCard
+            label="Visites moyennes / client"
+            value={avgVisits.toFixed(1)}
+            sub={`${totalVisits} visite${totalVisits > 1 ? "s" : ""} total`}
+            target="Plus élevé = plus fidèle"
+            achieved={avgVisits >= 2}
+          />
+          <PerformanceCard
+            label="Clients actifs 30 j"
+            value={`${Math.round(active30dRate * 100)}%`}
+            sub={`${active30dCount} actif${active30dCount > 1 ? "s" : ""} ce mois`}
+            target="Objectif : > 50%"
+            achieved={active30dRate >= 0.5}
+          />
+          <PerformanceCard
+            label="Taux de complétion"
+            value={`${Math.round(completionRate * 100)}%`}
+            sub={`${completedAtLeastOnce} carte${completedAtLeastOnce > 1 ? "s" : ""} remplie${completedAtLeastOnce > 1 ? "s" : ""}`}
+            target="Objectif : > 25%"
+            achieved={completionRate >= 0.25}
+          />
+        </div>
+      </section>
+
       {/* Auto-pushes status par carte */}
       {activeCards.length > 0 && (
         <section>
@@ -428,8 +552,7 @@ export default async function MarketingPage() {
         ) : (
           <div className="rounded-2xl border border-gray-200 bg-white divide-y divide-gray-100 overflow-hidden">
             {recentCampaigns.map((c) => {
-              const cardName =
-                (c.cards as unknown as { name?: string } | null)?.name ?? "";
+              const cardName = cardById.get(c.card_id)?.name ?? "Carte";
               return (
                 <div key={c.id} className="px-4 sm:px-5 py-4">
                   <div className="flex items-start justify-between gap-3">
@@ -455,6 +578,54 @@ export default async function MarketingPage() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function PerformanceCard({
+  label,
+  value,
+  sub,
+  target,
+  achieved,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  target: string;
+  achieved: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-4 ${
+        achieved
+          ? "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white"
+          : "border-gray-200 bg-white"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p
+          className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold leading-tight"
+          style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+        >
+          {label}
+        </p>
+        {achieved && (
+          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold shrink-0">
+            ✓
+          </span>
+        )}
+      </div>
+      <p
+        className="text-3xl text-foreground leading-none mt-3"
+        style={{ fontFamily: "var(--font-ginto-nord)", fontWeight: 500 }}
+      >
+        {value}
+      </p>
+      <p className="text-[11px] text-foreground/60 mt-1.5">{sub}</p>
+      <p className="text-[10px] text-muted-foreground mt-2 pt-2 border-t border-gray-100">
+        {target}
+      </p>
     </div>
   );
 }
