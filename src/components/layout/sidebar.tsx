@@ -12,6 +12,7 @@ import {
   ScanLine,
   MapPin,
   Shield,
+  Megaphone,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ const baseNavItems: readonly NavItem[] = [
   { label: "Cartes", href: "/cards", icon: CreditCard },
   { label: "Scanner", href: "/scanner", icon: ScanLine, highlight: true },
   { label: "Clients", href: "/clients", icon: Users },
+  { label: "Marketing", href: "/marketing", icon: Megaphone },
   { label: "Localisations", href: "/locations", icon: MapPin },
   { label: "Paramètres", href: "/settings", icon: Settings },
 ];
