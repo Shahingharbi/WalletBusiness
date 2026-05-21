@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Logo Chicken Street : carré arrondi noir + monogramme "CS" or doré
+       avec petit pictogramme aile de poulet stylisée. Style "fast food
+       premium" — pas le clipart générique habituel. -->
+  <rect width="512" height="512" rx="96" fill="#1a0d0d"/>
+  <!-- Halo accent or autour -->
+  <rect x="16" y="16" width="480" height="480" rx="82"
+        fill="none" stroke="#d4a017" stroke-width="3" stroke-opacity="0.4"/>
+  <!-- Aile de poulet stylisée (forme arrondie en haut) -->
+  <path d="M 192 140
+           Q 192 100 256 100
+           Q 320 100 320 140
+           Q 320 160 304 168
+           Q 312 184 304 200
+           Q 296 216 280 216
+           L 232 216
+           Q 216 216 208 200
+           Q 200 184 208 168
+           Q 192 160 192 140 Z"
+        fill="#d4a017"/>
+  <!-- Détail plume -->
+  <path d="M 220 140 L 256 124 L 292 140 L 256 156 Z" fill="#1a0d0d" fill-opacity="0.3"/>
+  <!-- Monogramme "CS" -->
+  <text x="256" y="380" font-family="Impact, 'Bebas Neue', sans-serif"
+        font-size="220" font-weight="900" text-anchor="middle"
+        fill="#d4a017" letter-spacing="-12">CS</text>
+  <!-- Trait sous le monogramme -->
+  <rect x="176" y="408" width="160" height="6" rx="3" fill="#d4a017"/>
+</svg>

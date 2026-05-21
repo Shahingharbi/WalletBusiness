@@ -111,7 +111,10 @@ export function StepTemplate({ selectedId, onSelect }: StepTemplateProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {/* Grille 1/2/3 col selon viewport. Avec 3 templates seulement, on a
+          un layout aéré qui met chaque template en valeur (au lieu de la
+          grille 7 colonnes serrée qu'on avait avec 14 templates moyens). */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {CARD_TEMPLATES.map((tpl) => {
           const isSelected = selectedId === tpl.id;
           const accentColor = tpl.design.accent_color;
@@ -122,20 +125,29 @@ export function StepTemplate({ selectedId, onSelect }: StepTemplateProps) {
               type="button"
               onClick={() => onSelect(tpl)}
               className={cn(
-                "group relative flex flex-col items-stretch overflow-hidden rounded-xl border-2 transition-all duration-150 cursor-pointer bg-white",
+                "group relative flex flex-col items-stretch overflow-hidden rounded-2xl border-2 transition-all duration-150 cursor-pointer bg-white",
                 isSelected
-                  ? "border-black shadow-md scale-[1.02]"
-                  : "border-gray-200 hover:border-gray-400 hover:shadow-sm"
+                  ? "border-black shadow-lg scale-[1.02]"
+                  : "border-gray-200 hover:border-gray-400 hover:shadow-md"
               )}
             >
               <MiniCard tpl={tpl} />
 
-              <div className="px-3 py-2.5 text-left border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-900 truncate">
-                  {tpl.label}
-                </p>
-                <p className="text-[10px] text-gray-500 mt-0.5">
-                  {CARD_TYPES[tpl.type].label} · {tpl.stampCount > 1 ? `${tpl.stampCount} tampons` : "1 palier"}
+              <div className="px-4 py-3.5 text-left border-t border-gray-100 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">{tpl.emoji}</span>
+                  <p className="text-sm font-bold text-gray-900 truncate">
+                    {tpl.label}
+                  </p>
+                </div>
+                {tpl.description && (
+                  <p className="text-[11px] text-gray-500 mt-1.5 leading-snug line-clamp-2">
+                    {tpl.description}
+                  </p>
+                )}
+                <p className="text-[10px] text-gray-400 mt-2 uppercase tracking-wide font-semibold">
+                  {CARD_TYPES[tpl.type].label}
+                  {tpl.stampCount > 1 ? ` · ${tpl.stampCount} tampons` : ""}
                 </p>
               </div>
 

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Logo institut de beauté : carré arrondi nude rosé + lotus
+       géométrique stylisé en or rose + initiale "B" en monogramme.
+       Style "spa premium" pas le clip-art "papillon rose" générique. -->
+  <rect width="512" height="512" rx="96" fill="#f5e6e0"/>
+  <!-- Fine bordure or rose -->
+  <rect x="16" y="16" width="480" height="480" rx="82"
+        fill="none" stroke="#c48b6f" stroke-width="3" stroke-opacity="0.5"/>
+  <!-- Lotus géométrique : 5 pétales superposés -->
+  <g transform="translate(256, 220)">
+    <!-- Pétales arrière (clairs) -->
+    <ellipse cx="-60" cy="0" rx="40" ry="80" fill="#d4a89a"
+             transform="rotate(-30)"/>
+    <ellipse cx="60" cy="0" rx="40" ry="80" fill="#d4a89a"
+             transform="rotate(30)"/>
+    <!-- Pétales du milieu -->
+    <ellipse cx="-32" cy="-10" rx="36" ry="78" fill="#b88068"
+             transform="rotate(-12)"/>
+    <ellipse cx="32" cy="-10" rx="36" ry="78" fill="#b88068"
+             transform="rotate(12)"/>
+    <!-- Pétale central -->
+    <ellipse cx="0" cy="-20" rx="32" ry="80" fill="#8b5a3c"/>
+    <!-- Cœur lumineux -->
+    <circle cx="0" cy="20" r="14" fill="#f5e6e0"/>
+    <circle cx="0" cy="20" r="6" fill="#c48b6f"/>
+  </g>
+  <!-- Wordmark "BEAUTÉ" sous le lotus -->
+  <text x="256" y="400" font-family="Georgia, 'Playfair Display', serif"
+        font-size="56" font-weight="400" letter-spacing="8"
+        text-anchor="middle" fill="#5c3a28">BEAUTÉ</text>
+  <!-- Trait fin sous wordmark -->
+  <line x1="216" y1="420" x2="296" y2="420"
+        stroke="#c48b6f" stroke-width="1.5"/>
+</svg>
