@@ -67,6 +67,23 @@ interface ApplePassParams {
    * verrouillé quand le porteur passe dans un rayon de ~100m. Max 10.
    */
   locations?: PassLocation[];
+  /**
+   * Dernier message de campagne envoyé à ce client. Quand fourni :
+   *  - Insère un `backField` "Annonce" avec `changeMessage: "%@"` dans le pass
+   *  - Au prochain APNs push, iOS refetch → détecte que la value a changé →
+   *    affiche le contenu du message en notif lockscreen (au lieu du
+   *    générique "Pass mis à jour")
+   *
+   * Source de vérité : `card_instances.last_campaign_message` en DB.
+   * Persistée par /api/campaigns POST puis read au refetch APNs.
+   */
+  lastCampaignMessage?: string | null;
+  /**
+   * Date d'envoi du dernier message — ajoutée au label pour donner contexte
+   * ("Annonce du 23/05/2026"). Évite que le client se demande quand le
+   * message a été envoyé.
+   */
+  lastCampaignAt?: string | null;
 }
 
 const TEAM_ID = process.env.APPLE_TEAM_ID ?? "";
@@ -467,6 +484,45 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
       label: "Récompense",
       value: p.rewardText,
     },
+  );
+
+  // Field "Annonce" — déclenche la notif lockscreen iOS avec le contenu du
+  // message. Placé en TÊTE des backFields (juste après les infos carte de
+  // base) pour qu'il soit visible immédiatement au verso. `changeMessage`
+  // = "%@" signifie : quand la value de ce field change vs le pass local,
+  // iOS affiche EXACTEMENT cette value en notification riche.
+  //
+  // IMPORTANT : le field DOIT exister dans TOUS les passes (avec value vide
+  // ou message par défaut) sinon iOS ne peut pas comparer "old vs new" et
+  // n'affichera pas la notif. C'est pourquoi on insère le field même quand
+  // lastCampaignMessage est null/vide — avec une value placeholder discrète.
+  const announcementMessage = (p.lastCampaignMessage ?? "").trim();
+  const announcementValue =
+    announcementMessage.length > 0
+      ? announcementMessage
+      : "Aucune annonce pour le moment.";
+  const announcementLabel = (() => {
+    if (!p.lastCampaignAt) return "Annonce";
+    try {
+      const d = new Date(p.lastCampaignAt);
+      const formatted = new Intl.DateTimeFormat("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(d);
+      return `Annonce du ${formatted}`;
+    } catch {
+      return "Annonce";
+    }
+  })();
+  pass.backFields.push({
+    key: "announcement",
+    label: announcementLabel,
+    value: announcementValue,
+    changeMessage: "%@",
+  } as unknown as Parameters<typeof pass.backFields.push>[0]);
+
+  pass.backFields.push(
     {
       key: "view-online",
       label: "Voir ma carte en ligne",
@@ -476,7 +532,7 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
       key: "support",
       label: "Support",
       value: "contact@aswallet.fr",
-    }
+    },
   );
 
   // QR code lisible par l'app scanner du commerçant. altText apparaît

@@ -145,23 +145,37 @@ export function CampaignsClient({
           text: data?.error ?? "Erreur lors de l'envoi",
         });
       } else {
-        setFeedback({
-          type: "success",
-          text: `Campagne envoyée à ${data.recipients} porteur${
-            data.recipients > 1 ? "s" : ""
-          }.`,
-        });
-        setCampaigns((prev) => [
-          {
-            id: data.id,
-            message: message.trim(),
-            segment,
-            recipients_count: data.recipients,
-            sent_at: data.sent_at ?? new Date().toISOString(),
-          },
-          ...prev,
-        ]);
-        setMessage("");
+        const recipients: number = data.recipients ?? 0;
+        const excluded: number = data.excluded ?? 0;
+        if (recipients === 0 && excluded > 0) {
+          // Tous les ciblés sont en cooldown 12h — on signale clairement.
+          setFeedback({
+            type: "error",
+            text: `Aucune notif envoyée : ${excluded} porteur${
+              excluded > 1 ? "s ont" : " a"
+            } déjà reçu une annonce dans les 12 dernières heures.`,
+          });
+        } else {
+          const base = `Campagne envoyée à ${recipients} porteur${
+            recipients > 1 ? "s" : ""
+          }`;
+          const suffix =
+            excluded > 0
+              ? ` · ${excluded} exclu${excluded > 1 ? "s" : ""} (notif < 12h)`
+              : "";
+          setFeedback({ type: "success", text: base + suffix + "." });
+          setCampaigns((prev) => [
+            {
+              id: data.id,
+              message: message.trim(),
+              segment,
+              recipients_count: recipients,
+              sent_at: data.sent_at ?? new Date().toISOString(),
+            },
+            ...prev,
+          ]);
+          setMessage("");
+        }
       }
     } catch {
       setFeedback({ type: "error", text: "Erreur réseau" });

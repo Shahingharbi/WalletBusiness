@@ -215,9 +215,22 @@ function BroadcastModal({
       if (!res.ok) {
         throw new Error(data.error || "Erreur lors de l'envoi");
       }
-      toast.success(
-        `Campagne envoyée à ${data.recipients} client${data.recipients > 1 ? "s" : ""}`,
-      );
+      const recipients: number = data.recipients ?? 0;
+      const excluded: number = data.excluded ?? 0;
+      if (recipients === 0 && excluded > 0) {
+        // Cas limite : tous les clients ciblés sont en cooldown 12h.
+        // On informe sans crier au succès.
+        toast.error(
+          `Aucune notif envoyée : ${excluded} client${excluded > 1 ? "s ont" : " a"} déjà reçu une annonce dans les 12 dernières heures.`,
+        );
+      } else {
+        const base = `Campagne envoyée à ${recipients} client${recipients > 1 ? "s" : ""}`;
+        const suffix =
+          excluded > 0
+            ? ` · ${excluded} exclu${excluded > 1 ? "s" : ""} (notif < 12h)`
+            : "";
+        toast.success(base + suffix);
+      }
       onClose();
       router.refresh();
     } catch (err) {

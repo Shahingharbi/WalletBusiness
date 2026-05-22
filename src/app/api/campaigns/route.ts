@@ -19,6 +19,11 @@ const VALID_SEGMENTS: Segment[] = [
 
 const MAX_MESSAGE_LENGTH = 200;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+// Anti-spam : Apple/Google n'aiment pas qu'on bombarde le même client.
+// Si une notif a déjà été envoyée à un instance dans les 12 dernières
+// heures, on l'exclut de la campagne suivante. Le merchant voit "X exclus
+// pour respecter la limite Apple/Google" dans le toast.
+const CAMPAIGN_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 
 interface InstanceRow {
   id: string;
@@ -27,6 +32,7 @@ interface InstanceRow {
   rewards_available: number;
   rewards_redeemed: number;
   last_scanned_at: string | null;
+  last_campaign_at: string | null;
   status: string;
   created_at: string;
 }
@@ -163,14 +169,32 @@ export async function POST(request: Request) {
     const { data: instances } = await admin
       .from("card_instances")
       .select(
-        "id, token, stamps_collected, rewards_available, rewards_redeemed, last_scanned_at, status, created_at"
+        "id, token, stamps_collected, rewards_available, rewards_redeemed, last_scanned_at, last_campaign_at, status, created_at"
       )
       .eq("card_id", cardId);
 
-    const targets = filterBySegment(
+    const segmentMatches = filterBySegment(
       (instances ?? []) as InstanceRow[],
       seg
     );
+
+    // Cooldown 12h : on retire de la cible toute instance qui a déjà reçu
+    // une notif de campagne dans les 12 dernières heures. Côté Apple, faire
+    // refetch un pass trop souvent fait perdre la notif (iOS dédupe), et
+    // côté Google la notif est queued mais ne s'affiche pas.
+    const nowMs = Date.now();
+    const excluded: InstanceRow[] = [];
+    const targets: InstanceRow[] = [];
+    for (const inst of segmentMatches) {
+      if (inst.last_campaign_at) {
+        const lastMs = new Date(inst.last_campaign_at).getTime();
+        if (!Number.isNaN(lastMs) && nowMs - lastMs < CAMPAIGN_COOLDOWN_MS) {
+          excluded.push(inst);
+          continue;
+        }
+      }
+      targets.push(inst);
+    }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://aswallet.fr";
     const trimmedMessage = message.trim();
@@ -214,6 +238,27 @@ export async function POST(request: Request) {
           ?.label_stamps === "string"
           ? ((card as { design: { label_stamps: string } }).design.label_stamps)
           : null;
+
+      // On stamp last_campaign_message + last_campaign_at AVANT de pusher
+      // sur APNs. Quand iOS refetch le .pkpass déclenché par notre push,
+      // il lira la value mise à jour du backField "announcement" et
+      // affichera son changeMessage sur le lockscreen. Si on stampait
+      // après le push, on aurait une race où iOS refetch un pass avec
+      // l'ancienne value et n'afficherait pas de notif riche.
+      const targetTokens = targets.map((t) => t.token);
+      const nowIso = new Date().toISOString();
+      const { error: stampError } = await admin
+        .from("card_instances")
+        .update({
+          last_campaign_message: trimmedMessage,
+          last_campaign_at: nowIso,
+        })
+        .in("token", targetTokens);
+      if (stampError) {
+        console.error("[campaigns] stamp last_campaign error:", stampError);
+        // On continue quand même — l'envoi générique reste utile, juste
+        // sans message riche sur le lockscreen.
+      }
 
       after(async () => {
         // Concurrency 8 par batch : Google Wallet rate-limite à ~20 req/s
@@ -261,9 +306,10 @@ export async function POST(request: Request) {
           }
         }
         console.info(
-          "[campaigns/after] campaign=%s targets=%d google_ok=%d google_fail=%d apple_ok=%d apple_fail=%d",
+          "[campaigns/after] campaign=%s targets=%d excluded=%d google_ok=%d google_fail=%d apple_ok=%d apple_fail=%d",
           inserted.id,
           targets.length,
+          excluded.length,
           googleOk,
           googleFail,
           appleOk,
@@ -276,6 +322,7 @@ export async function POST(request: Request) {
       id: inserted.id,
       sent_at: inserted.sent_at,
       recipients: targets.length,
+      excluded: excluded.length,
       // pushed_to_google n'est plus retourné : le push a lieu en background
       // et finit après la réponse. Le front affichera "X destinataires
       // ciblés, l'envoi est en cours" au lieu de mentir avec un faux compteur.

@@ -5,6 +5,28 @@
 
 ---
 
+## 2026-05-22 — Apple Wallet notif riche (vrai message sur lockscreen) + cooldown 12h
+
+### Phase 2 Apple Wallet : afficher le CONTENU du message campagne sur lockscreen
+- **Problème** : depuis la dernière session, les notifs APNs partaient bien aux iPhones, mais le lockscreen affichait juste "Pass mis à jour" — le contenu du message campagne n'était nulle part visible. Le merchant et le client perdaient l'intérêt de la fonctionnalité.
+- **Mécanique iOS** : pour qu'iOS affiche un VRAI texte sur le lockscreen, il faut un field (back ou primary) avec `changeMessage: "%@"` ET dont la value change vs le pass local. iOS rend alors le `changeMessage` en remplaçant `%@` par la nouvelle value.
+- **Solution** :
+  1. Migration `013_campaign_message_field.sql` : `card_instances.last_campaign_message TEXT` + `last_campaign_at TIMESTAMPTZ` + index sur `last_campaign_at` pour le cooldown query.
+  2. `lib/apple-wallet.ts` : nouveau backField "announcement" avec `changeMessage: "%@"`. Label dynamique "Annonce du DD/MM/YYYY" (fallback "Annonce"). Value = `last_campaign_message` ou "Aucune annonce pour le moment." (placeholder fixe quand pas de campagne — important : si on n'insère pas le field du tout, iOS ne peut pas détecter de diff plus tard).
+  3. Routes `/api/apple-wallet/[instanceToken]` et `/api/apple-wallet/v1/passes/.../[serialNumber]` (PassKit Web Service refetch) : SELECT + propagation de `last_campaign_message` / `last_campaign_at` à `generateApplePassBuffer`.
+- **Choix backFields** (et pas primary/secondary) : best practice Apple — le verso de la carte est l'endroit prévu pour les annonces. Évite de polluer le recto. La notif lockscreen marche pareil.
+
+### `/api/campaigns POST` : stamp + cooldown 12h
+- **Cooldown 12h par instance** ciblée : avant un envoi, on retire les `card_instances` où `last_campaign_at` est dans les 12 dernières heures. Apple dédupe les refetch trop proches (la notif disparait silencieusement), Google queue mais n'affiche pas. Mieux vaut prévenir le merchant.
+- **Stamp AVANT push** : on UPDATE `last_campaign_message` + `last_campaign_at` AVANT de pousser sur APNs. Sinon race : iOS refetch arrive avant le UPDATE et lit l'ancienne value → pas de notif riche.
+- **Réponse API** : `{ id, sent_at, recipients, excluded }`. Le merchant voit dans le toast "Campagne envoyée à 47 clients · 3 exclus (notif < 12h)". Cas limite : si tous les ciblés sont en cooldown, toast d'erreur explicite.
+- **UI** : `marketing-broadcast.tsx` (page /marketing) + `campaigns-client.tsx` (page /cards/[id]/campaigns) affichent le compte d'exclus.
+
+### Action manuelle requise après pull
+- Appliquer `supabase/migrations/013_campaign_message_field.sql` dans Supabase SQL Editor (project `uxlusgikgsufhwnacxkg`).
+
+---
+
 ## 2026-05-05 (suite) — Design system overhaul + Geo-push auto + PWA prompt + Navbar login + Audit
 
 ### Design system : preview = wallet réel (3 bugs visuels résolus)

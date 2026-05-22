@@ -28,6 +28,7 @@ export async function GET(
       .from("card_instances")
       .select(`
         id, token, business_id, stamps_collected, rewards_available, status,
+        last_campaign_message, last_campaign_at,
         clients(first_name),
         cards(id, name, card_type, stamp_count, reward_text, design, wallet_business_name, businesses(name, logo_url))
       `)
@@ -78,6 +79,11 @@ export async function GET(
         ? ck
         : "stamp";
 
+    const instanceTyped = instance as typeof instance & {
+      last_campaign_message?: string | null;
+      last_campaign_at?: string | null;
+    };
+
     const buffer = await generateApplePassBuffer({
       cardId: card.id,
       cardName: card.name,
@@ -102,6 +108,8 @@ export async function GET(
       logoUrl: merchantLogoUrl,
       locations,
       stampsLabel: (design.label_stamps as string | null) ?? null,
+      lastCampaignMessage: instanceTyped.last_campaign_message ?? null,
+      lastCampaignAt: instanceTyped.last_campaign_at ?? null,
     });
 
     return new NextResponse(new Uint8Array(buffer), {
