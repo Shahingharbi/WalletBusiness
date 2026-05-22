@@ -98,21 +98,31 @@ export default async function CampaignsPage({
     );
   }
 
-  // Préfetch des campagnes existantes (RLS).
-  const { data: campaignsRaw } = await supabase
-    .from("campaigns")
-    .select("id, message, segment, recipients_count, sent_at")
-    .eq("card_id", card.id)
-    .order("sent_at", { ascending: false })
-    .limit(50);
-
-  const campaigns: CampaignRow[] = (campaignsRaw ?? []).map((c) => ({
-    id: c.id,
-    message: c.message,
-    segment: c.segment as CampaignRow["segment"],
-    recipients_count: c.recipients_count,
-    sent_at: c.sent_at,
-  }));
+  // Préfetch défensif des campagnes existantes : si la table n'existe
+  // pas / pas migrée / RLS bloque, on render quand même la page avec
+  // une liste vide plutôt que de crasher en 500.
+  let campaigns: CampaignRow[] = [];
+  try {
+    const { data: campaignsRaw, error: campaignsErr } = await supabase
+      .from("campaigns")
+      .select("id, message, segment, recipients_count, sent_at")
+      .eq("card_id", card.id)
+      .order("sent_at", { ascending: false })
+      .limit(50);
+    if (campaignsErr) {
+      console.error("[campaigns page] fetch error:", campaignsErr);
+    } else {
+      campaigns = (campaignsRaw ?? []).map((c) => ({
+        id: c.id,
+        message: c.message,
+        segment: c.segment as CampaignRow["segment"],
+        recipients_count: c.recipients_count,
+        sent_at: c.sent_at,
+      }));
+    }
+  } catch (err) {
+    console.error("[campaigns page] unexpected error:", err);
+  }
 
   return (
     <div className="space-y-6 max-w-4xl">

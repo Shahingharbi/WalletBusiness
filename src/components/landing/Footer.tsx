@@ -60,7 +60,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
-          <p className="text-xs text-white/40">&copy; 2026 aswallet &middot; SIRET 903 950 210 00026 &middot; Édité par Shahin Gharbi</p>
+          <p className="text-xs text-white/40">&copy; 2026 aswallet &middot; Tous droits réservés</p>
           <div className="flex flex-wrap gap-4">
             <Link href="/contact" className="text-xs text-white/40 hover:text-white/70 transition-colors">Contact</Link>
             <Link href="/mentions-legales" className="text-xs text-white/40 hover:text-white/70 transition-colors">Mentions légales</Link>

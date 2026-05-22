@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncLoyaltyObject } from "@/lib/google-wallet";
+import { pushAppleWalletUpdate } from "@/lib/apple-wallet-push";
 import { requirePlan, type BusinessBillingState } from "@/lib/billing";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -215,16 +216,19 @@ export async function POST(request: Request) {
           : null;
 
       after(async () => {
-        // Concurrency 8 : Google Wallet rate-limite à ~20 req/s par défaut.
-        // 8 en parallèle laisse de la marge sans saturer + ne pète pas
-        // les sockets HTTP/2 sortantes du lambda.
+        // Concurrency 8 par batch : Google Wallet rate-limite à ~20 req/s
+        // par défaut. 8 en parallèle laisse de la marge.
         const CONCURRENCY = 8;
-        let ok = 0;
-        let fail = 0;
+        let googleOk = 0;
+        let googleFail = 0;
+        let appleOk = 0;
+        let appleFail = 0;
         for (let i = 0; i < targets.length; i += CONCURRENCY) {
           const batch = targets.slice(i, i + CONCURRENCY);
+          // Google + Apple en parallèle pour chaque target — chaque push
+          // pour chaque plateforme est awaitée individuellement.
           const results = await Promise.allSettled(
-            batch.map((t) =>
+            batch.flatMap((t) => [
               syncLoyaltyObject(
                 t.token,
                 t.stamps_collected,
@@ -234,27 +238,39 @@ export async function POST(request: Request) {
                 stampsTotal,
                 labelStamps,
                 cardKind,
-              ),
-            ),
+              ).then((r) => ({ kind: "google" as const, r })),
+              // Apple : pushAppleWalletUpdate refetch le .pkpass via APNs.
+              // iOS détecte le diff et notif "Pass mis à jour" sur le lockscreen.
+              // Pour avoir un VRAI message visible, le message est aussi inséré
+              // côté backFields du pass (cf. apple-wallet.ts si phase 2).
+              pushAppleWalletUpdate(t.token)
+                .then(() => ({ kind: "apple" as const, ok: true }))
+                .catch(() => ({ kind: "apple" as const, ok: false })),
+            ]),
           );
           for (const r of results) {
-            if (r.status === "fulfilled" && r.value?.ok) ok++;
-            else fail++;
+            if (r.status !== "fulfilled") continue;
+            const v = r.value;
+            if (v.kind === "google") {
+              if (v.r?.ok) googleOk++;
+              else googleFail++;
+            } else {
+              if (v.ok) appleOk++;
+              else appleFail++;
+            }
           }
         }
         console.info(
-          "[campaigns/after] campaign=%s targets=%d ok=%d fail=%d",
+          "[campaigns/after] campaign=%s targets=%d google_ok=%d google_fail=%d apple_ok=%d apple_fail=%d",
           inserted.id,
           targets.length,
-          ok,
-          fail,
+          googleOk,
+          googleFail,
+          appleOk,
+          appleFail,
         );
       });
     }
-
-    // TODO Apple Wallet phase 2 : APNs push live nécessite un certificat APNs
-    // séparé du Pass Type cert. En phase 1, le message s'affichera dans le
-    // back-of-card lorsque l'utilisateur ouvrira la carte (cf. backFields).
 
     return NextResponse.json({
       id: inserted.id,
