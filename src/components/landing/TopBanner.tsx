@@ -14,16 +14,16 @@ export function TopBanner({ onDismiss }: { onDismiss: () => void }) {
         className="text-sm font-semibold tracking-tight hidden sm:block"
         style={{ fontFamily: "var(--font-maison-neue-extended)" }}
       >
-        Essai gratuit 30 jours, sans engagement, sans carte bancaire
+        La carte de fidélité de vos clients, dans Apple Wallet et Google Wallet
       </p>
       <p
         className="text-xs font-semibold tracking-tight sm:hidden"
         style={{ fontFamily: "var(--font-maison-neue-extended)" }}
       >
-        30 jours gratuits
+        Fidélité dans le wallet
       </p>
       <Link
-        href="/#pricing"
+        href="/register"
         className="ml-3 sm:ml-6 border border-white rounded-full px-3 sm:px-6 py-1.5 text-xs sm:text-sm text-white hover:bg-white hover:text-black transition-colors duration-200 whitespace-nowrap"
       >
         Commencer

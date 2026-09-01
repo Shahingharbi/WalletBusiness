@@ -25,7 +25,6 @@ export function Footer() {
             <ul className="space-y-2">
               <li><a href="#features" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>Fonctionnalités</a></li>
               <li><a href="#how-it-works" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>Comment ça marche</a></li>
-              <li><a href="#pricing" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>Tarifs</a></li>
               <li><a href="#stats" className="text-sm text-white/70 hover:text-white transition-colors" style={{ fontFamily: "var(--font-maison-neue)" }}>Le wallet en chiffres</a></li>
             </ul>
           </div>

@@ -36,13 +36,6 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
             Comment ça marche
           </a>
           <a
-            href="#pricing"
-            className="text-sm font-semibold text-foreground hover:opacity-70 transition-opacity"
-            style={{ fontFamily: "var(--font-maison-neue-extended)" }}
-          >
-            Tarifs
-          </a>
-          <a
             href="#contact"
             className="text-sm font-semibold text-foreground hover:opacity-70 transition-opacity"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
@@ -60,12 +53,12 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
             Se connecter
           </Link>
           <Link
-            href="/#pricing"
+            href="/register"
             className="rounded-full bg-yellow px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-foreground hover:bg-yellow-hover transition-colors whitespace-nowrap"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            <span className="hidden sm:inline">Essayer gratuitement</span>
-            <span className="sm:hidden">Essai gratuit</span>
+            <span className="hidden sm:inline">Créer ma carte</span>
+            <span className="sm:hidden">Commencer</span>
           </Link>
         </div>
       </nav>

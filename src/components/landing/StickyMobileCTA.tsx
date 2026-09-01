@@ -34,15 +34,15 @@ export function StickyMobileCTA() {
       }}
     >
       <Link
-        href="/#pricing"
+        href="/register"
         className="w-full flex items-center justify-center gap-2 rounded-full bg-foreground text-white px-6 py-3.5 text-sm font-semibold shadow-lg"
         style={{ fontFamily: "var(--font-maison-neue-extended)" }}
       >
-        Essayer gratuitement 30 jours
+        Créer ma carte de fidélité
         <ArrowRight size={16} />
       </Link>
       <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-        Sans CB &middot; Annulable à tout moment
+        Sans application &middot; Prêt en 5 minutes
       </p>
     </div>
   );

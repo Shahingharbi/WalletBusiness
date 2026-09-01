@@ -14,13 +14,13 @@ export function HeroSection() {
           <div className="flex-1 flex flex-col justify-center order-2 lg:order-1">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
               <span className="bg-yellow text-foreground text-[10px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 rounded-full uppercase">
-                Offre de lancement
+                Fidélité digitale
               </span>
               <span
                 className="text-xs sm:text-sm text-foreground"
                 style={{ fontFamily: "var(--font-maison-neue)" }}
               >
-                1 mois gratuit en plus pour les 50 premiers
+                Compatible Apple Wallet et Google Wallet
               </span>
             </div>
 
@@ -50,7 +50,7 @@ export function HeroSection() {
 
             <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
               <Link
-                href="/#pricing"
+                href="/register"
                 className="rounded-full bg-foreground px-6 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-semibold text-white hover:bg-foreground/90 transition-colors text-center inline-flex items-center justify-center gap-2 shadow-lg min-h-[48px]"
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
@@ -70,7 +70,7 @@ export function HeroSection() {
               className="mt-4 text-sm text-foreground/60"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              30 jours d&apos;essai sans carte bancaire &middot; Sans engagement &middot; Résiliable en 1 clic
+              Sans application à télécharger &middot; Sans matériel &middot; Prêt en 5 minutes
             </p>
 
             {/* Social proof: avatar stack */}

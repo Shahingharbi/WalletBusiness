@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     template: "%s | aswallet",
   },
   description:
-    "Créez votre carte de fidélité digitale dans Apple Wallet et Google Wallet. Notifications push gratuites et illimitées. Sans app à télécharger. Essai gratuit 30 jours.",
+    "Créez votre carte de fidélité digitale dans Apple Wallet et Google Wallet. Notifications push illimitées. Sans app à télécharger, prête en 5 minutes.",
   applicationName: "aswallet",
   authors: [{ name: "aswallet" }],
   keywords: [

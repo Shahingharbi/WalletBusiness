@@ -264,7 +264,7 @@ export function HowItWorksSection() {
             </div>
 
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-foreground bg-yellow px-2.5 py-1 rounded-full mb-3">
-              Gratuit & illimité
+              Illimité
             </span>
             <h3
               className="text-xl lg:text-2xl font-semibold"
@@ -276,7 +276,7 @@ export function HowItWorksSection() {
               className="mt-3 text-base text-muted-foreground leading-relaxed max-w-sm"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              Notifications push gratuites, stats en temps réel, offres
+              Notifications push, stats en temps réel, offres
               géolocalisées. Vos clients reviennent.
             </p>
           </div>
@@ -284,7 +284,7 @@ export function HowItWorksSection() {
 
         <div className="flex flex-col items-center gap-3 mt-14">
           <Link
-            href="/#pricing"
+            href="/register"
             className="rounded-full bg-foreground px-8 py-3.5 text-base font-semibold text-white hover:bg-foreground/90 transition-colors inline-flex items-center gap-2 shadow-lg"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
@@ -295,7 +295,7 @@ export function HowItWorksSection() {
             className="text-xs text-muted-foreground"
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
-            30 jours gratuits &middot; Sans CB &middot; Sans engagement
+            Sans application à télécharger &middot; Sans matériel &middot; Prêt en 5 minutes
           </p>
         </div>
       </div>

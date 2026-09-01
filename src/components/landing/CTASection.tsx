@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ShieldCheck, Globe, Lock, Clock } from "lucide-react";
+import { ArrowRight, ShieldCheck, Globe, Lock } from "lucide-react";
 
 export function CTASection() {
   const router = useRouter();
@@ -52,7 +52,7 @@ export function CTASection() {
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
             Rejoignez les commerçants qui ont arrêté d&apos;imprimer des cartes
-            papier. 30 jours d&apos;essai, sans CB, sans engagement.
+            papier. Votre carte est prête en 5 minutes.
           </p>
 
           <form onSubmit={submit} className="mt-10 max-w-md mx-auto">
@@ -79,12 +79,12 @@ export function CTASection() {
                 className="w-full rounded-full bg-yellow px-8 py-4 text-base font-semibold text-foreground hover:bg-yellow-hover transition-colors inline-flex items-center justify-center gap-2 cursor-pointer shadow-xl"
                 style={{ fontFamily: "var(--font-maison-neue-extended)" }}
               >
-                Démarrer mon essai gratuit
+                Créer ma carte de fidélité
                 <ArrowRight size={18} />
               </button>
             </div>
             <p className="mt-4 text-xs text-white/50">
-              30 jours gratuits &middot; Sans carte bancaire &middot; Sans engagement
+              Sans application à télécharger &middot; Sans matériel &middot; Prêt en 5 minutes
             </p>
           </form>
 
@@ -117,11 +117,6 @@ export function CTASection() {
             <span className="inline-flex items-center gap-1.5">
               <Lock size={14} />
               Chiffrement SSL
-            </span>
-            <span className="h-3 w-px bg-white/20 hidden sm:block" />
-            <span className="inline-flex items-center gap-1.5">
-              <Clock size={14} />
-              30 jours offerts
             </span>
           </div>
         </div>

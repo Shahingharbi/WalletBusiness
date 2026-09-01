@@ -11,11 +11,6 @@ const mainStats = [
     label: "ROI moyen des programmes de fidélité",
     comparison: "34,8% des programmes dépassent 500% de ROI",
   },
-  {
-    value: "0 EUR",
-    label: "par notification push envoyée",
-    comparison: "vs 0,01 à 0,05 EUR par SMS",
-  },
 ];
 
 const comparisonData = [
@@ -23,7 +18,6 @@ const comparisonData = [
     channel: "Wallet Push",
     openRate: "90%",
     ctr: "22%",
-    cost: "Gratuit",
     retention: "85-95%",
     barWidth: "w-[90%]",
     barColor: "bg-yellow",
@@ -32,7 +26,6 @@ const comparisonData = [
     channel: "SMS",
     openRate: "98%",
     ctr: "8%",
-    cost: "0,05 EUR/msg",
     retention: "N/A",
     barWidth: "w-[98%]",
     barColor: "bg-blue-400",
@@ -41,7 +34,6 @@ const comparisonData = [
     channel: "Email",
     openRate: "20%",
     ctr: "1%",
-    cost: "0,01 EUR/msg",
     retention: "N/A",
     barWidth: "w-[20%]",
     barColor: "bg-gray-400",
@@ -50,7 +42,6 @@ const comparisonData = [
     channel: "App mobile",
     openRate: "15%",
     ctr: "4%",
-    cost: "10 000 EUR+",
     retention: "25%",
     barWidth: "w-[15%]",
     barColor: "bg-red-400",
@@ -82,7 +73,7 @@ export function WalletStatsSection() {
           votre commerce.
         </p>
 
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 text-center max-w-3xl mx-auto">
           {mainStats.map((stat) => (
             <div key={stat.value} className="flex flex-col items-center">
               <div className="flex items-center gap-2">
@@ -107,16 +98,15 @@ export function WalletStatsSection() {
             Wallet vs SMS vs Email vs App : le comparatif
           </h3>
 
-          <div className="hidden md:grid grid-cols-5 gap-4 pb-4 border-b border-border text-sm font-semibold text-muted-foreground">
+          <div className="hidden md:grid grid-cols-4 gap-4 pb-4 border-b border-border text-sm font-semibold text-muted-foreground">
             <span>Canal</span>
             <span>Taux d&apos;ouverture</span>
             <span>Taux de clic</span>
-            <span>Coût</span>
             <span>Rétention carte</span>
           </div>
 
           {comparisonData.map((row) => (
-            <div key={row.channel} className="grid grid-cols-1 md:grid-cols-5 gap-2 md:gap-4 py-4 border-b border-border last:border-0">
+            <div key={row.channel} className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 py-4 border-b border-border last:border-0">
               <span className="font-semibold text-foreground" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
                 {row.channel}
               </span>
@@ -132,10 +122,6 @@ export function WalletStatsSection() {
               <span className="text-sm text-foreground">
                 <span className="md:hidden text-xs text-muted-foreground">CTR : </span>
                 {row.ctr}
-              </span>
-              <span className="text-sm text-foreground">
-                <span className="md:hidden text-xs text-muted-foreground">Coût : </span>
-                {row.cost}
               </span>
               <span className="text-sm text-foreground">
                 <span className="md:hidden text-xs text-muted-foreground">Rétention : </span>

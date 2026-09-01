@@ -20,7 +20,7 @@ const cases: UseCase[] = [
       "Remplissez les creux du midi. Notifiez vos habitués des plats du jour.",
     image:
       "https://images.unsplash.com/photo-1561651823-34feb02250e4?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Démarrer gratuitement",
+    ctaLabel: "Démarrer maintenant",
     badge: "Tampons illimités",
   },
   {
@@ -30,17 +30,17 @@ const cases: UseCase[] = [
       "Fidélisez vos clients du matin. Notifications push pour le pain chaud.",
     image:
       "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Démarrer gratuitement",
-    badge: "Notifs gratuites",
+    ctaLabel: "Démarrer maintenant",
+    badge: "Notifs illimitées",
   },
   {
     title: "Coiffeur & institut beauté",
     tagline: "-20% sur le 5e soin",
     benefit:
-      "Relancez vos clientes dormantes en 1 clic, sans SMS payant.",
+      "Relancez vos clientes dormantes en 1 clic, sans passer par le SMS.",
     image:
       "https://images.unsplash.com/photo-1562322140-8baeececf3df?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Démarrer gratuitement",
+    ctaLabel: "Démarrer maintenant",
     badge: "Relances en 1 clic",
   },
   {
@@ -50,7 +50,7 @@ const cases: UseCase[] = [
       "Animez vos soirs creux : envoyez une promo ciblée à votre base.",
     image:
       "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Démarrer gratuitement",
+    ctaLabel: "Démarrer maintenant",
     badge: "Campagnes ciblées",
   },
   {
@@ -60,17 +60,17 @@ const cases: UseCase[] = [
       "Rappels automatiques : fête des mères, Saint-Valentin. Jamais manquer un pic.",
     image:
       "https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Démarrer gratuitement",
+    ctaLabel: "Démarrer maintenant",
     badge: "Rappels saisonniers",
   },
   {
     title: "VIP & premium",
     tagline: "Carte privilège",
     benefit:
-      "Réservez votre meilleur tarif à vos meilleurs clients. Accès anticipé aux offres.",
+      "Réservez vos meilleures offres à vos meilleurs clients. Accès anticipé aux nouveautés.",
     image:
       "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=900&auto=format&fit=crop&q=70",
-    ctaLabel: "Démarrer gratuitement",
+    ctaLabel: "Démarrer maintenant",
     badge: "Carte privilège",
   },
 ];
@@ -104,7 +104,7 @@ export function UseCasesSection() {
           {cases.map((c) => (
             <Link
               key={c.title}
-              href="/#pricing"
+              href="/register"
               className="group relative flex flex-col overflow-hidden rounded-3xl bg-white shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
             >
               <div className="relative h-44 sm:h-52 lg:h-56 overflow-hidden">

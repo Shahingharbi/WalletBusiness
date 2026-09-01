@@ -32,21 +32,17 @@ export function FeaturesSection() {
                       <div className="w-20 h-1.5 rounded bg-foreground/20" />
                       <div className="w-32 h-1 rounded bg-foreground/10 mt-1" />
                     </div>
-                    <span className="text-[7px] text-green-600 font-bold ml-auto">Gratuit</span>
                   </div>
                 ))}
               </div>
             </div>
             <div className="p-6 flex-1 flex flex-col">
-              <span className="text-xs font-bold text-yellow-hover bg-foreground rounded-full px-3 py-1 self-start mb-3">
-                0 EUR / message
-              </span>
               <h3 className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-maison-neue-extended)" }}>
                 Remplissez les creux de la journée
               </h3>
               <p className="mt-3 text-sm text-muted-foreground leading-relaxed flex-1" style={{ fontFamily: "var(--font-maison-neue)" }}>
-                Une offre flash &laquo;&nbsp;-20% entre 15h et 17h&nbsp;&raquo; en 2 clics, envoyée gratuitement
-                dans le wallet de tous vos clients. 0 EUR contre 0,05 EUR par SMS.
+                Une offre flash &laquo;&nbsp;-20% entre 15h et 17h&nbsp;&raquo; en 2 clics,
+                envoyée directement dans le wallet de tous vos clients.
               </p>
             </div>
           </div>

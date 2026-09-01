@@ -9,7 +9,7 @@ const items: Item[] = [
   { icon: MapPin, label: "Hébergé en Europe" },
   { icon: ShieldCheck, label: "Conforme RGPD" },
   { icon: Lock, label: "Données chiffrées" },
-  { icon: CheckCircle2, label: "Sans engagement" },
+  { icon: CheckCircle2, label: "Sans app à télécharger" },
 ];
 
 export function TrustBar() {

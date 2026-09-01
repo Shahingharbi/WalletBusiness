@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
@@ -53,18 +53,6 @@ function RegisterForm() {
   const intervalAlias: IntervalAlias = parseIntervalAlias(
     params.get("interval")
   );
-
-  // Mandatory plan selection : if no valid `?plan=` param, bounce back to
-  // the pricing section so the user explicitly picks a tier first.
-  useEffect(() => {
-    if (planParamRaw !== null && !planParam) {
-      router.replace("/#pricing");
-      return;
-    }
-    if (!planParam) {
-      router.replace("/#pricing");
-    }
-  }, [planParam, planParamRaw, router]);
 
   const [formData, setFormData] = useState<RegisterInput>({
     firstName: "",
@@ -207,43 +195,38 @@ function RegisterForm() {
     );
   }
 
-  // Render nothing while we redirect (no plan selected).
-  if (!planParam) return null;
-
-  const planDescriptor = PLANS[planParam];
+  // Le plan est optionnel : l'inscription se fait sans choix de plan
+  // préalable (le plan n'est affiché que si un `?plan=` valide est fourni).
+  const planDescriptor = planParam ? PLANS[planParam] : null;
   const isEnterprise = planParam === "enterprise";
-  const showCheckoutHint = isStripePlanId(planParam);
+  const showCheckoutHint = planParam !== null && isStripePlanId(planParam);
 
   return (
     <div>
-      {/* Plan banner */}
-      <div className="mb-6 rounded-xl border-2 border-foreground bg-yellow/30 p-4">
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-yellow text-foreground flex-shrink-0">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground">
-              {isEnterprise
-                ? `Vous démarrez avec le plan ${planDescriptor.name} (sur devis)`
-                : `Vous démarrez l'essai gratuit du plan ${planDescriptor.name}`}
-            </p>
-            <p className="mt-0.5 text-xs text-foreground/80">
-              {showCheckoutHint
-                ? `30 jours sans CB · Facturation ${
-                    intervalAlias === "annual" ? "annuelle (−25 %)" : "mensuelle"
-                  } à la fin de l'essai`
-                : "Notre équipe vous contactera après votre inscription."}
-            </p>
-            <Link
-              href="/#pricing"
-              className="mt-1 inline-block text-xs font-semibold text-foreground underline underline-offset-2 hover:opacity-70"
-            >
-              Changer de plan
-            </Link>
+      {/* Plan banner — uniquement si l'utilisateur arrive avec un ?plan= */}
+      {planDescriptor && (
+        <div className="mb-6 rounded-xl border-2 border-foreground bg-yellow/30 p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-yellow text-foreground flex-shrink-0">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">
+                {isEnterprise
+                  ? `Vous démarrez avec le plan ${planDescriptor.name} (sur devis)`
+                  : `Vous démarrez avec le plan ${planDescriptor.name}`}
+              </p>
+              <p className="mt-0.5 text-xs text-foreground/80">
+                {showCheckoutHint
+                  ? `Facturation ${
+                      intervalAlias === "annual" ? "annuelle" : "mensuelle"
+                    }`
+                  : "Notre équipe vous contactera après votre inscription."}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <h1 className="text-2xl font-bold text-center text-gray-900 mb-6">
         Créer votre compte

@@ -12,7 +12,6 @@ import { ProductShowcaseSection } from "@/components/landing/ProductShowcaseSect
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { UseCasesSection } from "@/components/landing/UseCasesSection";
 import { WalletStatsSection } from "@/components/landing/WalletStatsSection";
-import { PricingSection } from "@/components/landing/PricingSection";
 import { FAQSection } from "@/components/landing/FAQSection";
 import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
@@ -36,7 +35,6 @@ export function LandingShell() {
           <FeaturesSection />
           <UseCasesSection />
           <WalletStatsSection />
-          <PricingSection />
           <FAQSection />
           <CTASection />
         </main>

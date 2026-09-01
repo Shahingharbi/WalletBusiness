@@ -68,7 +68,7 @@ export async function GET() {
               padding: "16px 32px",
             }}
           >
-            Essai gratuit 30 jours
+            Apple Wallet & Google Wallet
           </div>
           <div
             style={{

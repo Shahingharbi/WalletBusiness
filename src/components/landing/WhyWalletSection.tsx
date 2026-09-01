@@ -16,7 +16,7 @@ const rows: Row[] = [
   },
   {
     paper: "Impossible de contacter un client fidèle",
-    wallet: "Notifications push gratuites et illimitées",
+    wallet: "Notifications push illimitées",
   },
   {
     paper: "Impression, tampons, cartes perdues : coût caché",

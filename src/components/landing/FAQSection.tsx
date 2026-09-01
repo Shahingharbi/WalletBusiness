@@ -15,10 +15,6 @@ const faqs: FAQ[] = [
     a: "Non. Il n'y a rien à installer sur votre caisse. Vos employés ouvrent simplement la webapp aswallet sur leur smartphone ou une tablette, scannent le QR code du client, et le tampon est ajouté. Formation : 2 minutes.",
   },
   {
-    q: "Combien de temps pour rentabiliser l'abonnement ?",
-    a: "Le plan Starter à 29 EUR/mois (22 EUR/mois en annuel) est rentabilisé dès qu'un seul client revient dans le mois grâce à une notification push. La plupart des commerces voient un effet dès la première offre flash envoyée.",
-  },
-  {
     q: "Puis-je résilier à tout moment ?",
     a: "Oui. Pas d'engagement, pas de frais de résiliation. Vous arrêtez votre abonnement en 1 clic depuis votre tableau de bord. Vos données restent exportables pendant 30 jours.",
   },
