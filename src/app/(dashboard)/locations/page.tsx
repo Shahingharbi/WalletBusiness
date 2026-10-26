@@ -117,7 +117,7 @@ export default async function LocationsPage() {
                 Geo-Push non inclus dans le plan {PLANS[plan].name}
               </p>
               <p className="text-yellow-900/80 mt-0.5">
-                Passez au plan Pro pour activer 3 emplacements de
+                Passez à une offre supérieure pour activer les
                 notifications géolocalisées.
               </p>
               <Link

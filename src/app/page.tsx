@@ -40,6 +40,14 @@ const jsonLd = {
       description:
         "Carte de fidélité digitale pour commerces de proximité, compatible Apple Wallet et Google Wallet.",
       brand: { "@id": `${SITE_URL}#organization` },
+      offers: {
+        "@type": "AggregateOffer",
+        priceCurrency: "EUR",
+        lowPrice: "99",
+        highPrice: "299",
+        offerCount: 3,
+        url: `${SITE_URL}/#pricing`,
+      },
     },
   ],
 };

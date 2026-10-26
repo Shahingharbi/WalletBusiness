@@ -54,8 +54,8 @@ Stack : Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 + Supabase.
 
 ## Pricing & billing
 
-- 4 plans : **Starter 29€**, **Pro 59€** (badge "Le plus choisi"), **Business 129€** (badge "Meilleur rapport qualité-prix"), **Enterprise** sur devis (mailto). Toggle Mensuel / Annuel — annuel = -25% (default). Cf. `lib/billing.ts::PLANS` pour les limites par plan + `lib/billing.ts::STRIPE_PLANS` pour les Stripe.
-- **Trial 30 jours sans CB** mais plan obligatoire au signup. `/register?plan=&interval=` lit les query params, redirect `/#pricing` si manquant. Migration 009 (`businesses.intended_plan` + `intended_interval`) appliquée. POST `/api/account/intended-plan` persiste après signup.
+- **Vente terrain** (commercial en boutique, modèle Panthera) : 4 offres, ids DB inchangés — `starter` = **Essentiel 99€** (1 boutique), `pro` = **Pro 149€** (badge "Le plus choisi", relances auto), `business` = **Multi-boutiques 299€** (jusqu'à 5 boutiques, carte commune), `enterprise` = **Réseau** sur devis. Annuel = −20 % (79 / 119 / 239 €), mensuel affiché par défaut. CTA landing = « Prendre rendez-vous » → WhatsApp + lien email (`lib/contact.ts`, pas de checkout Stripe depuis la landing). **1er mois offert** affiché : c'est le trial 30 j, et le checkout Stripe passe `trial_end` pour ne prélever qu'à la fin du mois gratuit. Cf. `lib/billing.ts::PLANS` pour les limites par plan + `lib/billing.ts::STRIPE_PLANS` pour les Stripe.
+- Trial 30 jours côté DB (`handle_new_user`), présenté comme « 1er mois offert » sur la landing (pas de « essai gratuit / sans CB »). `/register` accepte l'absence de `?plan=` (bandeau de plan affiché seulement si fourni). Migration 009 (`businesses.intended_plan` + `intended_interval`) appliquée. POST `/api/account/intended-plan` persiste après signup.
 - Migration 010 (handle_new_user trial 30j + intended_plan forwarding + bug `gen_random_bytes` re-fix via md5) appliquée.
 - Banner trial countdown : soft → warning J+25 (≤5j) → danger J+30+ avec lock dashboard (read-only). Cartes des clients continuent de marcher.
 - `STRIPE_PRICE_ID_{STARTER,PRO,BUSINESS}_{MONTHLY,ANNUAL}` env vars (6) à set par le merchant dans Stripe Dashboard.
@@ -71,9 +71,11 @@ Stack : Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 + Supabase.
 
 ## Features Boomerangme parity
 
-- **Push campaigns** (Pro+) : `/cards/[id]/campaigns` avec composer + segments (`all`, `inactive_30d`, `has_reward`, `never_redeemed`) + historique. `syncLoyaltyObject` + `messages[]` Google → push silencieux. Apple → APNs phase 2.
-- **Geo-Push** : `lib/locations.ts::fetchPassLocations()` + `pass.json.locations[]` Apple + `LoyaltyClass.locations[]` Google. Page `/locations` avec géocodage Nominatim. Gating : Starter 0 / Pro 3 / Business 10. Migration 007 (`locations.relevant_text` + `clients.birthday` + `cards.auto_push_settings` + `auto_push_log`).
+- **Demande d'avis Google** (toutes offres) : réglages `cards.auto_push_settings.google_review` (lien, message, délai 3/10/30/60 min) sur `/cards/[id]/auto-push`. Cron minute `/api/cron/review-requests` → notif wallet avec le lien, **une seule fois par client** (index unique partiel, migration 014). Apple via `last_campaign_message` + backField « avis Google » ; Google via `TEXT_AND_NOTIFY` (max 3 notifs / pass / 24 h). Logique dans `lib/google-review.ts`.
+- **Push campaigns** (toutes offres depuis oct. 2026) : `/cards/[id]/campaigns` avec composer + segments (`all`, `inactive_30d`, `has_reward`, `never_redeemed`) + historique. `syncLoyaltyObject` + `messages[]` Google → push silencieux. Apple → APNs phase 2.
+- **Geo-Push** : `lib/locations.ts::fetchPassLocations()` + `pass.json.locations[]` Apple + `LoyaltyClass.locations[]` Google. Page `/locations` avec géocodage Nominatim. Gating : Essentiel 1 / Pro 1 / Multi-boutiques 5 / Réseau illimité. Migration 007 (`locations.relevant_text` + `clients.birthday` + `cards.auto_push_settings` + `auto_push_log`).
 - **RFM segmentation** : `lib/rfm.ts` calcule à la volée 5 segments (`champion` / `loyal` / `at_risk` / `lost` / `new`) depuis transactions. Pills + filtres dans `/clients`. API `/api/clients/segments`.
+- **Notifs Google** : campagnes, auto-push et avis en `TEXT_AND_NOTIFY` (sinon Android ne sonne pas), repli `TEXT` si quota. Auto-push envoyé aussi sur Apple via `last_campaign_message`.
 - **Auto-push événementiel** (Pro+) : cron daily 10h via `vercel.json`. 3 triggers idempotents (`inactive_30d`, `near_reward_80`, `birthday`). Settings UI `/cards/[id]/auto-push` avec variables `{name}`, `{reward}`, `{remaining}`.
 - **Welcome offer** : `design.welcome_reward` débloque `rewards_available=1` à l'install + push wallet "Bienvenue !".
 - **Demo public** : `/demo` (sans auth) — playground avec controls + preview + CTA `/register`.

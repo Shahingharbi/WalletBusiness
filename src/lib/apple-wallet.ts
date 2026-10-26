@@ -84,6 +84,12 @@ interface ApplePassParams {
    * message a été envoyé.
    */
   lastCampaignAt?: string | null;
+  /**
+   * Lien vers le formulaire d'avis Google du commerce (demande d'avis
+   * activée sur la carte). Affiché au verso — iOS rend les URLs des
+   * backFields cliquables.
+   */
+  googleReviewUrl?: string | null;
 }
 
 const TEAM_ID = process.env.APPLE_TEAM_ID ?? "";
@@ -521,6 +527,14 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
     value: announcementValue,
     changeMessage: "%@",
   } as unknown as Parameters<typeof pass.backFields.push>[0]);
+
+  if (p.googleReviewUrl) {
+    pass.backFields.push({
+      key: "google-review",
+      label: "Laissez-nous un avis Google ⭐",
+      value: p.googleReviewUrl,
+    });
+  }
 
   pass.backFields.push(
     {

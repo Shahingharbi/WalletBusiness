@@ -14,13 +14,13 @@ export function HeroSection() {
           <div className="flex-1 flex flex-col justify-center order-2 lg:order-1">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
               <span className="bg-yellow text-foreground text-[10px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 rounded-full uppercase">
-                Fidélité digitale
+                Offre de lancement
               </span>
               <span
                 className="text-xs sm:text-sm text-foreground"
                 style={{ fontFamily: "var(--font-maison-neue)" }}
               >
-                Compatible Apple Wallet et Google Wallet
+                1er mois offert sur toutes les offres
               </span>
             </div>
 

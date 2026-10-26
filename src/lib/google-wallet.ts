@@ -345,6 +345,13 @@ export async function generateGoogleWalletPassUrl(p: PassParams): Promise<string
 // `message` (optionnel) — quand fourni, ajoute un objet `messages[]` au pass
 // et Google envoie une notification push silencieuse au téléphone du porteur.
 // Utilisé par les campagnes (broadcasts) côté `/api/campaigns`.
+//
+// `options` (optionnel) :
+//  - header : titre du message (défaut "Nouveauté")
+//  - notify : messageType TEXT_AND_NOTIFY → vraie notification sur le
+//    téléphone. Google limite à 3 par pass / 24 h (au-delà : erreur quota).
+//  - links  : remplace `linksModuleData.uris` de l'objet (inclure le lien
+//    "Voir ma carte" si on veut le garder).
 export async function syncLoyaltyObject(
   instanceToken: string,
   stampsCollected: number,
@@ -354,6 +361,11 @@ export async function syncLoyaltyObject(
   stampsTotal?: number,
   stampsLabel?: string | null,
   cardKind?: CardKind | null,
+  options?: {
+    header?: string;
+    notify?: boolean;
+    links?: { uri: string; description: string; id: string }[];
+  },
 ): Promise<{ ok: boolean; status?: number }> {
   if (!isGoogleWalletConfigured()) return { ok: false };
 
@@ -426,11 +438,15 @@ export async function syncLoyaltyObject(
     body.messages = [
       {
         id: `campaign-${Date.now()}`,
-        header: "Nouveauté",
+        header: options?.header ?? "Nouveauté",
         body: message.trim().slice(0, 200),
-        messageType: "TEXT",
+        messageType: options?.notify ? "TEXT_AND_NOTIFY" : "TEXT",
       },
     ];
+  }
+
+  if (options?.links && options.links.length > 0) {
+    body.linksModuleData = { uris: options.links };
   }
 
   const auth = new GoogleAuth({
@@ -469,6 +485,27 @@ export async function syncLoyaltyObject(
         objId
       );
       return { ok: false, status: 404 };
+    }
+    // Refus du TEXT_AND_NOTIFY (quota Google de 3 notifs / pass / 24 h) :
+    // on retente une fois en TEXT pour que le message et le compteur
+    // arrivent quand même sur la carte, sans sonnerie.
+    if (options?.notify && Array.isArray(body.messages)) {
+      try {
+        body.messages = (body.messages as Record<string, unknown>[]).map((m) => ({
+          ...m,
+          messageType: "TEXT",
+        }));
+        const client = await auth.getClient();
+        await client.request({ url, method: "PATCH", data: body, timeout: 3000 });
+        console.info(
+          "[google-sync] PATCH %s ok en TEXT après refus notify status=%s",
+          objId,
+          status ?? "n/a"
+        );
+        return { ok: true };
+      } catch {
+        // Échec aussi en TEXT → log ci-dessous.
+      }
     }
     console.warn(
       "[google-sync] PATCH %s failed status=%s message=%s",

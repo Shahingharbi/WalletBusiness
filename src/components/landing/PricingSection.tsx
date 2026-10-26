@@ -2,19 +2,32 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Check, ShieldCheck, Sparkles, Crown, Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { Check, ShieldCheck, Sparkles, Crown, Store, MessageCircle, Gift } from "lucide-react";
 import {
   PLANS,
   PLAN_ORDER,
-  toBillingIntervalAlias,
   type PlanId,
   type BillingInterval,
 } from "@/lib/billing";
+import { emailHref, whatsappHref } from "@/lib/contact";
 
-const ENTERPRISE_MAILTO =
-  "mailto:contact@aswallet.fr?subject=Demande%20Enterprise%20aswallet";
+/**
+ * Vente terrain : chaque offre mène à une prise de rendez-vous avec un
+ * conseiller (installation en boutique) — WhatsApp en principal, email en
+ * alternative. Message pré-rempli avec l'offre choisie.
+ */
+function bookingWhatsapp(planName: string): string {
+  return whatsappHref(
+    `Bonjour, je souhaite prendre rendez-vous pour l'offre ${planName} d'aswallet.`
+  );
+}
+
+function bookingEmail(planName: string): string {
+  return emailHref(
+    `Rendez-vous aswallet — offre ${planName}`,
+    `Bonjour,\n\nJe souhaite prendre rendez-vous pour l'offre ${planName}.\n\nNom du commerce :\nVille :\nTéléphone :\n`
+  );
+}
 
 type Badge = {
   label: string;
@@ -33,9 +46,9 @@ const PLAN_BADGES: Partial<Record<PlanId, Badge>> = {
     icon: <Sparkles size={12} className="text-foreground" />,
   },
   business: {
-    label: "Meilleur rapport qualité/prix",
+    label: "Jusqu'à 5 boutiques",
     className: "bg-green-600 text-white",
-    icon: <Check size={12} className="text-white" />,
+    icon: <Store size={12} className="text-white" />,
   },
   enterprise: {
     label: "Sur mesure",
@@ -45,44 +58,9 @@ const PLAN_BADGES: Partial<Record<PlanId, Badge>> = {
 };
 
 export function PricingSection() {
-  const router = useRouter();
-  // Default = annual (proven higher LTV / better cash flow).
+  // Défaut = mensuel : c'est le prix annoncé par le conseiller en boutique.
   const [billingInterval, setBillingInterval] =
-    useState<BillingInterval>("year");
-  const [pending, setPending] = useState<PlanId | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleStripePlanCta(plan: Exclude<PlanId, "enterprise">) {
-    setError(null);
-    setPending(plan);
-    try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const intervalAlias = toBillingIntervalAlias(billingInterval);
-
-      if (!user) {
-        router.push(`/register?plan=${plan}&interval=${intervalAlias}`);
-        return;
-      }
-
-      const res = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, interval: billingInterval }),
-      });
-      const data = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !data.url) {
-        throw new Error(data.error ?? "Erreur lors du checkout");
-      }
-      window.location.href = data.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur inconnue");
-      setPending(null);
-    }
-  }
+    useState<BillingInterval>("month");
 
   return (
     <section className="bg-white py-14 sm:py-20 lg:py-[86px]" id="pricing">
@@ -91,14 +69,14 @@ export function PricingSection() {
           className="text-center text-2xl sm:text-3xl lg:text-[40px] lg:leading-[48px] font-semibold"
           style={{ fontFamily: "var(--font-maison-neue-extended)" }}
         >
-          Des tarifs simples et transparents
+          Des offres simples, installées chez vous
         </h2>
         <p
           className="text-center text-base text-muted-foreground mt-4 max-w-xl mx-auto"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          Pas de frais cachés, pas d&apos;engagement. 30 jours d&apos;essai
-          gratuit, sans carte bancaire.
+          Un conseiller vient dans votre boutique, crée votre carte et forme
+          votre équipe. Sans engagement, sans frais cachés.
         </p>
 
         <div className="mt-8 flex justify-center">
@@ -132,18 +110,20 @@ export function PricingSection() {
               }`}
             >
               Annuel{" "}
-              <span className="text-xs text-green-700 ml-1">
-                Économisez 25 %
-              </span>
+              <span className="text-xs text-green-700 ml-1">−20 %</span>
             </button>
           </div>
         </div>
 
-        {error && (
-          <div className="mt-6 max-w-md mx-auto rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 text-center">
-            {error}
-          </div>
-        )}
+        <div className="mt-5 flex justify-center">
+          <span
+            className="inline-flex items-center gap-2 rounded-full bg-green-50 border border-green-200 px-4 py-1.5 text-sm font-semibold text-green-800"
+            style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+          >
+            <Gift size={16} className="flex-shrink-0" />
+            1er mois offert sur toutes les offres
+          </span>
+        </div>
 
         <div className="mt-10 sm:mt-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 sm:gap-6 lg:gap-7">
           {PLAN_ORDER.map((planId) => {
@@ -154,6 +134,10 @@ export function PricingSection() {
             const isAnnual = billingInterval === "year";
             const displayPrice = isAnnual ? plan.yearlyPrice : plan.monthlyPrice;
             const yearlyTotal = plan.yearlyTotal;
+            const yearlySaving =
+              plan.monthlyPrice !== null && yearlyTotal !== null
+                ? plan.monthlyPrice * 12 - yearlyTotal
+                : null;
 
             return (
               <div
@@ -170,8 +154,8 @@ export function PricingSection() {
               >
                 {badge && (
                   <span
-                    /* whitespace-nowrap : empêche "Meilleur rapport qualité/prix"
-                       de wrapper et de chevaucher le titre du plan sur Chrome.
+                    /* whitespace-nowrap : empêche le badge de wrapper et de
+                       chevaucher le titre du plan sur Chrome.
                        max-w-[calc(100%-1rem)] : si la carte est plus étroite
                        que le badge (très rare en md+ mais arrive en mobile),
                        on tronque proprement plutôt que de déborder. */
@@ -216,17 +200,19 @@ export function PricingSection() {
                         Sur devis
                       </span>
                       <p className="text-xs text-amber-200/80 mt-1">
-                        À partir de ~300€/mois
+                        Selon le nombre de boutiques
                       </p>
                     </div>
                   ) : (
                     <div>
+                      {/* Prix barré sur sa propre ligne : à côté du prix
+                          annuel, "/mois" passait à la ligne en 4 colonnes. */}
+                      {isAnnual && plan.monthlyPrice !== null && (
+                        <p className="text-sm text-muted-foreground line-through">
+                          {plan.monthlyPrice}€/mois
+                        </p>
+                      )}
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        {isAnnual && plan.monthlyPrice !== null && (
-                          <span className="text-xl text-muted-foreground line-through">
-                            {plan.monthlyPrice}€
-                          </span>
-                        )}
                         <span
                           className="text-5xl lg:text-6xl text-foreground"
                           style={{
@@ -242,13 +228,11 @@ export function PricingSection() {
                       </div>
                       {isAnnual && yearlyTotal !== null ? (
                         <p className="text-xs text-green-700 mt-1">
-                          Soit {yearlyTotal}€/an — 3 mois offerts (économie
-                          25 %)
+                          Soit {yearlyTotal}€/an — {yearlySaving}€ économisés
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground mt-1">
-                          ou {plan.yearlyPrice}€/mois en annuel — économisez
-                          25 %
+                          ou {plan.yearlyPrice}€/mois en annuel
                         </p>
                       )}
                     </div>
@@ -296,54 +280,47 @@ export function PricingSection() {
                   </ul>
                 </div>
 
-                {isEnterprise ? (
-                  <a
-                    href={ENTERPRISE_MAILTO}
-                    className="mt-7 w-full block text-center rounded-full px-6 py-3.5 text-sm sm:text-base font-semibold transition-colors min-h-[48px] inline-flex items-center justify-center bg-amber-300 text-amber-950 hover:bg-amber-200"
-                    style={{ fontFamily: "var(--font-maison-neue-extended)" }}
-                  >
-                    Contacter les ventes
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleStripePlanCta(planId)}
-                    disabled={pending !== null}
-                    className={`mt-7 w-full block text-center rounded-full px-6 py-3.5 text-sm sm:text-base font-semibold transition-colors min-h-[48px] inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 ${
-                      isHighlighted
+                <a
+                  href={bookingWhatsapp(plan.name)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`mt-7 w-full text-center rounded-full px-5 py-3.5 text-sm font-semibold whitespace-nowrap transition-colors min-h-[48px] inline-flex items-center justify-center gap-2 ${
+                    isEnterprise
+                      ? "bg-amber-300 text-amber-950 hover:bg-amber-200"
+                      : isHighlighted
                         ? "bg-foreground text-white hover:bg-foreground/90"
                         : "bg-yellow text-foreground hover:bg-yellow-hover"
-                    }`}
-                    style={{ fontFamily: "var(--font-maison-neue-extended)" }}
-                  >
-                    {pending === planId ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Redirection…
-                      </>
-                    ) : (
-                      "Démarrer l'essai gratuit"
-                    )}
-                  </button>
-                )}
+                  }`}
+                  style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+                >
+                  <MessageCircle size={18} />
+                  {isEnterprise ? "Parler à un conseiller" : "Prendre rendez-vous"}
+                </a>
+                <a
+                  href={bookingEmail(plan.name)}
+                  className={`mt-2 text-center text-xs underline underline-offset-2 hover:opacity-70 ${
+                    isEnterprise ? "text-amber-200/80" : "text-muted-foreground"
+                  }`}
+                >
+                  ou par email
+                </a>
 
-                {!isEnterprise && (
-                  <p
-                    className={`mt-3 text-center text-xs ${
-                      isHighlighted
-                        ? "text-muted-foreground"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    30 jours d&apos;essai gratuit · Sans carte bancaire ·
-                    Annulation en 1 clic
-                  </p>
-                )}
-                {isEnterprise && (
-                  <p className="mt-3 text-center text-xs text-amber-200/80">
-                    Réponse sous 24h ouvrées · Démo personnalisée
-                  </p>
-                )}
+                <p
+                  className={`mt-3 text-center text-xs ${
+                    isEnterprise ? "text-amber-200/80" : "text-muted-foreground"
+                  }`}
+                >
+                  {isEnterprise ? (
+                    "Étude personnalisée de votre réseau"
+                  ) : (
+                    <>
+                      <span className="font-semibold text-green-700">
+                        1er mois offert
+                      </span>{" "}
+                      · {isAnnual ? "Engagement 12 mois" : "Installation offerte"}
+                    </>
+                  )}
+                </p>
               </div>
             );
           })}
@@ -357,9 +334,9 @@ export function PricingSection() {
             <ShieldCheck size={16} className="text-green-600 flex-shrink-0" />
             <span>
               <strong className="font-semibold">
-                Garantie satisfait ou remboursé 30 jours après paiement.
+                Sans engagement sur l&apos;offre mensuelle.
               </strong>{" "}
-              Résiliation en 1 clic, sans question.
+              Résiliable à tout moment depuis votre tableau de bord.
             </span>
           </div>
           <Link

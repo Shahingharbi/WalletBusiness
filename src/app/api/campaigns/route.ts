@@ -283,6 +283,9 @@ export async function POST(request: Request) {
                 stampsTotal,
                 labelStamps,
                 cardKind,
+                // TEXT_AND_NOTIFY : sans ça, Android reçoit le message dans
+                // la carte mais le téléphone ne sonne pas.
+                { notify: true },
               ).then((r) => ({ kind: "google" as const, r })),
               // Apple : pushAppleWalletUpdate refetch le .pkpass via APNs.
               // iOS détecte le diff et notif "Pass mis à jour" sur le lockscreen.

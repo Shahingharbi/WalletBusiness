@@ -337,13 +337,13 @@ export function BillingClient(props: BillingClientProps) {
                   : "text-gray-600 hover:text-foreground"
               }`}
             >
-              Annuel <span className="text-xs text-green-700">−25%</span>
+              Annuel <span className="text-xs text-green-700">−20 %</span>
             </button>
           </div>
         </div>
         {interval === "month" && (
           <p className="mt-3 text-xs text-green-700">
-            Économie de 25 % / an en passant en facturation annuelle.
+            Économie de 20 % en passant en facturation annuelle.
           </p>
         )}
 
@@ -392,11 +392,11 @@ export function BillingClient(props: BillingClientProps) {
                 {interval === "year" ? (
                   <p className="text-xs text-green-700 mt-1">
                     Facturé annuellement ({plan.yearlyTotal}€/an, économie
-                    de 25 %)
+                    de 20 %)
                   </p>
                 ) : (
                   <p className="text-xs text-gray-500 mt-1">
-                    Soit {plan.yearlyPrice}€/mois en annuel — économisez 25 %.
+                    Soit {plan.yearlyPrice}€/mois en annuel — économisez 20 %.
                   </p>
                 )}
                 <p className="text-xs text-gray-600 mt-2 leading-relaxed">

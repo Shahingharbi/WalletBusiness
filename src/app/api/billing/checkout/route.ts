@@ -87,7 +87,7 @@ export async function POST(request: Request) {
 
     const { data: business } = await supabase
       .from("businesses")
-      .select("id, name, stripe_customer_id, subscription_status")
+      .select("id, name, stripe_customer_id, subscription_status, trial_ends_at")
       .eq("id", profile.business_id)
       .single();
 
@@ -133,6 +133,18 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
       "http://localhost:3000";
 
+    // 1er mois offert : si le commerce est encore dans ses 30 jours gratuits,
+    // Stripe ne prélève qu'à la fin de l'essai au lieu de facturer tout de
+    // suite (et de faire perdre les jours restants). Checkout exige un
+    // trial_end à au moins 48 h dans le futur.
+    const trialEndMs = business.trial_ends_at
+      ? new Date(business.trial_ends_at).getTime()
+      : 0;
+    const trialEnd =
+      trialEndMs > Date.now() + 49 * 60 * 60 * 1000
+        ? Math.floor(trialEndMs / 1000)
+        : undefined;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -143,6 +155,7 @@ export async function POST(request: Request) {
       success_url: `${appUrl}/settings/billing?success=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/settings/billing?canceled=1`,
       subscription_data: {
+        ...(trialEnd ? { trial_end: trialEnd } : {}),
         metadata: {
           business_id: business.id,
           plan,

@@ -134,13 +134,15 @@ export async function POST(request: Request) {
     if (limit === 0) {
       return NextResponse.json(
         {
-          error: `Le geo-push n'est pas inclus dans le plan ${PLANS[plan].name}. Passez au plan Pro pour activer 3 emplacements.`,
+          error: `Le geo-push n'est pas inclus dans le plan ${PLANS[plan].name}. Passez à une offre supérieure pour l'activer.`,
           requiredPlan: "pro" satisfies PlanId,
         },
         { status: 402 }
       );
     }
-    const requiredPlan: PlanId = plan === "pro" ? "business" : "enterprise";
+    // Essentiel et Pro = 1 boutique → Multi-boutiques (5) → Réseau.
+    const requiredPlan: PlanId =
+      plan === "starter" || plan === "pro" ? "business" : "enterprise";
     return NextResponse.json(
       {
         error: `Vous avez atteint la limite de ${limit} localisation${

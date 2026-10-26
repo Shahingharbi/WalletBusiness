@@ -15,6 +15,7 @@ import {
   isAppleWalletConfigured,
   verifyApplePassAuthHeader,
 } from "@/lib/apple-wallet";
+import { activeReviewUrl } from "@/lib/google-review";
 import { fetchPassLocations } from "@/lib/locations";
 
 export const runtime = "nodejs";
@@ -50,7 +51,7 @@ export async function GET(request: Request, ctx: RouteCtx) {
         id, token, business_id, stamps_collected, rewards_available, status, updated_at,
         last_campaign_message, last_campaign_at,
         clients(first_name),
-        cards(id, name, card_type, stamp_count, reward_text, design, wallet_business_name, businesses(name, logo_url))
+        cards(id, name, card_type, stamp_count, reward_text, design, wallet_business_name, auto_push_settings, businesses(name, logo_url))
       `
     )
     .eq("token", serialNumber)
@@ -86,6 +87,7 @@ export async function GET(request: Request, ctx: RouteCtx) {
     reward_text: string;
     design: Record<string, unknown>;
     wallet_business_name: string | null;
+    auto_push_settings: unknown;
     businesses: { name: string; logo_url: string | null } | null;
   };
   const client = instance.clients as unknown as {
@@ -140,6 +142,7 @@ export async function GET(request: Request, ctx: RouteCtx) {
     stampsLabel: (design.label_stamps as string | null) ?? null,
     lastCampaignMessage: instanceTyped.last_campaign_message ?? null,
     lastCampaignAt: instanceTyped.last_campaign_at ?? null,
+    googleReviewUrl: activeReviewUrl(card.auto_push_settings),
   });
 
   return new NextResponse(new Uint8Array(buffer), {

@@ -73,56 +73,54 @@ export interface PlanDescriptor {
 export const PLANS: Readonly<Record<PlanId, PlanDescriptor>> = {
   starter: {
     id: "starter",
-    name: "Starter",
-    monthlyPrice: 29,
-    yearlyPrice: 22,
-    yearlyTotal: 264,
+    name: "Essentiel",
+    monthlyPrice: 99,
+    yearlyPrice: 79,
+    yearlyTotal: 948,
     description:
-      "Pour démarrer la fidélisation digitale dans un commerce indépendant.",
-    audience: "Kebab, boulangerie, café, salon — 1 commerce, premiers pas.",
+      "Tout pour lancer votre carte de fidélité et faire revenir vos clients.",
+    audience: "1 boutique — kebab, boulangerie, café, salon, snack…",
     limits: {
       maxCards: 1,
-      maxClients: 500,
-      maxEmployees: 1,
-      maxGeoLocations: 0,
-      multiEmployees: false,
-      geoPush: false,
+      maxClients: null,
+      maxEmployees: 3,
+      maxGeoLocations: 1,
+      multiEmployees: true,
+      geoPush: true,
       segments: false,
       autoPush: false,
       giftCards: false,
       multiShop: false,
       api: false,
       whiteLabel: false,
-      campaigns: false,
+      campaigns: true,
     },
     features: [
-      "1 carte de fidélité active",
-      "500 clients max",
-      "Apple Wallet & Google Wallet (mise à jour live des tampons)",
-      "Notifications push wallet illimitées (gratuites)",
-      "QR code + scanner web",
-      "Designer carte complet (12 palettes, 14 icônes, 5 formes)",
-      "Mise à jour live des cartes après scan",
-      "Bibliothèque de templates métier",
-      "Support email réactif (24h)",
-      "Essai 30 jours gratuit, sans CB",
+      "Installation sur place par un conseiller",
+      "Design de la carte à vos couleurs, fait pour vous",
+      "Carte de fidélité Apple Wallet & Google Wallet",
+      "Clients illimités",
+      "Notifications push illimitées : promos, nouveautés, événements",
+      "Demande d'avis Google automatique après le passage",
+      "Notification quand un client passe près de la boutique",
+      "Affiche QR code prête à imprimer",
+      "Scanner pour 3 employés",
     ],
   },
   pro: {
     id: "pro",
     name: "Pro",
-    monthlyPrice: 59,
-    yearlyPrice: 44,
-    yearlyTotal: 528,
+    monthlyPrice: 149,
+    yearlyPrice: 119,
+    yearlyTotal: 1428,
     description:
-      "Pour vraiment fidéliser, lancer des campagnes et gérer plusieurs cartes.",
-    audience:
-      "Commerce qui veut vraiment fidéliser, faire des campagnes, plusieurs cartes.",
+      "Le pilote automatique : vos clients sont relancés au bon moment, sans effort.",
+    audience: "1 boutique qui veut voir ses clients revenir plus souvent",
     limits: {
-      maxCards: 5,
-      maxClients: 2000,
-      maxEmployees: 5,
-      maxGeoLocations: 3,
+      maxCards: 3,
+      maxClients: null,
+      maxEmployees: 10,
+      maxGeoLocations: 1,
       multiEmployees: true,
       geoPush: true,
       segments: true,
@@ -134,36 +132,30 @@ export const PLANS: Readonly<Record<PlanId, PlanDescriptor>> = {
       campaigns: true,
     },
     features: [
-      "Tout Starter +",
-      "5 cartes de fidélité",
-      "2 000 clients max",
-      "Campagnes push manuelles (« −10 % mardi 17h-19h » → tous tes clients)",
-      "Auto-push événementiels : anniversaire, relance inactifs 30j, « plus que X tampons », récompense expire",
-      "Segmentation RFM auto (Champions, Loyaux, À relancer, Perdus, Nouveaux)",
-      "Geo-Push — 3 emplacements",
-      "Multi-employés — jusqu'à 5 vendeurs avec accès scanner perso",
-      "Stats avancées : taux de rétention, CA estimé, cohortes",
-      "Programme de parrainage client",
-      "Export CSV illimité",
-      "Support prioritaire (réponse < 4h)",
-      "Onboarding 1-on-1 offert (30 min en visio)",
+      "Tout Essentiel +",
+      "Relance automatique des clients absents depuis 30 jours",
+      "Message « Plus que X tampons » avant la récompense",
+      "Message d'anniversaire automatique",
+      "Segmentation clients : fidèles, à relancer, perdus",
+      "Jusqu'à 3 cartes (ex. carte tampons + carte VIP)",
+      "Scanner pour 10 employés",
+      "Support prioritaire sur WhatsApp",
     ],
   },
   business: {
     id: "business",
-    name: "Business",
-    monthlyPrice: 129,
-    yearlyPrice: 97,
-    yearlyTotal: 1164,
+    name: "Multi-boutiques",
+    monthlyPrice: 299,
+    yearlyPrice: 239,
+    yearlyTotal: 2868,
     description:
-      "Pour franchises, chaînes et e-commerçants avec plusieurs établissements.",
-    audience:
-      "Franchises, chaînes, restaurateurs avec plusieurs établissements, e-commerçants.",
+      "Une seule carte pour toutes vos boutiques : le client cumule ses tampons partout.",
+    audience: "2 à 5 boutiques — chaînes et petites franchises",
     limits: {
       maxCards: null,
       maxClients: null,
       maxEmployees: null,
-      maxGeoLocations: 10,
+      maxGeoLocations: 5,
       multiEmployees: true,
       geoPush: true,
       segments: true,
@@ -176,30 +168,22 @@ export const PLANS: Readonly<Record<PlanId, PlanDescriptor>> = {
     },
     features: [
       "Tout Pro +",
-      "Cartes & clients illimités",
-      "Multi-boutiques",
-      "Geo-Push — 10 emplacements",
-      "Multi-employés illimités",
-      "API & Webhooks",
-      "Intégrations natives : Shopify, WooCommerce, Square, Lightspeed (au fur et à mesure)",
-      "Champs clients personnalisés",
-      "A/B testing des campagnes",
-      "Rapports automatisés (hebdo email)",
-      "Accompagnement stratégique : 1 visio/mois avec un expert fidélité",
-      "Account manager dédié",
-      "Support 24/7 + WhatsApp direct",
+      "Jusqu'à 5 boutiques avec une carte commune",
+      "Notification de proximité devant chaque boutique",
+      "Cartes et employés illimités",
+      "Un seul tableau de bord pour toutes vos boutiques",
+      "Formation de vos équipes sur place",
+      "Conseiller dédié",
     ],
   },
   enterprise: {
     id: "enterprise",
-    name: "Enterprise",
+    name: "Réseau",
     monthlyPrice: null,
     yearlyPrice: null,
     yearlyTotal: null,
-    description:
-      "Pour franchises grandes (10+ points de vente), chaînes nationales, marketplaces.",
-    audience:
-      "Franchises grandes (10+ points de vente), chaînes nationales, marketplaces.",
+    description: "Pour les franchises et enseignes de plus de 5 boutiques.",
+    audience: "Plus de 5 boutiques — franchises, enseignes",
     limits: {
       maxCards: null,
       maxClients: null,
@@ -216,16 +200,10 @@ export const PLANS: Readonly<Record<PlanId, PlanDescriptor>> = {
       campaigns: true,
     },
     features: [
-      "Tout Business +",
-      "Marque blanche complète",
-      "Sous-comptes illimités",
-      "Stripe Connect / PayPal intégrés",
-      "SLA garanti 99.9 %",
-      "Migration assistée",
-      "Formation équipe",
-      "Integration custom avec ton SI",
-      "Conseiller dédié + WhatsApp privé fondateur",
-      "Conditions de paiement négociables",
+      "Tout Multi-boutiques +",
+      "Boutiques illimitées",
+      "Déploiement accompagné dans tout le réseau",
+      "Tarif adapté à la taille du réseau",
     ],
   },
 };
@@ -445,7 +423,7 @@ export function requirePlan(
         reason: "plan_too_low",
         requiredPlan: "pro",
         message:
-          "Les cartes cadeaux digitales sont incluses à partir du plan Pro.",
+          "Les cartes cadeaux digitales sont incluses à partir de l'offre Pro.",
       };
     case "auto_push":
       if (limits.autoPush) return { ok: true, plan };
@@ -454,7 +432,7 @@ export function requirePlan(
         reason: "plan_too_low",
         requiredPlan: "pro",
         message:
-          "Les auto-push événementiels sont inclus à partir du plan Pro.",
+          "Les relances automatiques sont incluses à partir de l'offre Pro.",
       };
     case "multi_shop":
       if (limits.multiShop) return { ok: true, plan };
@@ -462,7 +440,7 @@ export function requirePlan(
         ok: false,
         reason: "plan_too_low",
         requiredPlan: "business",
-        message: "Le multi-boutiques est inclus à partir du plan Business.",
+        message: "Le multi-boutiques est inclus dans l'offre Multi-boutiques.",
       };
     case "api":
       if (limits.api) return { ok: true, plan };
@@ -471,7 +449,7 @@ export function requirePlan(
         reason: "plan_too_low",
         requiredPlan: "business",
         message:
-          "L'API et les webhooks sont inclus à partir du plan Business.",
+          "L'API et les webhooks sont inclus dans l'offre Multi-boutiques.",
       };
     case "white_label":
       if (limits.whiteLabel) return { ok: true, plan };
@@ -479,7 +457,7 @@ export function requirePlan(
         ok: false,
         reason: "plan_too_low",
         requiredPlan: "enterprise",
-        message: "La marque blanche est incluse dans le plan Enterprise.",
+        message: "La marque blanche est incluse dans l'offre Réseau.",
       };
     case "campaigns":
       if (limits.campaigns) return { ok: true, plan };
@@ -488,7 +466,7 @@ export function requirePlan(
         reason: "plan_too_low",
         requiredPlan: "pro",
         message:
-          "Les campagnes push wallet sont incluses à partir du plan Pro.",
+          "Les campagnes push wallet sont incluses dans toutes les offres.",
       };
   }
 }

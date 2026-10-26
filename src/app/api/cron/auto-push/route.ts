@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncLoyaltyObject } from "@/lib/google-wallet";
+import { pushAppleWalletUpdate } from "@/lib/apple-wallet-push";
 import { effectivePlan, type BusinessBillingState } from "@/lib/billing";
 
 export const runtime = "nodejs";
@@ -18,9 +19,8 @@ export const maxDuration = 60;
  * Idempotent via `auto_push_log` : un trigger ne re-pousse pas avant son
  * cooldown propre (30j / 7j / 365j).
  *
- * Apple Wallet : le push live nécessite APNs (pas implémenté). Pour l'instant
- * seul Google Wallet reçoit la notif. Côté Apple le message apparaîtra en
- * back-of-card à la prochaine ouverture.
+ * Envoi sur les deux wallets via {@link deliver} : Apple par la mécanique
+ * des campagnes (last_campaign_message + APNs), Google en TEXT_AND_NOTIFY.
  */
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -150,24 +150,13 @@ export async function GET(request: Request) {
             settings.inactive_30d?.message?.trim() ||
             `On vous a manqué ! Revenez profiter de ${card.reward_text}`;
           const msg = renderMessage(tmpl, { reward: card.reward_text, name: client?.first_name });
-          const r = await syncLoyaltyObject(
-            inst.token,
-            inst.stamps_collected,
-            inst.rewards_available,
-            appUrl,
-            msg,
-            card.stamp_count,
-            labelStamps,
-            cardKind,
-          );
-          if (r.ok) {
-            totalInactivePushed++;
-            await supabase.from("auto_push_log").insert({
-              business_id: biz.id,
-              card_instance_id: inst.id,
-              trigger: "inactive_30d",
-            });
-          }
+          await deliver(supabase, inst, msg, appUrl, card.stamp_count, labelStamps, cardKind);
+          totalInactivePushed++;
+          await supabase.from("auto_push_log").insert({
+            business_id: biz.id,
+            card_instance_id: inst.id,
+            trigger: "inactive_30d",
+          });
         }
       }
 
@@ -194,24 +183,13 @@ export async function GET(request: Request) {
             reward: card.reward_text,
             name: client?.first_name,
           });
-          const r = await syncLoyaltyObject(
-            inst.token,
-            inst.stamps_collected,
-            inst.rewards_available,
-            appUrl,
-            msg,
-            card.stamp_count,
-            labelStamps,
-            cardKind,
-          );
-          if (r.ok) {
-            totalNearRewardPushed++;
-            await supabase.from("auto_push_log").insert({
-              business_id: biz.id,
-              card_instance_id: inst.id,
-              trigger: "near_reward_80",
-            });
-          }
+          await deliver(supabase, inst, msg, appUrl, card.stamp_count, labelStamps, cardKind);
+          totalNearRewardPushed++;
+          await supabase.from("auto_push_log").insert({
+            business_id: biz.id,
+            card_instance_id: inst.id,
+            trigger: "near_reward_80",
+          });
         }
       }
 
@@ -232,22 +210,13 @@ export async function GET(request: Request) {
               name: client.first_name,
               reward: card.reward_text,
             });
-            const r = await syncLoyaltyObject(
-              inst.token,
-              inst.stamps_collected,
-              inst.rewards_available,
-              appUrl,
-              msg,
-              card.stamp_count
-            );
-            if (r.ok) {
-              totalBirthdayPushed++;
-              await supabase.from("auto_push_log").insert({
-                business_id: biz.id,
-                card_instance_id: inst.id,
-                trigger: "birthday",
-              });
-            }
+            await deliver(supabase, inst, msg, appUrl, card.stamp_count, labelStamps, cardKind);
+            totalBirthdayPushed++;
+            await supabase.from("auto_push_log").insert({
+              business_id: biz.id,
+              card_instance_id: inst.id,
+              trigger: "birthday",
+            });
           }
         }
       }
@@ -261,6 +230,49 @@ export async function GET(request: Request) {
     near_reward_80_pushed: totalNearRewardPushed,
     birthday_pushed: totalBirthdayPushed,
   });
+}
+
+/**
+ * Envoie un message auto-push sur Apple et Google Wallet. Apple : même
+ * mécanique que les campagnes (`last_campaign_message` stampé AVANT l'APNs →
+ * iOS refetch le pass et affiche le texte sur le lockscreen). Google :
+ * message TEXT_AND_NOTIFY.
+ *
+ * L'appelant logge toujours après l'envoi (cooldown) : avant, le log
+ * dépendait du succès Google, donc un client iPhone-only (404 Google) n'était
+ * jamais loggé — et, maintenant qu'Apple reçoit le push, il aurait reçu le
+ * même message tous les jours.
+ */
+async function deliver(
+  supabase: ReturnType<typeof createAdminClient>,
+  inst: { id: string; token: string; stamps_collected: number; rewards_available: number },
+  message: string,
+  appUrl: string,
+  stampCount: number,
+  labelStamps: string | null,
+  cardKind: "stamp" | "cashback" | "discount" | "membership",
+): Promise<void> {
+  await supabase
+    .from("card_instances")
+    .update({
+      last_campaign_message: message,
+      last_campaign_at: new Date().toISOString(),
+    })
+    .eq("id", inst.id);
+  await Promise.allSettled([
+    syncLoyaltyObject(
+      inst.token,
+      inst.stamps_collected,
+      inst.rewards_available,
+      appUrl,
+      message,
+      stampCount,
+      labelStamps,
+      cardKind,
+      { notify: true },
+    ),
+    pushAppleWalletUpdate(inst.token),
+  ]);
 }
 
 /**

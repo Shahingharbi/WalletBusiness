@@ -77,14 +77,14 @@ export default async function AutoPushPage({
               className="text-sm sm:text-base text-foreground/70 max-w-md mx-auto"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              Envoyez automatiquement une notification wallet quand un client
-              est inactif depuis 30 jours, est à 80 % de sa récompense, ou fête
-              son anniversaire.
+              Demandez automatiquement un avis Google après chaque passage, et
+              relancez vos clients inactifs, proches de leur récompense ou le
+              jour de leur anniversaire.
             </p>
             <p className="text-sm text-foreground/60">{gate.message}</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <Link href="/settings/billing">
-                <Button>Passer au plan Pro</Button>
+                <Button>Choisir une offre</Button>
               </Link>
               <Link href={`/cards/${card.id}`}>
                 <Button variant="secondary">Retour à la carte</Button>
@@ -97,6 +97,17 @@ export default async function AutoPushPage({
   }
 
   const settings = (card.auto_push_settings ?? {}) as AutoPushSettings;
+  // Relances événementielles (inactifs, 80 %, anniversaire) = Pro+. La
+  // demande d'avis Google est incluse dans tous les plans.
+  const autoPushAllowed = business
+    ? requirePlan(business as BusinessBillingState, "auto_push").ok
+    : false;
+
+  const { count: reviewRequestsSent } = await supabase
+    .from("auto_push_log")
+    .select("id, card_instances!inner(card_id)", { count: "exact", head: true })
+    .eq("trigger", "google_review")
+    .eq("card_instances.card_id", card.id);
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -122,7 +133,8 @@ export default async function AutoPushPage({
           className="text-sm text-muted-foreground mt-1"
           style={{ fontFamily: "var(--font-maison-neue)" }}
         >
-          Notifications wallet envoyées automatiquement chaque jour à 10 h. Les
+          La demande d&apos;avis Google part quelques minutes après le passage
+          du client. Les relances sont envoyées chaque jour à 10 h. Les
           variables {"{name}"}, {"{reward}"} et {"{remaining}"} sont remplacées
           dans vos messages.
         </p>
@@ -133,6 +145,8 @@ export default async function AutoPushPage({
         rewardText={card.reward_text}
         stampCount={card.stamp_count}
         initialSettings={settings}
+        autoPushAllowed={autoPushAllowed}
+        reviewRequestsSent={reviewRequestsSent ?? 0}
       />
     </div>
   );

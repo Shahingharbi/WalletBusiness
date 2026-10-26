@@ -5,6 +5,36 @@
 
 ---
 
+## 2026-10-26 — Nouvelles offres 99 / 149 / 299 € (vente terrain) + demande d'avis Google automatique
+
+### Migration Vercel
+- Nouveau projet Vercel `wallet-business` (compte shahingharbi) : les 7 env vars obligatoires recréées (NEXT_PUBLIC_APP_URL = https://aswallet.fr). Stripe / Apple Wallet / Resend / CRON_SECRET restent à recopier depuis l'ancien compte.
+- `www.aswallet.fr` vérifié (TXT `_vercel` sur IONOS).
+
+### Offres (modèle commercial en boutique, inspiré de Panthera)
+- `lib/billing.ts::PLANS` : **Essentiel 99 €** (1 boutique) / **Pro 149 €** (« Le plus choisi », pilote automatique) / **Multi-boutiques 299 €** (jusqu'à 5 boutiques, carte commune) / **Réseau** sur devis (> 5). Annuel = −20 % (79 / 119 / 239 €/mois).
+- Limites réalignées : campagnes push + géo-push (1 emplacement) + demande d'avis dès Essentiel ; relances auto (inactifs, 80 %, anniversaire) = Pro+ ; clients illimités partout ; géo-push Multi-boutiques = 5.
+- `PricingSection` : CTA « Prendre rendez-vous » → WhatsApp (`lib/contact.ts`, message pré-rempli avec l'offre) + lien « ou par email ». Plus de checkout Stripe depuis la landing. Mensuel par défaut. Section + liens « Tarifs » + JSON-LD offers remis sur la home.
+- **1er mois offert** : pastille dans la section tarifs + badge « Offre de lancement » du hero. S'appuie sur le trial 30 j existant ; `/api/billing/checkout` passe `subscription_data.trial_end = trial_ends_at` → un commerçant qui s'abonne pendant son mois gratuit n'est prélevé qu'à la fin.
+- Services humains promis dans les offres : installation sur place, design de la carte, formation, support WhatsApp, conseiller dédié.
+
+### Demande d'avis Google automatique
+- Réglages par carte dans `cards.auto_push_settings.google_review` (lien https, message, délai 3/10/30/60 min) — page `/cards/[id]/auto-push`, bloc en tête. Inclus dans toutes les offres.
+- Cron minute `/api/cron/review-requests` (`vercel.json`) : clients scannés il y a `delay` min (rattrapage 1 h) → notif wallet avec le lien. **Une seule demande par client** : log `auto_push_log` (trigger `google_review`) inséré avant envoi + index unique partiel.
+- Apple : même mécanique que les campagnes (`last_campaign_message` + APNs) + backField permanent « Laissez-nous un avis Google ⭐ ». Google : message `TEXT_AND_NOTIFY` (vraie notif, max 3 / pass / 24 h) + lien dans `linksModuleData`.
+- `lib/google-review.ts` : validation + construction du message (le lien n'est jamais tronqué, 200 car. max).
+- Toggles de la page pilote automatique corrigés (la pastille ne glissait pas).
+
+### Notifications Android + relances iPhone
+- Campagnes et auto-push envoyés en `TEXT_AND_NOTIFY` (avant : `TEXT` → message dans la carte mais pas de sonnerie Android). Repli auto en `TEXT` si Google refuse (quota 3 / pass / 24 h).
+- Cron auto-push : les relances (inactifs, 80 %, anniversaire) partent maintenant aussi sur **Apple** (`last_campaign_message` + APNs) — avant, Google seulement. Log cooldown systématique après envoi (sinon un client iPhone-only aurait reçu la relance tous les jours).
+
+### Action manuelle requise après pull
+- ~~Appliquer la migration 014~~ : appliquée le 2026-10-26 (vérifié : `google_review` accepté par la contrainte).
+- Créer les prix Stripe 99 / 149 / 299 € (+ annuels 948 / 1 428 / 2 868 €) et mettre à jour les 6 `STRIPE_PRICE_ID_*`.
+
+---
+
 ## 2026-05-22 — Apple Wallet notif riche (vrai message sur lockscreen) + cooldown 12h
 
 ### Phase 2 Apple Wallet : afficher le CONTENU du message campagne sur lockscreen

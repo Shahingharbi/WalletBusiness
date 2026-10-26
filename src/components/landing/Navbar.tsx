@@ -36,6 +36,13 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
             Comment ça marche
           </a>
           <a
+            href="#pricing"
+            className="text-sm font-semibold text-foreground hover:opacity-70 transition-opacity"
+            style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+          >
+            Tarifs
+          </a>
+          <a
             href="#contact"
             className="text-sm font-semibold text-foreground hover:opacity-70 transition-opacity"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
