@@ -284,18 +284,18 @@ export function HowItWorksSection() {
 
         <div className="flex flex-col items-center gap-3 mt-14">
           <Link
-            href="/register"
-            className="rounded-full bg-foreground px-8 py-3.5 text-base font-semibold text-white hover:bg-foreground/90 transition-colors inline-flex items-center gap-2 shadow-lg"
+            href="/essai"
+            className="rounded-full bg-foreground px-6 sm:px-8 py-3.5 min-h-[48px] text-sm sm:text-base font-semibold text-white hover:bg-foreground/90 transition-colors inline-flex items-center justify-center gap-2 shadow-lg text-center"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Démarrer maintenant
-            <ArrowRight size={18} />
+            Créer ma carte en 30&nbsp;s
+            <ArrowRight size={18} aria-hidden />
           </Link>
           <p
-            className="text-xs text-muted-foreground"
+            className="text-xs text-muted-foreground text-center"
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
-            Sans application à télécharger &middot; Sans matériel &middot; Prêt en 5 minutes
+            Sans inscription &middot; Testez votre vraie carte sur votre téléphone
           </p>
         </div>
       </div>

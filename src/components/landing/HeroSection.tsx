@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, Star } from "lucide-react";
+import { Star } from "lucide-react";
+import { EssaiLinkForm } from "./EssaiLinkForm";
 import { HeroMockup } from "./HeroMockup";
 
 const avatarSeeds = ["Karim", "Amelie", "Mehdi", "Sophie", "Jules"];
@@ -11,7 +11,9 @@ export function HeroSection() {
     <section className="bg-beige overflow-hidden">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6 pt-10 sm:pt-16 lg:pt-20 pb-10 sm:pb-16">
         <div className="flex flex-col lg:flex-row gap-10 sm:gap-12 lg:gap-8">
-          <div className="flex-1 flex flex-col justify-center order-2 lg:order-1">
+          {/* Texte + formulaire en premier sur mobile : l'action principale
+              (coller son lien) doit être visible sans défiler. */}
+          <div className="flex-1 min-w-0 flex flex-col justify-center order-1">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
               <span className="bg-yellow text-foreground text-[10px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 rounded-full uppercase">
                 Offre de lancement
@@ -48,29 +50,22 @@ export function HeroSection() {
               2&nbsp;clics.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
-              <Link
-                href="/register"
-                className="rounded-full bg-foreground px-6 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-semibold text-white hover:bg-foreground/90 transition-colors text-center inline-flex items-center justify-center gap-2 shadow-lg min-h-[48px]"
-                style={{ fontFamily: "var(--font-maison-neue-extended)" }}
-              >
-                Lancer ma carte en 5 minutes
-                <ArrowRight size={18} />
-              </Link>
-              <Link
-                href="/demo"
-                className="rounded-full border border-foreground/20 bg-white px-6 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-semibold text-foreground hover:border-foreground transition-colors text-center inline-flex items-center justify-center gap-2 min-h-[48px]"
-                style={{ fontFamily: "var(--font-maison-neue-extended)" }}
-              >
-                Tester maintenant (sans compte)
-              </Link>
-            </div>
+            {/* Essai immédiat : le lien du commerce suffit à fabriquer sa
+                vraie carte (/essai). */}
+            <p
+              className="mt-6 sm:mt-8 text-sm sm:text-base font-semibold text-foreground"
+              style={{ fontFamily: "var(--font-maison-neue-extended)" }}
+            >
+              Essayez avec votre commerce&nbsp;: votre logo, vos couleurs, en
+              30&nbsp;secondes.
+            </p>
+            <EssaiLinkForm className="mt-3 max-w-[560px]" />
 
             <p
-              className="mt-4 text-sm text-foreground/60"
+              className="mt-1 text-sm text-foreground/60"
               style={{ fontFamily: "var(--font-maison-neue)" }}
             >
-              Sans application à télécharger &middot; Sans matériel &middot; Prêt en 5 minutes
+              Site web, Google Maps ou Instagram &middot; Sans inscription
             </p>
 
             {/* Social proof: avatar stack */}
@@ -113,7 +108,7 @@ export function HeroSection() {
             </div>
           </div>
 
-          <div className="flex-1 flex items-center justify-center order-1 lg:order-2 w-full">
+          <div className="flex-1 flex items-center justify-center order-2 w-full">
             <HeroMockup />
           </div>
         </div>

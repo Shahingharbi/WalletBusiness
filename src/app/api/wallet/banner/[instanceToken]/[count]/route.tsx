@@ -322,9 +322,16 @@ export async function GET(
             // pour laisser le card backgroundColor d'Apple/Google s'afficher
             // derrière (cohérence parfaite de la couleur du strip avec le
             // reste de la carte sur chaque plateforme).
-            backgroundImage: bannerUrl ? `url(${bannerUrl})` : undefined,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
+            // Clés absentes plutôt que `undefined` : le Satori de next 16
+            // plante (« reading 'trim' ») sur une propriété CSS `undefined`,
+            // ce qui cassait la bannière de toute carte sans photo.
+            ...(bannerUrl
+              ? {
+                  backgroundImage: `url(${bannerUrl})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : {}),
             backgroundColor: "transparent",
             fontFamily: "system-ui, -apple-system, sans-serif",
             color: "white",

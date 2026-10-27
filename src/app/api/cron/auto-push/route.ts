@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { syncLoyaltyObject } from "@/lib/google-wallet";
 import { pushAppleWalletUpdate } from "@/lib/apple-wallet-push";
 import { effectivePlan, type BusinessBillingState } from "@/lib/billing";
+import { ESSAI_BUSINESS_SLUG } from "@/lib/essai/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -41,10 +42,14 @@ export async function GET(request: Request) {
 
   // Charge tous les businesses Pro/Business (les seuls qui ont accès aux
   // pushes wallet — le gating est aligné sur la feature `campaigns`).
+  // Le commerce interne des démos « carte en 30 s » est exclu : ses cartes
+  // appartiennent à des prospects, pas à des clients — pas de relances
+  // automatiques (« plus que 2 tampons », « on vous a manqué »…).
   const { data: businesses, error: bizErr } = await supabase
     .from("businesses")
     .select("id, name, subscription_status, subscription_plan, trial_ends_at")
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .neq("slug", ESSAI_BUSINESS_SLUG);
 
   if (bizErr) {
     console.error("[cron/auto-push] businesses query failed:", bizErr);

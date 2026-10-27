@@ -13,7 +13,7 @@ export async function generateMetadata({
   const supabase = createAdminClient();
   const { data: card } = await supabase
     .from("cards")
-    .select("name, reward_text, design, businesses(name, logo_url)")
+    .select("name, reward_text, design, wallet_business_name, businesses(name, logo_url)")
     .eq("id", token)
     .maybeSingle();
 
@@ -26,7 +26,9 @@ export async function generateMetadata({
     logo_url: string | null;
   } | null;
   const design = (card.design || {}) as { banner_url?: string | null };
-  const businessName = business?.name ?? "";
+  // Nom affiché sur le pass (surcharge éventuelle, ex. cartes d'essai
+  // portées par le commerce interne « Essai aswallet »), sinon le commerce.
+  const businessName = card.wallet_business_name?.trim() || business?.name || "";
   const title = `${card.name} - ${businessName}`;
   const description = `Recevez ${card.reward_text} grâce à votre carte de fidélité.`;
   const image = design.banner_url ?? business?.logo_url ?? undefined;
@@ -59,7 +61,7 @@ export default async function CardInstallPage({
 
   const { data: card, error } = await supabase
     .from("cards")
-    .select("id, name, max_stamps:stamp_count, reward_text, status, design, business_id, businesses(id, name, logo_url, slug)")
+    .select("id, name, max_stamps:stamp_count, reward_text, status, design, business_id, wallet_business_name, businesses(id, name, logo_url, slug)")
     .eq("id", token)
     .single();
 
@@ -85,7 +87,8 @@ export default async function CardInstallPage({
 
   const design = { ...DEFAULT_CARD_DESIGN, ...(card.design as Record<string, unknown>) };
   const business = card.businesses as unknown as { id: string; name: string; logo_url: string | null; slug: string } | null;
-  const businessName = business?.name ?? "Commerce";
+  // Même nom que sur le pass : `wallet_business_name` s'il est renseigné.
+  const businessName = card.wallet_business_name?.trim() || business?.name || "Commerce";
   const logoUrl = (design.logo_url as string | null) ?? business?.logo_url ?? null;
   // Auto-contraste : sans banner image, le titre apparaît sur l'accent_color
   // pur. Si l'accent est très clair (blanc, pastel), du texte blanc devient

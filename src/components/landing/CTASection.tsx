@@ -1,26 +1,15 @@
-"use client";
+import { ShieldCheck, Globe, Lock } from "lucide-react";
+import { EssaiLinkForm } from "./EssaiLinkForm";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowRight, ShieldCheck, Globe, Lock } from "lucide-react";
-
+/**
+ * Bloc final de la landing. Même formulaire « lien du commerce » que le Hero :
+ * le visiteur repart avec sa vraie carte en 30 s (/essai), sans créer de
+ * compte d'abord — l'inscription se fait ensuite via « Je garde ma carte ».
+ */
 export function CTASection() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [businessName, setBusinessName] = useState("");
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const params = new URLSearchParams();
-    if (email) params.set("email", email);
-    if (businessName) params.set("business", businessName);
-    router.push(`/register?${params.toString()}`);
-  };
-
   return (
-    <section className="px-6 py-6" id="contact">
-      <div className="relative overflow-hidden mx-auto max-w-[1280px] rounded-[20px] bg-foreground px-8 lg:px-12 py-20 lg:py-28">
+    <section className="px-4 sm:px-6 py-6" id="contact">
+      <div className="relative overflow-hidden mx-auto max-w-[1280px] rounded-[20px] bg-foreground px-5 sm:px-8 lg:px-12 py-16 sm:py-20 lg:py-28">
         {/* Decorative glow */}
         <div
           aria-hidden
@@ -39,65 +28,31 @@ export function CTASection() {
             C&apos;est parti
           </span>
           <h2
-            className="text-4xl lg:text-[56px] lg:leading-[64px] font-semibold text-white"
+            className="text-[28px] leading-[1.2] sm:text-4xl lg:text-[56px] lg:leading-[64px] font-semibold text-white"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >
-            Lancez votre carte de fidélité{" "}
-            <span className="bg-yellow text-foreground px-3 rounded-lg">
-              en 5 minutes
+            Votre carte de fidélité{" "}
+            <span className="bg-yellow text-foreground px-3 rounded-lg [box-decoration-break:clone] [-webkit-box-decoration-break:clone]">
+              en 30&nbsp;secondes
             </span>
           </h2>
           <p
             className="mt-6 text-base lg:text-lg text-white/70"
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
-            Rejoignez les commerçants qui ont arrêté d&apos;imprimer des cartes
-            papier. Votre carte est prête en 5 minutes.
+            Collez le lien de votre commerce&nbsp;: on récupère votre logo et
+            vos couleurs, et votre vraie carte s&apos;ajoute à votre téléphone.
+            Testez-la, puis gardez-la si elle vous plaît.
           </p>
 
-          <form onSubmit={submit} className="mt-10 max-w-md mx-auto">
-            <div className="space-y-3">
-              <input
-                type="email"
-                required
-                placeholder="Votre email professionnel"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-full border border-white/20 bg-white/5 backdrop-blur px-6 py-4 text-base text-white placeholder:text-white/40 outline-none focus:border-yellow focus:bg-white focus:text-foreground focus:placeholder:text-foreground/40 transition-colors"
-                style={{ fontFamily: "var(--font-maison-neue)" }}
-              />
-              <input
-                type="text"
-                placeholder="Nom de votre commerce (optionnel)"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                className="w-full rounded-full border border-white/20 bg-white/5 backdrop-blur px-6 py-4 text-base text-white placeholder:text-white/40 outline-none focus:border-yellow focus:bg-white focus:text-foreground focus:placeholder:text-foreground/40 transition-colors"
-                style={{ fontFamily: "var(--font-maison-neue)" }}
-              />
-              <button
-                type="submit"
-                className="w-full rounded-full bg-yellow px-8 py-4 text-base font-semibold text-foreground hover:bg-yellow-hover transition-colors inline-flex items-center justify-center gap-2 cursor-pointer shadow-xl"
-                style={{ fontFamily: "var(--font-maison-neue-extended)" }}
-              >
-                Créer ma carte de fidélité
-                <ArrowRight size={18} />
-              </button>
-            </div>
-            <p className="mt-4 text-xs text-white/50">
-              Sans application à télécharger &middot; Sans matériel &middot; Prêt en 5 minutes
-            </p>
-          </form>
-
-          <div className="mt-6 flex justify-center">
-            <Link
-              href="/demo"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-yellow transition-colors"
-              style={{ fontFamily: "var(--font-maison-neue-extended)" }}
-            >
-              Tester maintenant (sans compte)
-              <ArrowRight size={14} />
-            </Link>
-          </div>
+          <EssaiLinkForm
+            variant="dark"
+            placeholder="Le lien de votre commerce"
+            className="mt-10 max-w-xl mx-auto"
+          />
+          <p className="mt-2 text-xs text-white/50">
+            Site web, Google Maps ou Instagram &middot; Sans inscription
+          </p>
 
           {/* Trust badges row */}
           <div
@@ -105,17 +60,17 @@ export function CTASection() {
             style={{ fontFamily: "var(--font-maison-neue)" }}
           >
             <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck size={14} />
+              <ShieldCheck size={14} aria-hidden />
               Conforme RGPD
             </span>
             <span className="h-3 w-px bg-white/20 hidden sm:block" />
             <span className="inline-flex items-center gap-1.5">
-              <Globe size={14} />
+              <Globe size={14} aria-hidden />
               Hébergé en Europe
             </span>
             <span className="h-3 w-px bg-white/20 hidden sm:block" />
             <span className="inline-flex items-center gap-1.5">
-              <Lock size={14} />
+              <Lock size={14} aria-hidden />
               Chiffrement SSL
             </span>
           </div>

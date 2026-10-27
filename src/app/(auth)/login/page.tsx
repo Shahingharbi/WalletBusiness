@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { loginSchema, type LoginInput } from "@/lib/validations";
@@ -9,8 +9,41 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 
+/**
+ * Destination après connexion (`?next=`), ex. /essai/<token>/garder quand un
+ * commerçant qui a déjà un compte garde sa carte d'essai. Seuls les chemins
+ * relatifs du site sont acceptés (même règle que /auth/callback) pour
+ * éviter toute redirection ouverte vers un autre domaine.
+ */
+function safeNextPath(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+    return "/dashboard";
+  }
+  return value;
+}
+
+/** « Pas encore de compte ? » garde la carte d'essai en attente. */
+function registerHrefFor(next: string): string {
+  const essai = /^\/essai\/([A-Za-z0-9_-]{16,128})\/garder$/.exec(next);
+  return essai ? `/register?essai=${essai[1]}` : "/register";
+}
+
 export default function LoginPage() {
+  // useSearchParams impose une frontière Suspense (rendu statique de la page).
+  return (
+    <Suspense
+      fallback={
+        <div className="text-center text-sm text-gray-500">Chargement...</div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const nextPath = safeNextPath(useSearchParams().get("next"));
   const [formData, setFormData] = useState<LoginInput>({
     email: "",
     password: "",
@@ -65,7 +98,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard");
+      router.push(nextPath);
       router.refresh();
     } catch {
       setGeneralError("Une erreur inattendue est survenue. Veuillez réessayer.");
@@ -129,12 +162,12 @@ export default function LoginPage() {
         <span className="h-px flex-1 bg-gray-200" />
       </div>
 
-      <GoogleAuthButton next="/dashboard" label="Continuer avec Google" />
+      <GoogleAuthButton next={nextPath} label="Continuer avec Google" />
 
       <p className="mt-6 text-center text-sm text-gray-600">
         Pas encore de compte ?{" "}
         <Link
-          href="/register"
+          href={registerHrefFor(nextPath)}
           className="font-medium text-black hover:underline"
         >
           Inscrivez-vous

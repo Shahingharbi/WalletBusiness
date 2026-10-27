@@ -59,8 +59,9 @@ export function Navbar({ bannerVisible }: { bannerVisible: boolean }) {
           >
             Se connecter
           </Link>
+          {/* CTA principal → générateur de carte en 30 s (sans inscription). */}
           <Link
-            href="/register"
+            href="/essai"
             className="rounded-full bg-yellow px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-foreground hover:bg-yellow-hover transition-colors whitespace-nowrap"
             style={{ fontFamily: "var(--font-maison-neue-extended)" }}
           >

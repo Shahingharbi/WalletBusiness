@@ -18,11 +18,14 @@ export default async function CardDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ created?: string }>;
+  searchParams?: Promise<{ created?: string; essai?: string }>;
 }) {
   const { id } = await params;
   const sp = (await searchParams) ?? {};
   const justCreated = sp.created === "1";
+  // Arrivée depuis « Je garde ma carte » (/essai/<token>/garder) : la carte
+  // d'essai vient d'être copiée, déjà active, dans le commerce.
+  const fromEssai = sp.essai === "1";
   const supabase = await createClient();
 
   const {
@@ -132,6 +135,33 @@ export default async function CardDetailPage({
             >
               <ExternalLink className="h-4 w-4" />
               Tester ma carte
+            </a>
+          </div>
+        </div>
+      )}
+
+      {fromEssai && !justCreated && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-start sm:items-center gap-2 flex-1 min-w-0">
+              <Sparkles className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-emerald-900">
+                  Votre carte est dans votre compte
+                </p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Elle est déjà active&nbsp;: partagez le lien ou le QR code ci-dessous à vos clients pour qu&apos;ils l&apos;ajoutent à leur téléphone.
+                </p>
+              </div>
+            </div>
+            <a
+              href={cardPublicUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 px-4 h-10 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors cursor-pointer shrink-0"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Voir la page client
             </a>
           </div>
         </div>

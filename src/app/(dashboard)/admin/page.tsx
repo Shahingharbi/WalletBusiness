@@ -3,10 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Users, CreditCard, TrendingUp } from "lucide-react";
+import { Shield, Users, CreditCard, TrendingUp, Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { AdminCreateAccountForm } from "@/components/admin/create-account-form";
 import { AdminPromoteForm } from "@/components/admin/promote-form";
+import { findEssaiBusinessId } from "@/lib/essai/business";
+import { ESSAI_BUSINESS_SLUG } from "@/lib/essai/types";
 
 interface AdminPageProps {
   searchParams: Promise<{ page?: string }>;
@@ -37,6 +39,12 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   // Pagination businesses (via service role pour bypasser RLS).
   const admin = createAdminClient();
   const { page: pageParam } = await searchParams;
+
+  // Le commerce interne « Essai aswallet » (démos /essai) n'est pas un client :
+  // exclu de la liste et des compteurs pour garder des chiffres réels. Sans
+  // essai encore créé, un UUID nul ne correspond à aucune ligne.
+  const essaiBusinessId =
+    (await findEssaiBusinessId(admin)) ?? "00000000-0000-0000-0000-000000000000";
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -50,6 +58,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       "id, name, owner_id, subscription_status, subscription_plan, trial_ends_at, created_at",
       { count: "exact" }
     )
+    .neq("slug", ESSAI_BUSINESS_SLUG)
     .order("created_at", { ascending: false })
     .range(from, to);
 
@@ -87,12 +96,19 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     clientsRes,
     txMonthRes,
   ] = await Promise.all([
-    admin.from("businesses").select("id", { count: "exact", head: true }),
+    admin
+      .from("businesses")
+      .select("id", { count: "exact", head: true })
+      .neq("slug", ESSAI_BUSINESS_SLUG),
     admin
       .from("cards")
       .select("id", { count: "exact", head: true })
-      .eq("status", "active"),
-    admin.from("clients").select("id", { count: "exact", head: true }),
+      .eq("status", "active")
+      .neq("business_id", essaiBusinessId),
+    admin
+      .from("clients")
+      .select("id", { count: "exact", head: true })
+      .neq("business_id", essaiBusinessId),
     admin
       .from("transactions")
       .select("id", { count: "exact", head: true })
@@ -106,11 +122,11 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="h-10 w-10 rounded-full bg-yellow flex items-center justify-center">
           <Shield className="h-5 w-5 text-foreground" />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1
             className="text-2xl sm:text-3xl text-foreground"
             style={{
@@ -124,6 +140,15 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             Gestion plateforme — réservé aux super administrateurs.
           </p>
         </div>
+        {/* Suivi des démos « carte en 30 s » (cartes du commerce interne essai). */}
+        <Link
+          href="/admin/essais"
+          className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-white px-4 text-sm font-medium text-foreground transition-colors hover:bg-beige"
+        >
+          <Sparkles className="h-4 w-4" aria-hidden />
+          Essais «&nbsp;carte en 30&nbsp;s&nbsp;»
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
       </div>
 
       {/* Stats globales */}

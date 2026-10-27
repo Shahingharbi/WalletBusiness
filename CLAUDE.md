@@ -80,6 +80,14 @@ Stack : Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 + Supabase.
 - **Welcome offer** : `design.welcome_reward` débloque `rewards_available=1` à l'install + push wallet "Bienvenue !".
 - **Demo public** : `/demo` (sans auth) — playground avec controls + preview + CTA `/register`.
 
+## « Votre carte en 30 secondes » (/essai)
+
+- Générateur public : lien (site / Google Maps / Instagram) ou photo → vraie carte d'essai installable tout de suite. Extraction dans `lib/essai/brand/*` (orchestrateur `analyzeBrand`), création `lib/essai/create.ts`, démo `lib/essai/actions.ts`, « garder » `lib/essai/claim.ts`, contrat `lib/essai/types.ts`.
+- Cartes d'essai portées par le commerce interne slug `aswallet-essai` (exclu de /admin et du cron auto-push). Métadonnées dans `cards.design.essai` (retirées à la copie).
+- **Toute requête sortante vers une URL fournie par l'utilisateur passe par `lib/essai/brand/safe-fetch.ts`** (anti-SSRF). Ne jamais fetch instagram.com / facebook.com.
+- IA optionnelle (`ANTHROPIC_API_KEY`, modèle `claude-opus-5-5`), Places optionnel (`GOOGLE_PLACES_API_KEY`) : sans clé, tout se dégrade proprement.
+- Rate-limit : 5 créations / min / IP, 15 actions / min.
+
 ## Gotchas Next.js 16
 
 Voir `AGENTS.md` — cette version a des breaking changes par rapport au training data. Toujours lire `node_modules/next/dist/docs/` avant de supposer le comportement d'une API.

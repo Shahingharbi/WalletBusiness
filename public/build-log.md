@@ -5,6 +5,28 @@
 
 ---
 
+## 2026-10-27 — « Votre carte de fidélité en 30 secondes » (/essai)
+
+### Le parcours
+- **/essai** : on colle un lien (site web, fiche Google Maps, Instagram) ou on envoie une photo (enseigne, logo, capture du profil Insta) → en 3 à 8 s une **vraie carte** aux couleurs du commerce est créée et s'ajoute directement à Apple / Google Wallet (QR sur ordinateur). Accueil : formulaire lien dans le Hero + tous les CTA « Créer ma carte » → /essai.
+- **/essai/[token]** : aperçu réel (bannière Satori), ajout au téléphone, 3 tests en direct (tampon / promo / demande d'avis Google — vraies notifications), « Je garde ma carte », rendez-vous WhatsApp, affiche comptoir PDF.
+- **« Je garde ma carte »** (/essai/[token]/garder → /register?essai= ou /login?next=) : la carte est copiée, active, dans le commerce du nouveau compte (logo, couleurs, récompense, nom / logo / métier du commerce remplis, onboarding marqué fait). Idempotent. Le compte a ses 30 j offerts.
+- **/admin/essais** (super_admin) : liste des essais, sources, couleurs, actions, installation iPhone, cartes gardées. Le commerce interne est exclu des compteurs de /admin.
+
+### Technique
+- Extraction de marque `lib/essai/brand/*` : `safe-fetch` (anti-SSRF : DNS résolu + IP épinglée, redirections re-validées, taille/timeout, Instagram/Facebook jamais récupérés), `website` (meta, JSON-LD, manifest, logos img/svg), `maps` (liens courts, nom/coords/CID ; Places API si `GOOGLE_PLACES_API_KEY`), `instagram` (pseudo seulement → conseil capture), `category` (21 métiers + presets), `colors` (palette mesurée sur les pixels, contrastes WCAG), `logo` (badge 512 px, logo typographique via next/og), `ai` (Claude `claude-opus-5-5` via `@anthropic-ai/sdk`, sortie zod, effort low — actif seulement si `ANTHROPIC_API_KEY`), `index` (orchestrateur).
+- Cartes d'essai = vraies cartes du commerce interne `aswallet-essai` (créé paresseusement, owner = super_admin), `design.essai` = métadonnées. Pas de migration. Actions de démo bloquées après 7 jours (la carte reste gardable).
+- `lib/poster.tsx` extrait de la route d'affiche (réutilisé par /api/essai/[token]/poster). Le cron auto-push ignore le commerce essai.
+- **Bug corrigé (prod)** : la bannière de tampons `/api/wallet/banner` plantait (Satori de Next 16 sur une propriété CSS `undefined`) pour toute carte sans photo de bannière.
+- `/login?next=` (chemins internes uniquement). Pages `/c/[token]` : nom = `wallet_business_name` en priorité.
+- Clés Apple Wallet + `CRON_SECRET` ajoutées sur le nouveau projet Vercel (nouveau `APPLE_WALLET_AUTH_SECRET`).
+
+### Action manuelle requise
+- **Migration 013 non appliquée en prod** (`card_instances.last_campaign_message`) → toutes les routes Apple Wallet répondent 404 tant qu'elle manque. À coller dans Supabase SQL Editor.
+- Optionnel : `ANTHROPIC_API_KEY` (IA : nom / métier / couleurs depuis une photo) et `GOOGLE_PLACES_API_KEY` (lien d'avis Google exact depuis un lien Maps) sur Vercel.
+
+---
+
 ## 2026-10-26 — Nouvelles offres 99 / 149 / 299 € (vente terrain) + demande d'avis Google automatique
 
 ### Migration Vercel

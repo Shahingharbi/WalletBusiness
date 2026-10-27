@@ -20,7 +20,7 @@ export default async function CardStatusPage({
     .from("card_instances")
     .select(`
       id, token, stamps_collected, rewards_available, status, last_scanned_at,
-      cards(id, name, stamp_count, reward_text, design, barcode_type, business_id, businesses(id, name, logo_url)),
+      cards(id, name, stamp_count, reward_text, design, barcode_type, business_id, wallet_business_name, businesses(id, name, logo_url)),
       clients(id, first_name, phone)
     `)
     .eq("token", instanceToken)
@@ -84,12 +84,15 @@ export default async function CardStatusPage({
     design: Record<string, unknown>;
     barcode_type: "qr" | "pdf417" | null;
     business_id: string;
+    wallet_business_name: string | null;
     businesses: { id: string; name: string; logo_url: string | null } | null;
   };
   const client = instance.clients as unknown as { id: string; first_name: string; phone: string | null };
   const design = { ...DEFAULT_CARD_DESIGN, ...(card.design || {}) };
   const business = card.businesses;
-  const businessName = business?.name ?? "Commerce";
+  // Même nom que sur le pass : `wallet_business_name` s'il est renseigné
+  // (cartes d'essai portées par le commerce interne « Essai aswallet »).
+  const businessName = card.wallet_business_name?.trim() || business?.name || "Commerce";
   const logoUrl = (design.logo_url as string | null) ?? business?.logo_url ?? null;
 
   const stampsRemaining = card.stamp_count - instance.stamps_collected;

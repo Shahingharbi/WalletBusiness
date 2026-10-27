@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
+import type { EssaiSummaryResponse } from "@/lib/essai/types";
 import { createClient } from "@/lib/supabase/client";
 import { registerSchema, type RegisterInput } from "@/lib/validations";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,11 @@ type IntervalAlias = "monthly" | "annual";
  */
 function parseIntervalAlias(value: string | null): IntervalAlias {
   return value === "annual" ? "annual" : "monthly";
+}
+
+/** Token d'une carte d'essai (« Je garde ma carte ») — même format que la DB. */
+function parseEssaiToken(value: string | null): string | null {
+  return value && /^[A-Za-z0-9_-]{16,128}$/.test(value) ? value : null;
 }
 
 export default function RegisterPage() {
@@ -69,6 +75,48 @@ function RegisterForm() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // ── Carte d'essai en attente (/register?essai=<token>) ──────────────────
+  // Le visiteur vient de « Je garde ma carte » : après l'inscription, on le
+  // renvoie sur /essai/<token>/garder qui copie la carte dans son commerce.
+  const essaiToken = parseEssaiToken(params.get("essai"));
+  const [essaiSummary, setEssaiSummary] = useState<EssaiSummaryResponse | null>(null);
+  const [essaiInvalid, setEssaiInvalid] = useState(false);
+  const activeEssaiToken = essaiToken && !essaiInvalid ? essaiToken : null;
+  const garderPath = activeEssaiToken
+    ? `/essai/${encodeURIComponent(activeEssaiToken)}/garder`
+    : null;
+
+  useEffect(() => {
+    if (!essaiToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/essai/${encodeURIComponent(essaiToken)}`, {
+          cache: "no-store",
+        });
+        if (cancelled) return;
+        // Lien d'essai invalide / supprimé : inscription classique.
+        if (res.status === 404) {
+          setEssaiInvalid(true);
+          return;
+        }
+        if (!res.ok) return;
+        const summary = (await res.json()) as EssaiSummaryResponse;
+        if (cancelled) return;
+        setEssaiSummary(summary);
+        // Zéro ressaisie : le nom du commerce est déjà connu.
+        setFormData((prev) =>
+          prev.businessName.trim() ? prev : { ...prev, businessName: summary.name }
+        );
+      } catch {
+        // Réseau : le bandeau ne s'affiche pas, la reprise reste active.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [essaiToken]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -101,6 +149,13 @@ function RegisterForm() {
         email: formData.email,
         password: formData.password,
         options: {
+          // Si l'email doit être confirmé, le lien ramène sur la reprise de
+          // la carte d'essai (via le callback PKCE) plutôt que sur l'accueil.
+          ...(garderPath
+            ? {
+                emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(garderPath)}`,
+              }
+            : {}),
           data: {
             first_name: formData.firstName,
             last_name: formData.lastName,
@@ -146,7 +201,7 @@ function RegisterForm() {
 
       // If email confirmation is disabled, the user is immediately confirmed
       if (data.session) {
-        router.push("/dashboard");
+        router.push(garderPath ?? "/dashboard");
         router.refresh();
       } else {
         setSuccess(true);
@@ -184,6 +239,10 @@ function RegisterForm() {
         <p className="text-sm text-gray-600 mb-6">
           Vérifiez votre email pour confirmer votre compte. Un lien de
           confirmation vous a été envoyé.
+          {garderPath &&
+            ` Dès que vous cliquez dessus, votre carte${
+              essaiSummary ? ` « ${essaiSummary.name} »` : ""
+            } sera ajoutée à votre compte.`}
         </p>
         <Link
           href="/login"
@@ -203,6 +262,43 @@ function RegisterForm() {
 
   return (
     <div>
+      {/* Carte d'essai en attente — uniquement avec un ?essai= valide */}
+      {garderPath && essaiSummary && (
+        <div
+          className="mb-6 flex items-center gap-3 rounded-xl border-2 border-foreground bg-yellow/30 p-4"
+          role="status"
+        >
+          <div
+            className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm"
+            style={{ backgroundColor: essaiSummary.colors.background }}
+          >
+            {essaiSummary.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- logo distant (Supabase), petite vignette
+              <img
+                src={essaiSummary.logoUrl}
+                alt=""
+                className="h-full w-full object-contain p-1"
+              />
+            ) : (
+              <Sparkles
+                className="h-5 w-5"
+                style={{ color: essaiSummary.colors.accent }}
+                aria-hidden
+              />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground">
+              Votre carte «&nbsp;{essaiSummary.name}&nbsp;» vous attend
+            </p>
+            <p className="mt-0.5 text-xs text-foreground/80">
+              Créez votre compte&nbsp;: elle y sera ajoutée automatiquement,
+              sans rien ressaisir.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Plan banner — uniquement si l'utilisateur arrive avec un ?plan= */}
       {planDescriptor && (
         <div className="mb-6 rounded-xl border-2 border-foreground bg-yellow/30 p-4">
@@ -317,11 +413,21 @@ function RegisterForm() {
         <span className="h-px flex-1 bg-gray-200" />
       </div>
 
-      <GoogleAuthButton next="/dashboard" label="S'inscrire avec Google" />
+      <GoogleAuthButton
+        next={garderPath ?? "/dashboard"}
+        label="S'inscrire avec Google"
+      />
 
       <p className="mt-6 text-center text-sm text-gray-600">
         Déjà un compte ?{" "}
-        <Link href="/login" className="font-medium text-black hover:underline">
+        <Link
+          href={
+            garderPath
+              ? `/login?next=${encodeURIComponent(garderPath)}`
+              : "/login"
+          }
+          className="font-medium text-black hover:underline"
+        >
           Connectez-vous
         </Link>
       </p>
