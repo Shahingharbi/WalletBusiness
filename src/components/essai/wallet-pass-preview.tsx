@@ -230,7 +230,7 @@ export function AppleWalletPass({ data, pop, busy }: PassProps) {
           </span>
         </div>
 
-        {/* QR blanc « Propulsé par aswallet ». */}
+        {/* QR blanc « aswallet ». */}
         <span
           className="absolute block bg-white text-center"
           style={{
@@ -255,7 +255,7 @@ export function AppleWalletPass({ data, pop, busy }: PassProps) {
               whiteSpace: "nowrap",
             }}
           >
-            Propulsé par aswallet
+            aswallet
           </span>
         </span>
 
@@ -407,7 +407,7 @@ export function GoogleWalletPass({ data, pop, busy }: PassProps) {
               className="block"
               style={{ marginTop: "2.8cqw", fontSize: "3.6cqw", lineHeight: 1.2, opacity: 0.95 }}
             >
-              Propulsé par aswallet
+              aswallet
             </span>
           </span>
         </div>

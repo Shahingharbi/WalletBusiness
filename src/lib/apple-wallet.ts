@@ -379,7 +379,7 @@ export interface ApplePassFields {
  *   bande     : strip.png (photo + grille de tampons), AUCUN champ par-dessus
  *   rangée    : « BONJOUR Shahin » TOUJOURS à gauche · « NOTRE OFFRE … » à droite
  *               (sans prénom : l'offre seule)
- *   QR        : « Propulsé par aswallet »
+ *   QR        : « aswallet »
  *
  * Pure (aucun réseau / certificat) : testable sans les clés Apple.
  */
@@ -638,12 +638,12 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
 
   // QR code lisible par l'app scanner du commerçant. altText apparaît
   // sous le QR — on remplace le serial number (chaîne aléatoire pas
-  // parlante) par un crédit "Propulsé par aswallet".
+  // parlante) par un crédit "aswallet".
   pass.setBarcodes({
     message: p.customerInstanceToken,
     format: "PKBarcodeFormatQR",
     messageEncoding: "iso-8859-1",
-    altText: "Propulsé par aswallet",
+    altText: "aswallet",
   });
 
   return pass.getAsBuffer();

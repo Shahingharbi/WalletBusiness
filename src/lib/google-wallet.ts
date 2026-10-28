@@ -216,10 +216,10 @@ export function buildLoyaltyClass(p: PassParams) {
       ? {}
       : { classTemplateInfo: { cardTemplateOverride: CARD_TEMPLATE_OVERRIDE } }),
     // programDetails au verso de la carte Google Wallet : juste le crédit
-    // "Propulsé par aswallet". L'offre (`rewardText`) est déjà dans
+    // "aswallet". L'offre (`rewardText`) est déjà dans
     // `textModulesData` côté loyaltyObject — la mettre ici aussi la
     // dupliquait visuellement au verso de la carte (info affichée 2 fois).
-    programDetails: "Propulsé par aswallet",
+    programDetails: "aswallet",
     ...(locations ? { locations } : {}),
   };
 }
@@ -288,7 +288,7 @@ export function buildLoyaltyObject(p: PassParams) {
       value: p.customerInstanceToken,
       // alternateText apparaît sous le code-barres dans Google Wallet.
       // On remplace le serial number (chaîne aléatoire) par un crédit clair.
-      alternateText: "Propulsé par aswallet",
+      alternateText: "aswallet",
     },
     linksModuleData: {
       uris: [

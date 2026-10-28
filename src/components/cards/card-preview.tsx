@@ -539,7 +539,7 @@ function SinglePreview({
                   </div>
                 )}
 
-                {/* 4. White card section : QR + "Propulsé par aswallet". */}
+                {/* 4. White card section : QR + "aswallet". */}
                 <div className="bg-white px-4 py-3 flex flex-col items-center gap-1.5 border-t border-black/5">
                   {barcodeType === "qr" ? (
                     qrDataUrl ? (
@@ -554,7 +554,7 @@ function SinglePreview({
                     </div>
                   )}
                   <span className="text-[9px] text-gray-500 tracking-wide">
-                    Propulsé par aswallet
+                    aswallet
                   </span>
                 </div>
               </div>
