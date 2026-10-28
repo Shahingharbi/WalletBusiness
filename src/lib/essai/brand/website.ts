@@ -1,6 +1,7 @@
 /**
  * Site web d'un commerce → signaux de marque (nom, description, couleurs
- * déclarées, candidats logo, types schema.org, adresse, coordonnées, texte).
+ * déclarées, candidats logo, photos, types schema.org, adresse, coordonnées,
+ * texte).
  *
  * SERVER-ONLY (safeFetch).
  *
@@ -14,6 +15,10 @@
  *   jsonld > img-logo > inline-svg > apple-touch-icon > manifest-icon >
  *   icon (png/svg ≥ 64 px) > og-image (si quasi carrée) > favicon.
  * Le téléchargement / la validation des images est le travail de logo.ts.
+ *
+ * Photos candidates pour la bande (`photoCandidates`) : og:image /
+ * twitter:image paysage, image JSON-LD du commerce, grandes images et fonds
+ * CSS du haut de page — validées ensuite par photo.ts.
  */
 
 import { clampName, nameFromDomain, normalizeForMatch } from "@/lib/essai/brand/category";
@@ -529,6 +534,8 @@ interface JsonLdInfo {
   siteName: string | null;
   description: string | null;
   logos: string[];
+  /** `image` / `photo` des nœuds commerce (souvent une photo de devanture). */
+  photos: string[];
   address: string | null;
   location: { lat: number; lng: number } | null;
 }
@@ -564,6 +571,7 @@ function extractJsonLd(html: string): JsonLdInfo {
     siteName: null,
     description: null,
     logos: [],
+    photos: [],
     address: null,
     location: null,
   };
@@ -575,6 +583,9 @@ function extractJsonLd(html: string): JsonLdInfo {
     // `image` d'un commerce = souvent une photo de devanture : seulement si le fichier s'appelle « logo ».
     const image = imageUrlOf(node.image, byId);
     if (image && /logo/i.test(image) && !info.logos.includes(image)) info.logos.push(image);
+    for (const photo of [image, imageUrlOf(node.photo, byId)]) {
+      if (photo && !NOT_A_PHOTO_RE.test(photo) && !info.photos.includes(photo)) info.photos.push(photo);
+    }
     const place = node.location && typeof node.location === "object" ? (node.location as JsonObject) : null;
     info.address ??= addressOf(node.address) ?? addressOf(place?.address);
     info.location ??= geoOf(node.geo) ?? geoOf(place?.geo);
@@ -817,6 +828,92 @@ function findHtmlLogos(
   return { images: images.sort(byScore).slice(0, 4), svgs: svgs.sort(byScore).slice(0, 2) };
 }
 
+// ─── Photos pour la bande ─────────────────────────────────────────────────
+
+/** Fichiers qui ne sont pas des photos (logos, icônes, pixels, drapeaux…). */
+const NOT_A_PHOTO_RE =
+  /logo|icon|favicon|sprite|placeholder|blank|pixel|spacer|avatar|badge|flag|loader|loading|transparent|qr-?code|arrow|picto|signature|\.svgz?(?:$|\?)|\.gif(?:$|\?)/i;
+/** Classes / alt d'une grande image de mise en avant. */
+const HERO_HINT_RE = /hero|banner|banniere|slider|slide|carousel|cover|jumbotron|header|masthead|bg|background|fond|full-?width|splash|vitrine|devanture|facade/i;
+const MAX_PHOTO_CANDIDATES = 6;
+
+/** Largeur max annoncée dans un srcset (« a.jpg 800w, b.jpg 1600w » → 1600). */
+function maxSrcsetWidth(srcset: string | undefined): number {
+  let max = 0;
+  for (const m of (srcset ?? "").matchAll(/\s(\d{2,5})w\b/g)) max = Math.max(max, Number(m[1]));
+  return max;
+}
+
+/**
+ * Photos candidates pour la bande, meilleure d'abord : og:image /
+ * twitter:image en paysage, image(s) JSON-LD du commerce, puis les grandes
+ * images (ou fonds CSS) du haut de la page. Le téléchargement et le contrôle
+ * « vraie photo, assez grande, paysage » sont le travail de photo.ts.
+ */
+function findPhotoCandidates(
+  html: string,
+  base: URL,
+  metas: Map<string, string>,
+  jsonLdPhotos: string[],
+): string[] {
+  const out: string[] = [];
+  const push = (raw: string | null | undefined) => {
+    const abs = absolutize(raw, base);
+    if (!abs || NOT_A_PHOTO_RE.test(abs) || THIRD_PARTY_RE.test(abs.split(/[?#]/)[0].split("/").pop() ?? "")) return;
+    if (!out.includes(abs)) out.push(abs);
+  };
+
+  // 1. Images de partage, si paysage (ou dimensions inconnues).
+  const ogW = Number(metas.get("og:image:width"));
+  const ogH = Number(metas.get("og:image:height"));
+  const ogLandscape = !(ogW > 0 && ogH > 0) || (ogW >= 600 && ogW / ogH >= 1.2);
+  if (ogLandscape) {
+    push(metas.get("og:image:secure_url") ?? metas.get("og:image"));
+    push(metas.get("og:image:url"));
+  }
+  push(metas.get("twitter:image") ?? metas.get("twitter:image:src"));
+
+  // 2. JSON-LD du commerce.
+  for (const p of jsonLdPhotos.slice(0, 2)) push(p);
+
+  // 3. Haut de page : grandes <img> et fonds CSS des sections « hero ».
+  const bodyStart = Math.max(0, html.search(/<body\b/i));
+  const topEnd = bodyStart + Math.max(60_000, Math.round((html.length - bodyStart) * 0.4));
+  const top = html.slice(bodyStart, topEnd);
+  const ranked: { url: string; score: number }[] = [];
+  for (const tag of findTags(top, "img")) {
+    const a = tag.attrs;
+    const hints = `${a.class ?? ""} ${a.id ?? ""} ${a.alt ?? ""}`;
+    if (hasLogoHint(a) || THIRD_PARTY_RE.test(hints)) continue;
+    const { url } = imgSource(a);
+    if (!url) continue;
+    const width = Math.max(
+      parseFloat(a.width ?? "") || 0,
+      maxSrcsetWidth(a.srcset),
+      maxSrcsetWidth(a["data-srcset"]),
+    );
+    const hero = HERO_HINT_RE.test(hints);
+    if (width < 600 && !hero) continue;
+    ranked.push({ url, score: (hero ? 3 : 0) + Math.min(width, 2400) / 800 - tag.index / Math.max(1, top.length) });
+  }
+  for (const m of top.matchAll(/<([a-z][\w-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi)) {
+    const attrs = parseAttrs(m[2]);
+    const style = attrs.style ?? "";
+    const bg = /background(?:-image)?\s*:[^;]*url\(\s*['"]?([^'")]+)['"]?\s*\)/i.exec(style)?.[1];
+    const lazyBg = attrs["data-bg"] ?? attrs["data-background"] ?? attrs["data-bg-src"] ?? attrs["data-background-image"];
+    const url = bg ?? lazyBg;
+    if (!url) continue;
+    const hero = HERO_HINT_RE.test(`${attrs.class ?? ""} ${attrs.id ?? ""}`);
+    ranked.push({ url, score: (hero ? 3 : 1) - (m.index ?? 0) / Math.max(1, top.length) });
+  }
+  ranked.sort((a, b) => b.score - a.score);
+  for (const r of ranked) {
+    if (out.length >= MAX_PHOTO_CANDIDATES) break;
+    push(r.url);
+  }
+  return out.slice(0, MAX_PHOTO_CANDIDATES);
+}
+
 // ─── Manifest ─────────────────────────────────────────────────────────────
 
 interface ManifestInfo {
@@ -976,6 +1073,7 @@ export async function extractWebsiteSignals(url: string): Promise<WebsiteSignals
     address: null,
     location: null,
     textSample: "",
+    photoCandidates: [],
   };
   if (!page.isHtml || !page.html) return empty;
 
@@ -1210,5 +1308,6 @@ export async function extractWebsiteSignals(url: string): Promise<WebsiteSignals
     address: jsonLd.address,
     location,
     textSample,
+    photoCandidates: findPhotoCandidates(html, base, metas, jsonLd.photos),
   };
 }

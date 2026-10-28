@@ -1,22 +1,36 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { cookies } from "next/headers";
 import { rateLimit } from "@/lib/rate-limit";
-import { loadEssai } from "@/lib/essai/load";
+import {
+  buildEssaiCardView,
+  buildEssaiSummary,
+  essaiEditCookieName,
+  isPlausibleEssaiToken,
+  loadEssai,
+} from "@/lib/essai/load";
+import { updateEssaiCard } from "@/lib/essai/update";
 import {
   ESSAI_NOT_FOUND_ERROR,
   essaiErrorResponse,
   essaiJsonError,
 } from "@/lib/essai/errors";
-import type { EssaiSummaryResponse } from "@/lib/essai/types";
 
 /**
- * GET /api/essai/[token] — résumé public d'une carte d'essai.
+ * GET /api/essai/[token]
+ *   - sans paramètre : résumé public `EssaiSummaryResponse` (utilisé par
+ *     /register?essai=<token> : « Votre carte « X » vous attend ») ;
+ *   - `?view=full`   : `EssaiCardView`, tout ce qu'il faut pour l'aperçu
+ *     « réplique Wallet » (bande versionnée, type, prénom, compteur…).
+ * Aucune donnée personnelle hormis le prénom saisi par le prospect lui-même.
  *
- * Utilisé par /register?essai=<token> pour afficher « Votre carte « X » vous
- * attend » (nom, logo, couleurs). Aucune donnée personnelle : uniquement la
- * marque du commerce, déjà publique.
+ * PATCH /api/essai/[token] (JSON `EssaiUpdateRequest`) → `EssaiCardView`.
+ *   Retouches en direct : type, offre, prénom, nom, couleurs. Les wallets
+ *   déjà installés sont mis à jour après la réponse (sans notification).
+ *   Réservé au créateur : cookie httpOnly `essai_k_<token>` exigé (403 sinon).
  */
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
 export async function GET(
   request: Request,
@@ -34,22 +48,45 @@ export async function GET(
     const loaded = await loadEssai(token);
     if (!loaded) return essaiJsonError(ESSAI_NOT_FOUND_ERROR, 404);
 
-    const { card, instance, meta } = loaded;
-    const body: EssaiSummaryResponse = {
-      token: instance.token,
-      cardId: card.id,
-      name: card.name,
-      logoUrl: card.design.logo_url ?? null,
-      colors: {
-        background: card.design.background_color,
-        text: card.design.text_color,
-        accent: card.design.accent_color,
-      },
-      rewardText: card.reward_text,
-      claimed: meta.claimed !== null,
-    };
+    const full = new URL(request.url).searchParams.get("view") === "full";
+    const body = full ? buildEssaiCardView(loaded) : buildEssaiSummary(loaded);
     return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     return essaiErrorResponse(err, "api/essai/summary");
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  // Retouches en direct (couleurs, prénom…) : généreux mais borné, chaque
+  // appel réécrit la carte et pousse les wallets installés.
+  const limited = await rateLimit(request, {
+    key: "essai:update",
+    limit: 40,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
+
+  const { token } = await params;
+  if (!isPlausibleEssaiToken(token)) return essaiJsonError(ESSAI_NOT_FOUND_ERROR, 404);
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return essaiJsonError("Requête invalide. Rechargez la page et réessayez.", 400);
+  }
+
+  try {
+    const editKey = (await cookies()).get(essaiEditCookieName(token))?.value ?? null;
+    const view = await updateEssaiCard(token, body, {
+      schedule: (task) => after(task),
+      editKey,
+    });
+    return NextResponse.json(view, { headers: { "Cache-Control": "no-store" } });
+  } catch (err) {
+    return essaiErrorResponse(err, "api/essai/update");
   }
 }

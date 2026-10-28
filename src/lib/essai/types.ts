@@ -45,6 +45,40 @@ export type EssaiSource = "website" | "maps" | "instagram" | "photo" | "name";
 
 export type StampShape = "circle" | "squircle" | "shield" | "star" | "hex";
 
+/**
+ * Type de carte choisi par le commerçant (valeurs = `cards.card_type`) :
+ * Tampons / Points / Remise permanente / Carte VIP.
+ */
+export const ESSAI_CARD_TYPES = ["stamp", "cashback", "discount", "membership"] as const;
+export type EssaiCardType = (typeof ESSAI_CARD_TYPES)[number];
+export const ESSAI_CARD_TYPE_LABELS: Record<EssaiCardType, string> = {
+  stamp: "Tampons",
+  cashback: "Points",
+  discount: "Remise",
+  membership: "Carte VIP",
+};
+
+/**
+ * Suggestions douces affichées dans l'interface (jamais de message
+ * d'erreur technique) : « Ajoutez votre logo », « Ajoutez une photo »…
+ */
+export type EssaiSuggestion = "add_logo" | "add_photo" | "add_screenshot";
+
+/** Photo de fond de la bande de tampons — OBLIGATOIRE sur toute carte. */
+export interface BrandPhoto {
+  /** JPEG paysage prêt à uploader (≈ 1 600 px de large). */
+  jpeg: Buffer;
+  width: number;
+  height: number;
+  source: "upload" | "screenshot" | "website" | "places" | "instagram" | "stock";
+}
+
+/** Image envoyée par l'utilisateur (déjà compressée côté navigateur). */
+export interface UploadedImage {
+  buffer: Buffer;
+  mimeType: string;
+}
+
 export interface BrandColors {
   /** Fond de la carte (#rrggbb). */
   background: string;
@@ -99,15 +133,30 @@ export interface BrandProfile {
   location: { lat: number; lng: number } | null;
   website: string | null;
   aiUsed: boolean;
-  /** Messages affichables à l'utilisateur (français, courts). */
-  warnings: string[];
+  /** Type de carte (défaut "stamp"). L'offre est écrite pour ce type. */
+  cardType: EssaiCardType;
+  /** Photo de la bande (toujours présente : au pire photo du métier). */
+  photo: BrandPhoto;
+  /** Prénom affiché « Bonjour <prénom> » sur la carte de démo. */
+  firstName: string | null;
+  /** Suggestions douces pour l'interface (pas de message d'erreur). */
+  suggestions: EssaiSuggestion[];
 }
 
 export interface BrandInput {
   url?: string | null;
-  image?: { buffer: Buffer; mimeType: string } | null;
+  /** Ancien champ unique : traité comme une capture / photo « auto ». */
+  image?: UploadedImage | null;
+  /** Logo déposé par l'utilisateur (prioritaire sur tout logo détecté). */
+  logoImage?: UploadedImage | null;
+  /** Photo de devanture / de l'intérieur (prioritaire pour la bande). */
+  photoImage?: UploadedImage | null;
+  /** Capture d'écran d'un profil Instagram / Facebook. */
+  screenshotImage?: UploadedImage | null;
   /** Nom saisi par l'utilisateur — prioritaire sur le nom détecté. */
   name?: string | null;
+  firstName?: string | null;
+  cardType?: EssaiCardType | null;
 }
 
 // ─── Signaux intermédiaires (partagés entre les modules brand/*) ──────────
@@ -145,6 +194,11 @@ export interface WebsiteSignals {
   location: { lat: number; lng: number } | null;
   /** ~2 000 premiers caractères de texte visible (pour détecter le métier). */
   textSample: string;
+  /**
+   * Photos candidates pour la bande (URLs absolues, meilleure d'abord) :
+   * og:image / twitter:image paysage, image JSON-LD, grandes images du haut de page.
+   */
+  photoCandidates?: string[];
 }
 
 export interface MapsSignals {
@@ -159,6 +213,10 @@ export interface MapsSignals {
   /** Lien canonique de la fiche Google Maps. */
   mapsUrl: string | null;
   placesApiUsed: boolean;
+  /** Identifiant Places (ChIJ…) si connu. */
+  placeId?: string | null;
+  /** Photos Places API (New) : noms de ressource « places/…/photos/… », meilleure d'abord. */
+  photoNames?: string[];
 }
 
 export interface PaletteColor {
@@ -182,6 +240,10 @@ export interface AiBrandResult {
   imageIsLogo: boolean;
   /** Zone du logo / photo de profil dans l'image, coordonnées 0..1. */
   logoBox: { x: number; y: number; w: number; h: number } | null;
+  /** Zone d'une belle photo exploitable pour la bande (devanture, plat), 0..1. */
+  photoBox?: { x: number; y: number; w: number; h: number } | null;
+  /** Enseigne connue (ex. McDonald's) : couleurs officielles fiables. */
+  knownBrand?: boolean;
 }
 
 // ─── Métadonnées stockées dans cards.design.essai ─────────────────────────
@@ -199,10 +261,22 @@ export interface EssaiMeta {
   location: { lat: number; lng: number } | null;
   website: string | null;
   ai_used: boolean;
-  warnings: string[];
+  suggestions: EssaiSuggestion[];
+  card_type: EssaiCardType;
+  photo_source: BrandPhoto["source"];
+  first_name: string | null;
+  /** Incrémenté à chaque retouche : sert à casser le cache des images (bannière). */
+  design_version: number;
   created_at: string;
   actions: { stamp: number; promo: number; review: number };
   claimed: { business_id: string; card_id: string; at: string } | null;
+  /**
+   * SHA-256 (hex) de la clé d'édition remise au créateur dans le cookie
+   * httpOnly `essai_k_<token>`. Seul ce navigateur peut retoucher la carte.
+   * Absent sur les cartes v1 plus anciennes (édition libre, compatibilité).
+   * Ne JAMAIS l'exposer (EssaiCardView, réponses HTTP).
+   */
+  edit_key_hash?: string;
 }
 
 // ─── Contrat HTTP ─────────────────────────────────────────────────────────
@@ -218,7 +292,9 @@ export interface EssaiCreateResponse {
   logoKind: "real" | "typographic";
   source: EssaiSource;
   aiUsed: boolean;
-  warnings: string[];
+  cardType: EssaiCardType;
+  photoUrl: string;
+  suggestions: EssaiSuggestion[];
 }
 
 /** GET /api/essai/[token] → 200 (résumé public, utilisé par /register) */
@@ -230,6 +306,41 @@ export interface EssaiSummaryResponse {
   colors: BrandColors;
   rewardText: string;
   claimed: boolean;
+}
+
+/**
+ * Vue complète d'une carte d'essai pour l'aperçu « réplique Wallet » et les
+ * retouches en direct. Renvoyée par GET /api/essai/[token]?view=full,
+ * PATCH /api/essai/[token] et POST /api/essai/[token]/media.
+ */
+export interface EssaiCardView extends EssaiSummaryResponse {
+  category: EssaiCategory;
+  cardType: EssaiCardType;
+  logoKind: "real" | "typographic";
+  photoUrl: string | null;
+  stamps: number;
+  stampCount: number;
+  rewards: number;
+  labelStamps: string;
+  stampIcon: string;
+  stampShape: StampShape;
+  firstName: string | null;
+  /** URL de la VRAIE bande (/api/wallet/banner/…), versionnée (cache-bust). */
+  bannerUrl: string;
+  designVersion: number;
+  suggestions: EssaiSuggestion[];
+  expired: boolean;
+  expiresAt: string;
+}
+
+/** PATCH /api/essai/[token] (JSON) → EssaiCardView. Tous les champs facultatifs. */
+export interface EssaiUpdateRequest {
+  cardType?: EssaiCardType;
+  /** null = réécrire automatiquement l'offre pour le métier + type. */
+  rewardText?: string | null;
+  firstName?: string | null;
+  name?: string;
+  colors?: Partial<BrandColors>;
 }
 
 export type EssaiActionType = "stamp" | "promo" | "review";

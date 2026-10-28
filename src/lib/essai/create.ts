@@ -1,54 +1,99 @@
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_CARD_DESIGN, MAX_STAMPS, MIN_STAMPS } from "@/lib/constants";
 import { isStampIconKey, type StampIconKey } from "@/lib/stamp-icons";
 import { getEssaiBusinessId } from "@/lib/essai/business";
+import { essaiCardType, generateEssaiEditKey, hashEssaiEditKey } from "@/lib/essai/load";
 import {
   ESSAI_CATEGORIES,
   type BrandColors,
+  type BrandPhoto,
   type BrandProfile,
+  type EssaiCardType,
   type EssaiCategory,
   type EssaiMeta,
   type EssaiSource,
+  type EssaiSuggestion,
   type StampShape,
 } from "@/lib/essai/types";
 
 /**
  * Création de la VRAIE carte de démo à partir du profil de marque analysé :
  *
- *   1. logo PNG → bucket public `card-assets` (essai/<cardId>/logo-<ts>.png).
- *      Apple et Google récupèrent le logo par URL (Google exige du https
+ *   1. logo PNG + photo de bande JPEG → bucket public `card-assets`
+ *      (essai/<cardId>/logo-<ts>.png, essai/<cardId>/photo-<ts>.jpg).
+ *      Apple et Google récupèrent les images par URL (Google exige du https
  *      public), d'où l'upload AVANT l'insert de la carte ;
- *   2. ligne `cards` dans le commerce essai (design = défauts + marque +
- *      `design.essai` = EssaiMeta) ;
- *   3. ligne `clients` anonyme (le prospect n'a rien saisi) ;
- *   4. ligne `card_instances` avec déjà 2 tampons, pour que la grille montre
- *      tout de suite la progression. Son `token` (default DB) est relu : c'est
- *      la clé de /essai/<token> et le serial du pass Apple.
+ *   2. ligne `cards` dans le commerce essai, du type choisi (tampons, points,
+ *      remise, VIP), design = défauts + marque + photo (`banner_url`) +
+ *      `design.essai` = EssaiMeta ;
+ *   3. ligne `clients` avec le prénom saisi (« Bonjour <prénom> ») ;
+ *   4. ligne `card_instances` avec déjà 2 tampons (types à compteur), pour que
+ *      la grille montre tout de suite la progression. Son `token` (default DB)
+ *      est relu : c'est la clé de /essai/<token> et le serial du pass Apple.
+ *
+ * Le token n'est PAS un secret (il est dans le pass, le lien partagé…) : les
+ * retouches exigent en plus une clé d'édition aléatoire, renvoyée ici au
+ * créateur (cookie httpOnly posé par POST /api/essai) et dont seule
+ * l'empreinte SHA-256 est stockée (`design.essai.edit_key_hash`).
  *
  * Si une étape échoue, tout ce qui a déjà été créé est supprimé : jamais de
- * carte orpheline ni de logo abandonné dans le bucket.
+ * carte orpheline ni d'image abandonnée dans le bucket.
  */
 
-const LOGO_BUCKET = "card-assets";
+export const ESSAI_ASSETS_BUCKET = "card-assets";
 /** Tampons déjà présents sur la carte de démo (grille « vivante »). */
-const INITIAL_STAMPS = 2;
+export const ESSAI_INITIAL_STAMPS = 2;
 
 const HEX_RE = /^#[0-9a-f]{6}$/i;
 const SHAPES: readonly StampShape[] = ["circle", "squircle", "shield", "star", "hex"];
 const SOURCES: readonly EssaiSource[] = ["website", "maps", "instagram", "photo", "name"];
+const SUGGESTIONS: readonly EssaiSuggestion[] = ["add_logo", "add_photo", "add_screenshot"];
+const PHOTO_SOURCES: readonly BrandPhoto["source"][] = [
+  "upload",
+  "screenshot",
+  "website",
+  "places",
+  "instagram",
+  "stock",
+];
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 // Limites alignées sur l'éditeur de carte et les slots wallet.
-const NAME_MAX = 40;
-const REWARD_MAX = 60;
+export const ESSAI_NAME_MAX = 40;
+export const ESSAI_REWARD_MAX = 60;
+export const ESSAI_FIRST_NAME_MAX = 30;
 const LABEL_MAX = 14;
 const PROMO_MAX = 120;
 
-function cleanText(value: unknown, max: number): string {
+/** Libellé du compteur par défaut, selon le type. */
+const DEFAULT_LABELS: Record<EssaiCardType, string> = {
+  stamp: "Tampons",
+  cashback: "Points",
+  discount: "Avantage",
+  membership: "Statut",
+};
+
+/** Offre de repli (le module brand en fournit toujours une, en principe). */
+const DEFAULT_REWARDS: Record<EssaiCardType, string> = {
+  stamp: "10 passages = 1 cadeau offert",
+  cashback: "10 points = 1 cadeau offert",
+  discount: "-10 % sur tout, toute l'année",
+  membership: "Avantages réservés aux membres",
+};
+
+export function cleanText(value: unknown, max: number): string {
   if (typeof value !== "string") return "";
-  return value.replace(/\s+/g, " ").trim().slice(0, max).trim();
+  // Espaces normalisés SAUF les insécables (« −10 % », « 5 € ») posés par
+  // le module brand pour la typographie française.
+  return value.replace(/[^\S  ]+/g, " ").trim().slice(0, max).trim();
+}
+
+/** Type de carte avec compteur « X / Y » (tampons, points). */
+export function isCounterCardType(type: EssaiCardType): boolean {
+  return type === "stamp" || type === "cashback";
 }
 
 function hexOr(value: unknown, fallback: string): string {
@@ -83,7 +128,8 @@ function httpUrlOrNull(value: unknown): string | null {
  * lui faire une confiance aveugle.
  */
 function normalizeProfile(profile: BrandProfile) {
-  const name = cleanText(profile.name, NAME_MAX) || "Mon commerce";
+  const name = cleanText(profile.name, ESSAI_NAME_MAX) || "Mon commerce";
+  const cardType = essaiCardType(profile.cardType);
   const stampCount = Math.min(
     MAX_STAMPS,
     Math.max(MIN_STAMPS, Math.round(Number(profile.stampCount) || 10))
@@ -106,6 +152,8 @@ function normalizeProfile(profile: BrandProfile) {
     name,
     category,
     source,
+    cardType,
+    firstName: cleanText(profile.firstName, ESSAI_FIRST_NAME_MAX) || null,
     colors: {
       background: hexOr(profile.colors?.background, "#141414"),
       text: hexOr(profile.colors?.text, "#ffffff"),
@@ -114,12 +162,11 @@ function normalizeProfile(profile: BrandProfile) {
     stampCount,
     stampIcon,
     stampShape,
-    rewardText:
-      cleanText(profile.rewardText, REWARD_MAX) || "10 passages = 1 cadeau offert",
-    labelStamps: cleanText(profile.labelStamps, LABEL_MAX) || "Tampons",
+    rewardText: cleanText(profile.rewardText, ESSAI_REWARD_MAX) || DEFAULT_REWARDS[cardType],
+    labelStamps: cleanText(profile.labelStamps, LABEL_MAX) || DEFAULT_LABELS[cardType],
     promoMessage:
       cleanText(profile.promoMessage, PROMO_MAX) ||
-      `🔥 ${name} : une offre spéciale vous attend aujourd'hui !`,
+      `🔥 ${name} : une offre spéciale vous attend aujourd'hui !`,
     palette: (profile.palette ?? []).filter((c) => HEX_RE.test(c)).slice(0, 8),
     reviewUrl: httpsUrlOrNull(profile.reviewUrl),
     sourceUrl: httpUrlOrNull(profile.sourceUrl),
@@ -131,63 +178,135 @@ function normalizeProfile(profile: BrandProfile) {
       Number.isFinite(profile.location.lng)
         ? { lat: profile.location.lat, lng: profile.location.lng }
         : null,
-    warnings: (profile.warnings ?? [])
-      .filter((w): w is string => typeof w === "string" && w.trim().length > 0)
-      .slice(0, 10),
+    suggestions: SUGGESTIONS.filter((s) => (profile.suggestions ?? []).includes(s)),
+    photoSource: PHOTO_SOURCES.includes(profile.photo?.source)
+      ? profile.photo.source
+      : ("stock" as const),
   };
 }
 
 /** Garantit un PNG (le wallet et le PDF de l'affiche n'acceptent pas tout). */
-async function ensurePng(buffer: Buffer): Promise<Buffer> {
+export async function ensurePng(buffer: Buffer): Promise<Buffer> {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
-    throw new Error("[essai/create] logo vide");
+    throw new Error("[essai] logo vide");
   }
   if (buffer.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) return buffer;
   return sharp(buffer, { failOn: "none" }).png().toBuffer();
 }
 
 /**
- * Crée la carte de démo. Renvoie aussi le nom et les couleurs EFFECTIVEMENT
- * enregistrés (après validation), pour que la réponse HTTP reflète la carte.
+ * Garantit un JPEG raisonnable pour la bande (la route bannière le
+ * retélécharge à chaque rendu : on évite les fichiers géants).
  */
-export async function createEssaiCard(profile: BrandProfile): Promise<{
+export async function ensureJpeg(buffer: Buffer): Promise<Buffer> {
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+    throw new Error("[essai] photo vide");
+  }
+  const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (isJpeg && buffer.length <= 1_500_000) return buffer;
+  return sharp(buffer, { failOn: "none" })
+    .rotate()
+    .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+    .flatten({ background: "#ffffff" })
+    .jpeg({ quality: 84, mozjpeg: true })
+    .toBuffer();
+}
+
+/**
+ * Filet de sécurité si l'analyse n'a fourni AUCUNE photo (ne devrait pas
+ * arriver : le module brand renvoie au pire une photo du métier) : dégradé
+ * aux couleurs de la marque, pour que la bande ne soit jamais vide.
+ */
+async function fallbackBandPhoto(colors: BrandColors): Promise<Buffer> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="525">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${colors.accent}"/>
+      <stop offset="1" stop-color="${colors.background}"/>
+    </linearGradient></defs>
+    <rect width="1600" height="525" fill="url(#g)"/>
+  </svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 85 }).toBuffer();
+}
+
+/** Upload d'une image de carte d'essai (chemin horodaté donc immuable). */
+export async function uploadEssaiAsset(
+  admin: SupabaseClient,
+  path: string,
+  body: Buffer,
+  contentType: "image/png" | "image/jpeg"
+): Promise<string> {
+  const { error } = await admin.storage.from(ESSAI_ASSETS_BUCKET).upload(path, body, {
+    contentType,
+    // Chemin horodaté donc immuable : cache long côté CDN / wallets.
+    cacheControl: "31536000",
+    upsert: false,
+  });
+  if (error) throw new Error(`[essai] upload ${path} : ${error.message}`);
+  const {
+    data: { publicUrl },
+  } = admin.storage.from(ESSAI_ASSETS_BUCKET).getPublicUrl(path);
+  return publicUrl;
+}
+
+export interface CreatedEssaiCard {
   cardId: string;
   token: string;
   logoUrl: string;
+  photoUrl: string;
   name: string;
   colors: BrandColors;
-}> {
+  cardType: EssaiCardType;
+  suggestions: EssaiSuggestion[];
+  /**
+   * Clé d'édition EN CLAIR, à remettre uniquement au créateur (cookie
+   * httpOnly). Jamais stockée telle quelle ni renvoyée dans un corps JSON.
+   */
+  editKey: string;
+}
+
+/**
+ * Crée la carte de démo. Renvoie aussi le nom, les couleurs, le type et les
+ * images EFFECTIVEMENT enregistrés (après validation), pour que la réponse
+ * HTTP reflète la carte.
+ */
+export async function createEssaiCard(profile: BrandProfile): Promise<CreatedEssaiCard> {
   const admin = createAdminClient();
   const businessId = await getEssaiBusinessId(admin);
   const p = normalizeProfile(profile);
 
-  // L'id de la carte est généré ici pour ranger le logo sous essai/<cardId>/
-  // AVANT l'insert (la carte est ainsi créée d'un coup avec son logo).
+  // L'id de la carte est généré ici pour ranger les images sous
+  // essai/<cardId>/ AVANT l'insert (la carte est créée d'un coup avec elles).
   const cardId = randomUUID();
-  const logoPath = `essai/${cardId}/logo-${Date.now()}.png`;
+  const editKey = generateEssaiEditKey();
+  const ts = Date.now();
+  const logoPath = `essai/${cardId}/logo-${ts}.png`;
+  const photoPath = `essai/${cardId}/photo-${ts}.jpg`;
 
   // Annulations à jouer en ordre inverse si une étape échoue.
   const undo: { label: string; run: () => PromiseLike<{ error: unknown }> }[] = [];
 
   try {
-    const png = await ensurePng(profile.logo?.png);
-    const { error: uploadErr } = await admin.storage
-      .from(LOGO_BUCKET)
-      .upload(logoPath, png, {
-        contentType: "image/png",
-        // Chemin horodaté donc immuable : cache long côté CDN / wallets.
-        cacheControl: "31536000",
-        upsert: false,
-      });
-    if (uploadErr) throw new Error(`[essai/create] upload du logo : ${uploadErr.message}`);
-    undo.push({
-      label: "logo",
-      run: () => admin.storage.from(LOGO_BUCKET).remove([logoPath]),
+    const hasPhoto = Buffer.isBuffer(profile.photo?.jpeg) && profile.photo.jpeg.length > 0;
+    if (!hasPhoto) {
+      console.error("[essai/create] profil sans photo : dégradé de secours");
+      if (!p.suggestions.includes("add_photo")) p.suggestions.push("add_photo");
+    }
+    const [png, jpeg] = await Promise.all([
+      ensurePng(profile.logo?.png),
+      hasPhoto ? ensureJpeg(profile.photo.jpeg) : fallbackBandPhoto(p.colors),
+    ]);
+    const [logoUrl, photoUrl] = await Promise.all([
+      uploadEssaiAsset(admin, logoPath, png, "image/png"),
+      uploadEssaiAsset(admin, photoPath, jpeg, "image/jpeg"),
+    ]).catch(async (err) => {
+      // Un des deux uploads a pu réussir : on nettoie les deux chemins.
+      await admin.storage.from(ESSAI_ASSETS_BUCKET).remove([logoPath, photoPath]);
+      throw err;
     });
-
-    const {
-      data: { publicUrl: logoUrl },
-    } = admin.storage.from(LOGO_BUCKET).getPublicUrl(logoPath);
+    undo.push({
+      label: "images",
+      run: () => admin.storage.from(ESSAI_ASSETS_BUCKET).remove([logoPath, photoPath]),
+    });
 
     const meta: EssaiMeta = {
       v: 1,
@@ -202,10 +321,15 @@ export async function createEssaiCard(profile: BrandProfile): Promise<{
       location: p.location,
       website: p.website,
       ai_used: profile.aiUsed === true,
-      warnings: p.warnings,
+      suggestions: p.suggestions,
+      card_type: p.cardType,
+      photo_source: p.photoSource,
+      first_name: p.firstName,
+      design_version: 1,
       created_at: new Date().toISOString(),
       actions: { stamp: 0, promo: 0, review: 0 },
       claimed: null,
+      edit_key_hash: hashEssaiEditKey(editKey),
     };
 
     const design = {
@@ -214,6 +338,8 @@ export async function createEssaiCard(profile: BrandProfile): Promise<{
       text_color: p.colors.text,
       accent_color: p.colors.accent,
       logo_url: logoUrl,
+      // Photo plein cadre de la bande, sous la grille de tampons.
+      banner_url: photoUrl,
       stamp_icon: p.stampIcon,
       stamp_shape: p.stampShape,
       label_stamps: p.labelStamps,
@@ -225,7 +351,7 @@ export async function createEssaiCard(profile: BrandProfile): Promise<{
       id: cardId,
       business_id: businessId,
       name: p.name,
-      card_type: "stamp",
+      card_type: p.cardType,
       status: "active",
       barcode_type: "qr",
       stamp_count: p.stampCount,
@@ -245,7 +371,7 @@ export async function createEssaiCard(profile: BrandProfile): Promise<{
 
     const { data: client, error: clientErr } = await admin
       .from("clients")
-      .insert({ business_id: businessId, first_name: null })
+      .insert({ business_id: businessId, first_name: p.firstName })
       .select("id")
       .single();
     if (clientErr || !client) {
@@ -257,7 +383,9 @@ export async function createEssaiCard(profile: BrandProfile): Promise<{
       run: () => admin.from("clients").delete().eq("id", clientId),
     });
 
-    const initialStamps = Math.min(INITIAL_STAMPS, p.stampCount - 1);
+    const initialStamps = isCounterCardType(p.cardType)
+      ? Math.max(0, Math.min(ESSAI_INITIAL_STAMPS, p.stampCount - 1))
+      : 0;
     const { data: instance, error: instanceErr } = await admin
       .from("card_instances")
       .insert({
@@ -280,8 +408,12 @@ export async function createEssaiCard(profile: BrandProfile): Promise<{
       cardId,
       token: instance.token as string,
       logoUrl,
+      photoUrl,
       name: p.name,
       colors: p.colors,
+      cardType: p.cardType,
+      suggestions: p.suggestions,
+      editKey,
     };
   } catch (err) {
     for (const step of undo.reverse()) {

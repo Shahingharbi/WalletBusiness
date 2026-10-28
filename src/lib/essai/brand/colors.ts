@@ -138,17 +138,6 @@ export function hexToHsl(hex: string): { h: number; s: number; l: number } {
   return { h: (h * 60 + 360) % 360, s: Math.min(1, s), l };
 }
 
-/** Mélange linéaire (en sRGB) de `a` vers `b` (t = 0 → a, t = 1 → b). */
-function mixHex(a: string, b: string, t: number): string {
-  const ra = hexToRgb(a);
-  const rb = hexToRgb(b);
-  return rgbToHex([
-    ra[0] + (rb[0] - ra[0]) * t,
-    ra[1] + (rb[1] - ra[1]) * t,
-    ra[2] + (rb[2] - ra[2]) * t,
-  ]);
-}
-
 // ─── Palette mesurée ──────────────────────────────────────────────────────
 
 /** Deux teintes plus proches que ça (ΔE76) sont considérées identiques. */
@@ -348,12 +337,13 @@ const WHITE = "#ffffff";
 const DARK_TEXT = "#111111";
 /** Fond « élégant » des marques monochromes (logo noir / blanc / gris). */
 const MONO_BG = "#141414";
-const AMBER = "#fbbf24";
 
 /** Écart minimal (ΔE76) pour qu'un accent soit perçu comme une AUTRE couleur. */
 const ACCENT_MIN_DELTA_E = 25;
-/** Contraste minimal accent ↔ fond (tampons remplis bien visibles). */
+/** Contraste visé accent ↔ fond (libellés colorés sur la carte). */
 const ACCENT_MIN_CONTRAST = 2.5;
+/** Contraste MINIMAL accent ↔ blanc : tampons (bord + coche) sur tuiles blanches. */
+const ACCENT_MIN_CONTRAST_ON_WHITE = 3;
 /** Contraste minimal texte ↔ fond (WCAG AA texte normal). */
 const TEXT_MIN_CONTRAST = 4.5;
 
@@ -405,7 +395,8 @@ function uniqueHexes(list: (string | null | undefined)[]): string[] {
  *   4. couleur du manifest ayant du caractère ;
  *   5. logo monochrome → fond sombre élégant `#141414`.
  *
- * Garanties : texte ↔ fond ≥ 4,5:1 ; accent ↔ fond ≥ 2,5:1.
+ * Garanties : texte ↔ fond ≥ 4,5:1 ; accent ↔ blanc ≥ 3:1 (tampons sur tuiles
+ * blanches : jamais d'accent blanc ou trop clair).
  */
 export function chooseBrandColors(input: {
   palette: PaletteColor[];
@@ -452,16 +443,22 @@ export function chooseBrandColors(input: {
     text = WHITE;
   }
 
-  // 4. Accent : 2e couleur réellement présente, nettement différente du fond
-  //    et bien visible dessus. Les couleurs « de marque » passent avant les
-  //    neutres (un logo bleu + jaune sur fond blanc → accent jaune, pas blanc).
-  const accentOk = (c: string) =>
-    deltaE(c, background) >= ACCENT_MIN_DELTA_E &&
-    contrastRatio(c, background) >= ACCENT_MIN_CONTRAST;
+  // 4. Accent : bord et coche des tampons, dessinés sur des tuiles BLANCHES
+  //    de la bande → jamais blanc ni trop clair (≥ 3:1 contre #ffffff). On
+  //    préfère la 2e couleur réelle de la marque, nettement différente du
+  //    fond (les couleurs « de marque » passent avant les neutres).
+  const onWhite = (c: string) => contrastRatio(c, WHITE) >= ACCENT_MIN_CONTRAST_ON_WHITE;
+  const distinct = (c: string) => deltaE(c, background) >= ACCENT_MIN_DELTA_E;
+  const visibleOnBg = (c: string) => contrastRatio(c, background) >= ACCENT_MIN_CONTRAST;
   const paletteHexes = palette.map((c) => c.hex.toLowerCase());
   const chromatic = (c: string) => {
     const { s, l } = hexToHsl(c);
     return s >= 0.25 && l >= 0.12 && l <= 0.92;
+  };
+  // Un jaune assombri vire au kaki : on ne l'assombrit jamais.
+  const yellowish = (c: string) => {
+    const { h, s } = hexToHsl(c);
+    return s >= 0.3 && h >= 40 && h <= 75;
   };
   const candidates = [
     // Fond assombri (couleur pâle) : la couleur d'origine, exacte, fait un
@@ -473,28 +470,21 @@ export function chooseBrandColors(input: {
     ...(theme && chromatic(theme) ? [theme] : []),
     ...paletteHexes.filter((c) => !chromatic(c)),
   ];
-  let accent = candidates.find(accentOk) ?? null;
-
+  let accent =
+    candidates.find((c) => onWhite(c) && distinct(c) && visibleOnBg(c)) ??
+    candidates.find((c) => onWhite(c) && distinct(c)) ??
+    null;
   if (!accent) {
-    const { h, s } = hexToHsl(primary);
-    const dark = relativeLuminance(background) < 0.18;
-    // Un jaune assombri vire au kaki : sur fond jaune on passe directement au
-    // quasi-noir ci-dessous (et Google, qui assombrit l'accent pour son fond,
-    // affichera une carte noire plutôt qu'olive).
-    const yellowish = !dark && h >= 40 && h <= 75;
-    if (s >= 0.15 && !yellowish) {
-      // Variante de la principale : éclaircie sur fond sombre, sinon assombrie.
-      const variant = dark ? mixHex(primary, WHITE, 0.45) : darkenHex(primary, 0.45);
-      if (contrastRatio(variant, background) >= ACCENT_MIN_CONTRAST) accent = variant;
-    }
+    // 2e couleur de marque trop claire (rose pâle, orange clair…) : assombrie
+    // dans sa propre teinte jusqu'à être lisible sur blanc.
+    const light = candidates.find((c) => chromatic(c) && distinct(c) && !yellowish(c));
+    if (light) accent = darkenUntil(light, onWhite);
   }
+  // Fond sombre ou soutenu (vert McDonald's, rouge…) : il fait un accent parfait.
+  if (!accent && onWhite(background)) accent = background;
   if (!accent) {
-    // Marque monochrome ou variante trop proche : blanc (neutre, pas
-    // d'invention), sinon ambre, sinon quasi-noir sur fond clair.
-    accent =
-      [WHITE, AMBER, DARK_TEXT].find(
-        (c) => contrastRatio(c, background) >= ACCENT_MIN_CONTRAST,
-      ) ?? WHITE;
+    // Fond clair sans 2e couleur exploitable : la principale assombrie, sinon quasi-noir.
+    accent = yellowish(primary) ? DARK_TEXT : darkenUntil(primary, onWhite);
   }
 
   return {

@@ -6,6 +6,7 @@ import {
   isGoogleWalletConfigured,
 } from "@/lib/google-wallet";
 import { fetchPassLocations } from "@/lib/locations";
+import { bannerVersionOf } from "@/lib/apple-wallet";
 
 export async function GET(
   request: Request,
@@ -87,6 +88,7 @@ export async function GET(
       businessName,
       walletBusinessName: card.wallet_business_name,
       customerName,
+      customerFirstName: firstName || null,
       customerInstanceToken: instance.token,
       stampsCollected: instance.stamps_collected,
       stampsTotal: card.stamp_count,
@@ -107,6 +109,7 @@ export async function GET(
       locations,
       stampsLabel: (design.label_stamps as string | null) ?? null,
       cardKind,
+      bannerVersion: bannerVersionOf(card.design),
     });
 
     return NextResponse.redirect(url);

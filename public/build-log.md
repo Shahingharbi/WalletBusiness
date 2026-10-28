@@ -5,6 +5,30 @@
 
 ---
 
+## 2026-10-28 — /essai v2 : réplique Wallet waouh, photo obligatoire, types de carte, Gemini, affiche premium
+
+### Retours client appliqués
+- **Aperçu = réplique exacte** Apple Wallet (iPhone) et Google Wallet (Android) dans un téléphone, à partir de la VRAIE bande (`/api/wallet/banner/…?v=<designVersion>`) ; effets : carte qui se pose, inclinaison 3D souris / gyroscope, reflet holographique, tampons qui « pop », confettis. `src/components/essai/*`.
+- **Photo obligatoire** dans la bande : photo déposée > capture (photoBox) > site > Google Places > photo de stock du métier (Unsplash vérifiées, sans personne). `brand/photo.ts`, `brand/stock-photos.ts`.
+- **Types de carte** Tampons / Points / Remise / VIP (choisis pendant la génération, modifiables ensuite) ; offres écrites par métier × type (`offerFor`, ≤ 36 car.).
+- **Retouches en direct** : PATCH `/api/essai/[token]` (type, offre, prénom, nom, couleurs) + POST `/media` (logo / photo) ; mises à jour poussées aux wallets installés. **Réservées au créateur** : cookie httpOnly `essai_k_<token>` vérifié contre `design.essai.edit_key_hash`.
+- **Plus aucun message technique** : `warnings` → `suggestions` douces (« Ajoutez votre logo »…).
+- **Plus de limite de poids visible** : compression systématique dans le navigateur (Vercel coupe à 4,5 Mo) ; HEIC non décodable → message « JPG ou PNG ».
+- **Instagram / Facebook** : capture d'écran du profil → l'IA recadre la photo de profil (logo), lit le nom, mesure les couleurs. Aucun scraping.
+- **Sites qui bloquent les robots** (McDonald's, KFC, Domino's) : logo via le service d'icônes Google + nom / métier / couleurs officielles via Gemini (`knownBrand`).
+- **Apple (toutes les cartes)** : « Bonjour <prénom> » toujours à gauche, l'offre à droite (secondaryFields). Remise / VIP sans photo : pas de bande vide, offre courte en grand.
+- **Google (toutes les cartes)** : nom affiché une seule fois (titre = type de carte), heroImage = bande photo + tampons versionnée, rangée « Bonjour | Notre offre » (classTemplateInfo) sauf cartes > 20 tampons (compteur Google conservé).
+- **Affiche PDF** : refaite, TOUJOURS 1 page A4, photo + vrai logo + nom + offre « ticket » + grand QR vectoriel → `/c/<cardId>` (jamais l'éditeur).
+
+### IA = Gemini
+- `@google/genai`, clé `GEMINI_API_KEY` (Vercel). Offre gratuite = quota par minute très bas → **relais automatique** `gemini-3.5-flash` → `3.1-flash-lite` → `2.5-flash` → `2.5-flash-lite` (8 s max par modèle, délai côté client uniquement : Google refuse un délai serveur < 10 s). Sans IA : tout se dégrade en silence.
+- `GOOGLE_PLACES_API_KEY` (Vercel) : photos réelles + lien d'avis exact depuis un lien Maps.
+
+### Revue
+- Revue adversariale (régressions Wallet, sécurité, logique) : 9 défauts confirmés, tous corrigés (dont l'éditeur ouvert à quiconque scannait l'affiche).
+
+---
+
 ## 2026-10-27 — « Votre carte de fidélité en 30 secondes » (/essai)
 
 ### Le parcours

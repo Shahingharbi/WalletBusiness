@@ -2,62 +2,49 @@ import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { BrandAnalysisError, analyzeBrand } from "@/lib/essai/brand";
 import { SafeFetchError } from "@/lib/essai/brand/safe-fetch";
-import { createEssaiCard } from "@/lib/essai/create";
+import { ESSAI_FIRST_NAME_MAX, createEssaiCard } from "@/lib/essai/create";
 import { essaiJsonError, isEssaiError } from "@/lib/essai/errors";
-import type { BrandProfile, EssaiCreateResponse } from "@/lib/essai/types";
+import { ESSAI_EDIT_COOKIE_MAX_AGE, essaiEditCookieName } from "@/lib/essai/load";
+import { ESSAI_MAX_REQUEST_BYTES, ESSAI_UPLOAD_ERROR, readImageFile } from "@/lib/essai/update";
+import {
+  ESSAI_CARD_TYPES,
+  type BrandProfile,
+  type EssaiCardType,
+  type EssaiCreateResponse,
+  type UploadedImage,
+} from "@/lib/essai/types";
 
 /**
  * POST /api/essai — « Votre carte de fidélité en 30 secondes ».
  *
- * multipart/form-data : `url?` (site, Google Maps, Instagram), `name?`
- * (facultatif, prioritaire sur le nom détecté), `image?` (photo d'enseigne,
- * logo ou capture du profil Instagram, ≤ 8 Mo). Au moins `url` ou `image`.
+ * multipart/form-data (tout est facultatif, mais il faut au moins un lien,
+ * un nom ou une image) :
+ *   - `url`        site, fiche Google Maps, Instagram / Facebook
+ *   - `name`       nom du commerce (prioritaire sur le nom détecté)
+ *   - `firstName`  prénom affiché « Bonjour <prénom> » sur la carte de démo
+ *   - `cardType`   stamp | cashback | discount | membership (défaut : stamp)
+ *   - `logo`       logo déposé (prioritaire sur tout logo détecté)
+ *   - `photo`      photo de devanture / de l'intérieur (bande de la carte)
+ *   - `screenshot` capture d'écran d'un profil Instagram / Facebook
+ *   - `image`      ancien champ unique (capture / photo « auto »)
  *
- * Analyse la marque (logo, couleurs, métier…) puis crée une VRAIE carte
- * installable dans Apple / Google Wallet → `EssaiCreateResponse`.
+ * Les images arrivent déjà compressées par le navigateur : aucune limite de
+ * poids n'est annoncée ; seule une garde technique silencieuse protège la
+ * route (corps > 4,4 Mo → message neutre).
+ *
+ * Analyse la marque puis crée une VRAIE carte installable dans Apple /
+ * Google Wallet → `EssaiCreateResponse`. Pose aussi le cookie httpOnly
+ * `essai_k_<token>` (clé d'édition) : seul le créateur pourra la retoucher.
  *
  * Route publique sans compte : rate-limit serré (5 / min / IP), car chaque
  * appel télécharge des pages externes et crée des lignes en base.
  */
 
-export const runtime = "nodejs"; // sharp, dns, @react-pdf : pas d'Edge
-export const maxDuration = 60; // analyse ~20 s max + création de la carte
+export const runtime = "nodejs"; // sharp, dns : pas d'Edge
+export const maxDuration = 60; // analyse ~20-45 s max + création de la carte
 
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-/** Corps multipart : image + champs texte + enveloppe. */
-const MAX_BODY_BYTES = MAX_IMAGE_BYTES + 256 * 1024;
 const URL_MAX = 2048;
 const NAME_MAX = 80;
-
-/**
- * Type réel de l'image d'après ses premiers octets. Le type déclaré par le
- * navigateur n'est pas fiable (vide sur certains Android, mensonger si
- * l'appel est forgé) : on ne transmet à l'analyse que de vraies images.
- */
-function sniffImageType(buf: Buffer): string | null {
-  if (buf.length < 12) return null;
-  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
-  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
-    return "image/png";
-  }
-  const ascii = (start: number, end: number) => buf.toString("latin1", start, end);
-  if (ascii(0, 4) === "GIF8") return "image/gif";
-  if (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return "image/webp";
-  if (ascii(4, 8) === "ftyp") {
-    const brand = ascii(8, 12);
-    if (brand === "avif" || brand === "avis") return "image/avif";
-    if (["heic", "heix", "hevc", "hevx", "mif1", "msf1", "heim", "heis"].includes(brand)) {
-      return "image/heic";
-    }
-  }
-  if (ascii(0, 2) === "BM") return "image/bmp";
-  if (ascii(0, 4) === "II*\u0000" || ascii(0, 4) === "MM\u0000*") return "image/tiff";
-  const head = buf.toString("utf8", 0, Math.min(buf.length, 1024)).trimStart().toLowerCase();
-  if (head.startsWith("<svg") || (head.startsWith("<?xml") && head.includes("<svg"))) {
-    return "image/svg+xml";
-  }
-  return null;
-}
 
 /** Erreurs de récupération du lien → statut HTTP (message déjà en français). */
 function safeFetchStatus(err: SafeFetchError): number {
@@ -76,6 +63,11 @@ function readText(form: FormData, key: string): string {
   return typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "";
 }
 
+function readCardType(form: FormData): EssaiCardType | null {
+  const v = readText(form, "cardType");
+  return (ESSAI_CARD_TYPES as readonly string[]).includes(v) ? (v as EssaiCardType) : null;
+}
+
 export async function POST(request: Request) {
   const limited = await rateLimit(request, {
     key: "essai:create",
@@ -84,10 +76,10 @@ export async function POST(request: Request) {
   });
   if (limited) return limited;
 
-  // Refus immédiat d'un corps trop gros, avant de le lire en mémoire.
+  // Garde technique silencieuse, avant de lire le corps en mémoire.
   const declaredLength = Number(request.headers.get("content-length") ?? "0");
-  if (declaredLength > MAX_BODY_BYTES) {
-    return essaiJsonError("Votre photo est trop lourde (8 Mo maximum).", 413);
+  if (declaredLength > ESSAI_MAX_REQUEST_BYTES) {
+    return essaiJsonError(ESSAI_UPLOAD_ERROR, 413);
   }
 
   const contentType = request.headers.get("content-type") ?? "";
@@ -95,7 +87,7 @@ export async function POST(request: Request) {
     !contentType.includes("multipart/form-data") &&
     !contentType.includes("application/x-www-form-urlencoded")
   ) {
-    return essaiJsonError("Format de requête non pris en charge.", 415);
+    return essaiJsonError("Requête invalide. Rechargez la page et réessayez.", 415);
   }
 
   let form: FormData;
@@ -110,39 +102,46 @@ export async function POST(request: Request) {
     return essaiJsonError("Ce lien est trop long. Copiez l'adresse de la page d'accueil.", 422);
   }
   const name = readText(form, "name").slice(0, NAME_MAX);
+  const firstName = readText(form, "firstName").slice(0, ESSAI_FIRST_NAME_MAX).trim();
+  const cardType = readCardType(form);
 
-  let image: { buffer: Buffer; mimeType: string } | null = null;
-  const file = form.get("image");
-  // Un champ fichier laissé vide arrive comme un File de taille 0 : ignoré.
-  if (file && typeof file !== "string" && file.size > 0) {
-    if (file.size > MAX_IMAGE_BYTES) {
-      return essaiJsonError("Votre photo est trop lourde (8 Mo maximum).", 413);
-    }
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const sniffed = sniffImageType(buffer);
-    const declared = (file.type || "").toLowerCase();
-    if (!sniffed && !declared.startsWith("image/")) {
-      return essaiJsonError(
-        "Ce fichier n'est pas une image. Envoyez une photo (JPG, PNG, HEIC…).",
-        415
-      );
-    }
-    image = { buffer, mimeType: sniffed ?? declared };
+  // Fichiers : un champ vide ou qui n'est pas une image est ignoré en silence
+  // (l'interface proposera simplement d'en ajouter un).
+  let images: (UploadedImage | null)[];
+  try {
+    images = await Promise.all(
+      ["logo", "photo", "screenshot", "image"].map((key) => readImageFile(form.get(key)))
+    );
+  } catch {
+    return essaiJsonError(ESSAI_UPLOAD_ERROR, 400);
+  }
+  const [logoImage, photoImage, screenshotImage, image] = images;
+  const totalBytes = images.reduce((sum, img) => sum + (img?.buffer.length ?? 0), 0);
+  if (totalBytes > ESSAI_MAX_REQUEST_BYTES) {
+    return essaiJsonError(ESSAI_UPLOAD_ERROR, 413);
   }
 
-  if (!url && !image) {
+  if (!url && !name && !logoImage && !photoImage && !screenshotImage && !image) {
     return essaiJsonError(
-      "Collez le lien de votre commerce ou ajoutez une photo de votre enseigne.",
+      "Collez le lien de votre commerce, ou indiquez simplement son nom.",
       400
     );
   }
 
   let profile: BrandProfile;
   try {
-    profile = await analyzeBrand({ url: url || null, image, name: name || null });
+    profile = await analyzeBrand({
+      url: url || null,
+      name: name || null,
+      firstName: firstName || null,
+      cardType,
+      logoImage,
+      photoImage,
+      screenshotImage,
+      image,
+    });
   } catch (err) {
-    // Erreurs prévues de l'analyse (lien invalide sans photo, photo
-    // illisible…) : message déjà rédigé pour le commerçant.
+    // Erreurs prévues de l'analyse : message déjà rédigé pour le commerçant.
     if (err instanceof BrandAnalysisError) {
       return essaiJsonError(err.message, err.status);
     }
@@ -152,7 +151,7 @@ export async function POST(request: Request) {
     if (isEssaiError(err)) return essaiJsonError(err.message, err.status);
     console.error("[api/essai] analyse de la marque échouée :", err);
     return essaiJsonError(
-      "Nous n'avons pas réussi à analyser votre commerce. Réessayez, ou ajoutez une photo de votre enseigne.",
+      "Nous n'avons pas réussi à préparer votre carte. Réessayez, ou indiquez simplement le nom de votre commerce.",
       500
     );
   }
@@ -169,9 +168,21 @@ export async function POST(request: Request) {
       logoKind: profile.logo.kind,
       source: profile.source,
       aiUsed: profile.aiUsed,
-      warnings: profile.warnings,
+      cardType: created.cardType,
+      photoUrl: created.photoUrl,
+      suggestions: created.suggestions,
     };
-    return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
+    const res = NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
+    // Clé d'édition : seul ce navigateur pourra retoucher la carte (le token,
+    // lui, circule : pass installé, lien WhatsApp, QR scanné sur un téléphone).
+    res.cookies.set(essaiEditCookieName(created.token), created.editKey, {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: ESSAI_EDIT_COOKIE_MAX_AGE,
+    });
+    return res;
   } catch (err) {
     if (isEssaiError(err)) return essaiJsonError(err.message, err.status);
     console.error("[api/essai] création de la carte échouée :", err);

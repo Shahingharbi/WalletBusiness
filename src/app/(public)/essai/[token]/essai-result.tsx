@@ -1,33 +1,41 @@
 "use client";
 
 /**
- * Résultat d'une carte d'essai, en 3 étapes numérotées (un seul geste par
- * étape) :
- *   1. Ajoutez-la à votre téléphone  (boutons wallet ; QR code sur ordinateur)
- *   2. Testez-la en direct           (tampon / promo / avis → vraie notif)
- *   3. Elle vous plaît ?             (je garde ma carte / WhatsApp / affiche)
+ * Page résultat d'une carte d'essai.
  *
- * L'aperçu n'est pas une maquette : c'est l'image RÉELLE de la bande de
- * tampons servie au wallet (/api/wallet/banner/…), rechargée après chaque
- * tampon.
+ *  - En vedette : la réplique Apple Wallet / Google Wallet de la carte
+ *    (bande RÉELLE du pass), qui glisse dans le téléphone, s'incline à la
+ *    souris / au gyroscope et réagit à chaque retouche ;
+ *  - « Personnalisez-la en direct » : type, textes, couleurs, logo, photo —
+ *    seulement pour le créateur (`boot.canEdit`) et tant que la carte n'est
+ *    ni gardée ni expirée (sinon un court message à la place) ;
+ *  - « Ajoutez-la à votre téléphone » (boutons wallet ; QR code sur
+ *    ordinateur) ;
+ *  - « Testez-la en direct » (tampon / promo / avis → vraie notification) ;
+ *  - « Elle vous plaît ? » (je garde ma carte / WhatsApp / affiche).
+ *
+ * Aucun message technique : les suggestions du serveur deviennent des
+ * invitations douces (« Ajoutez votre logo pour un rendu parfait »).
  */
 
 import {
   useEffect,
+  useEffectEvent,
   useId,
   useRef,
   useState,
-  useSyncExternalStore,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Bell,
   Check,
   Download,
-  Lightbulb,
+  ImagePlus,
   LoaderCircle,
   MessageCircle,
   PartyPopper,
@@ -35,47 +43,45 @@ import {
   RotateCcw,
   Smartphone,
   Star,
-  TriangleAlert,
+  Store,
   type LucideIcon,
 } from "lucide-react";
 import { WalletButtons } from "@/components/public/wallet-buttons";
 import { useToast } from "@/components/ui/toast";
+import { burstConfetti } from "@/components/essai/confetti";
+import { looksLikeImage } from "@/components/essai/compress-image";
+import { prefersReducedMotion, useDevicePlatform } from "@/components/essai/motion";
+import { WalletPreviewStage, type WalletPlatform } from "@/components/essai/wallet-stage";
+import { hasCounter, type StampPop, type WalletPassData } from "@/components/essai/wallet-pass-preview";
+import styles from "@/components/essai/essai-wallet.module.css";
 import { whatsappHref } from "@/lib/contact";
-import { pickContrast } from "@/lib/utils";
+import { cn, pickContrast } from "@/lib/utils";
 import type {
-  BrandColors,
   EssaiActionResponse,
   EssaiActionType,
+  EssaiCardView,
   EssaiErrorResponse,
+  EssaiSuggestion,
 } from "@/lib/essai/types";
-
-// Typographie française : les espaces avant « ! ? : » et à l'intérieur des
-// guillemets « » sont des espaces insécables (U+00A0) écrits littéralement
-// dans les chaînes, ou `&nbsp;` dans le JSX.
+import { RetouchPanel, type RetouchTab } from "./retouch-panel";
+import { useEssaiView, type MediaKind } from "./use-essai-view";
 
 /** Données sérialisables préparées par la page serveur. */
-export interface EssaiResultData {
-  token: string;
-  name: string;
-  logoUrl: string | null;
-  colors: BrandColors;
-  /** Pastilles « vos couleurs » (hex, sans doublon, ≤ 5). */
+export interface EssaiResultBoot {
+  /** Vue initiale (identique à GET /api/essai/<token>?view=full). */
+  view: EssaiCardView;
+  /** Couleurs détectées (pastilles « vos couleurs »). */
   palette: string[];
-  rewardText: string;
-  labelStamps: string;
-  stampCount: number;
-  stamps: number;
-  rewards: number;
-  warnings: string[];
-  claimed: boolean;
+  /** Lien d'origine (Instagram…) pour refaire la carte avec une capture. */
+  sourceUrl: string | null;
   /** Carte et carte client encore actives. */
   active: boolean;
-  /** Démo de plus de `ttlDays` jours : tests en direct refusés par l'API. */
-  expired: boolean;
-  /** Durée de vie de la démo (ESSAI_TTL_DAYS, lib/essai/load.ts — server-only). */
   ttlDays: number;
-  /** Date de fin de la démo, déjà formatée (« 2 novembre »). */
-  expiresLabel: string;
+  /**
+   * Ce navigateur peut retoucher la carte (cookie de clé d'édition du
+   * créateur, ou carte ancienne sans clé). Sinon : aucune retouche affichée.
+   */
+  canEdit: boolean;
   /** URL absolue de cette page (QR code, message WhatsApp). */
   pageUrl: string;
   qrDataUrl: string | null;
@@ -83,49 +89,16 @@ export interface EssaiResultData {
   googleWalletAvailable: boolean;
 }
 
-const FONT_TITLE = { fontFamily: "var(--font-ginto-nord)", fontWeight: 500 };
 const FONT_UI = { fontFamily: "var(--font-maison-neue-extended)" };
 const FONT_TEXT = { fontFamily: "var(--font-maison-neue)" };
 
-/** Durée pendant laquelle un bouton de test reste « Envoyé ! » (anti double-clic). */
+/** Durée pendant laquelle un bouton de test reste « Envoyé » (anti double-clic). */
 const COOLDOWN_MS = 8000;
-/** Dimensions réelles de la bande de tampons générée pour le wallet. */
-const BANNER_WIDTH = 1125;
-const BANNER_HEIGHT = 369;
+const NAV_DELAY_MS = 650;
 
 type ActionStatus = "idle" | "sending" | "sent" | "error";
 
-const ACTIONS: ReadonlyArray<{
-  type: EssaiActionType;
-  title: string;
-  hint: string;
-  sentLabel: string;
-  Icon: LucideIcon;
-}> = [
-  {
-    type: "stamp",
-    title: "Ajouter un tampon",
-    hint: "Comme si votre client passait en caisse.",
-    sentLabel: "Tampon ajouté ! Regardez votre téléphone 📲",
-    Icon: Plus,
-  },
-  {
-    type: "promo",
-    title: "Recevoir une promo",
-    hint: "Une notification, même téléphone verrouillé.",
-    sentLabel: "Envoyé ! Regardez votre téléphone 📲",
-    Icon: Bell,
-  },
-  {
-    type: "review",
-    title: "Demande d'avis Google",
-    hint: "Vos clients vous notent en un appui.",
-    sentLabel: "Envoyé ! Regardez votre téléphone 📲",
-    Icon: Star,
-  },
-];
-
-/** Erreur dont le message est déjà rédigé pour l'utilisateur. */
+/** Erreur dont le message est déjà rédigé pour le commerçant. */
 class FriendlyError extends Error {
   constructor(
     message: string,
@@ -133,40 +106,6 @@ class FriendlyError extends Error {
   ) {
     super(message);
   }
-}
-
-// ─── Détection mobile / ordinateur ────────────────────────────────────────
-
-type Platform = "ios" | "android" | "mobile" | "desktop";
-
-function detectPlatform(): Platform {
-  const ua = navigator.userAgent || "";
-  if (/android/i.test(ua)) return "android";
-  if (/iPad|iPhone|iPod/.test(ua)) return "ios";
-  // iPadOS 13+ se présente comme un Mac de bureau, mais tactile.
-  if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return "ios";
-  if (/Mobi|Opera Mini|IEMobile|Silk/i.test(ua)) return "mobile";
-  return "desktop";
-}
-
-const subscribeNothing = () => () => {};
-
-/**
- * Plateforme du visiteur, `null` pendant le rendu serveur. useSyncExternalStore
- * évite à la fois l'écart d'hydratation et le setState dans un effet.
- */
-function usePlatform(): Platform | null {
-  return useSyncExternalStore<Platform | null>(
-    subscribeNothing,
-    detectPlatform,
-    () => null
-  );
-}
-
-// ─── Aides ────────────────────────────────────────────────────────────────
-
-function bannerUrl(token: string, stamps: number): string {
-  return `/api/wallet/banner/${encodeURIComponent(token)}/${stamps}?kind=stamp`;
 }
 
 function isActionResponse(data: unknown): data is EssaiActionResponse {
@@ -181,35 +120,49 @@ function isActionResponse(data: unknown): data is EssaiActionResponse {
 }
 
 function actionErrorMessage(status: number, data: unknown): string {
-  if (status === 429) {
-    return "Doucement 🙂 Beaucoup de tests d'un coup : patientez une minute.";
-  }
-  const fromServer =
-    typeof data === "object" && data !== null
-      ? (data as EssaiErrorResponse).error
-      : undefined;
-  if (typeof fromServer === "string" && fromServer.trim()) return fromServer.trim();
-  if (status === 404) return "Cette carte d'essai est introuvable. Créez-en une nouvelle.";
+  if (status === 429) return "Beaucoup de tests d'un coup : patientez une minute.";
+  const raw =
+    typeof data === "object" && data !== null ? (data as EssaiErrorResponse).error : undefined;
+  const msg = typeof raw === "string" ? raw.trim() : "";
+  if (msg && status < 500 && !/\b\d{3}\b|erreur|error/i.test(msg)) return msg;
   return "L'envoi n'a pas abouti. Réessayez dans un instant.";
+}
+
+/** « 4 novembre », à l'heure de Paris (identique serveur / navigateur). */
+function formatDay(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("fr-FR", {
+      day: "numeric",
+      month: "long",
+      timeZone: "Europe/Paris",
+    }).format(new Date(iso));
+  } catch {
+    return "";
+  }
 }
 
 // ─── Composant ────────────────────────────────────────────────────────────
 
-export function EssaiResult({ data }: { data: EssaiResultData }) {
+export function EssaiResult({ boot }: { boot: EssaiResultBoot }) {
   const toast = useToast();
-  const platform = usePlatform();
+  const router = useRouter();
+  const device = useDevicePlatform();
   const uid = useId();
+  const essai = useEssaiView(boot.view, toast);
+  const { view } = essai;
 
-  const [stamps, setStamps] = useState(data.stamps);
-  const [stampCount, setStampCount] = useState(data.stampCount);
-  const [rewards, setRewards] = useState(data.rewards);
+  const [platformChoice, setPlatformChoice] = useState<WalletPlatform | null>(null);
+  const platform: WalletPlatform = platformChoice ?? (device === "android" ? "google" : "apple");
+  const [pop, setPop] = useState<StampPop | null>(null);
+  const [tab, setTab] = useState<RetouchTab>("type");
+  const [dismissed, setDismissed] = useState<EssaiSuggestion[]>([]);
   const [celebrate, setCelebrate] = useState(false);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
   const [locked, setLocked] = useState<string | null>(
-    data.expired
-      ? `Cette démo a expiré au bout de ${data.ttlDays} jours : les tests en direct sont désactivés. Votre carte reste disponible : gardez-la ou créez-en une nouvelle.`
-      : !data.active
-        ? "Cette carte n'est plus active : les tests en direct sont désactivés."
+    boot.view.expired
+      ? "Cette démo est terminée : les tests en direct sont en pause. Votre carte reste disponible : gardez-la ou créez-en une nouvelle."
+      : !boot.active
+        ? "Les tests en direct sont en pause pour cette carte."
         : null
   );
   const [status, setStatus] = useState<Record<EssaiActionType, ActionStatus>>({
@@ -218,50 +171,56 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
     review: "idle",
   });
 
-  const [bannerSrc, setBannerSrc] = useState(() => bannerUrl(data.token, data.stamps));
-  const [bannerLoading, setBannerLoading] = useState(false);
-  const [bannerFailed, setBannerFailed] = useState(false);
-
-  // Garde synchrone anti double-clic : l'état React n'est pas encore à jour
-  // entre deux clics très rapprochés, un Set en ref l'est.
+  // Garde synchrone anti double-clic (l'état React n'est pas encore à jour
+  // entre deux clics très rapprochés, un Set en ref l'est).
   const busyRef = useRef(new Set<EssaiActionType>());
   const timersRef = useRef(new Map<EssaiActionType, number>());
-  const latestBannerRef = useRef<string | null>(null);
+  const fileInputs = useRef<Record<MediaKind, HTMLInputElement | null>>({ logo: null, photo: null });
+
+  // Relecture de la carte à l'ouverture (le serveur fait foi).
+  const initialRefresh = useEffectEvent(() => {
+    void essai.refresh();
+  });
+  useEffect(() => {
+    initialRefresh();
+  }, []);
 
   useEffect(() => {
     const timers = timersRef.current;
     return () => timers.forEach((id) => window.clearTimeout(id));
   }, []);
 
-  /**
-   * Précharge la nouvelle bande de tampons puis l'affiche d'un coup : pas de
-   * clignotement « image vide » entre l'ancienne et la nouvelle.
-   */
-  function refreshBanner(count: number) {
-    const next = bannerUrl(data.token, count);
-    latestBannerRef.current = next;
-    setBannerLoading(true);
-    const img = new window.Image();
-    const settle = () => {
-      // Une demande plus récente a pris le relais : on l'ignore.
-      if (latestBannerRef.current !== next) return;
-      setBannerSrc(next);
-      setBannerFailed(false);
-      setBannerLoading(false);
-    };
-    img.onload = settle;
-    img.onerror = settle;
-    img.src = next;
+  const brandColors = [view.colors.accent, view.colors.background];
+
+  // ── Images ──
+
+  function openPicker(kind: MediaKind) {
+    fileInputs.current[kind]?.click();
   }
+
+  async function onFile(kind: MediaKind, file: File) {
+    if (!looksLikeImage(file)) {
+      toast.info("Ce fichier n'est pas une image. Choisissez une photo (JPG, PNG…).");
+      return;
+    }
+    const ok = await essai.uploadMedia(kind, file);
+    if (ok) {
+      setDismissed((d) => [...d, ...(kind === "logo" ? (["add_logo", "add_screenshot"] as const) : (["add_photo"] as const))]);
+      toast.success(kind === "logo" ? "Votre logo est en place." : "Votre photo est en place.");
+    }
+  }
+
+  // ── Tests en direct ──
 
   async function runAction(type: EssaiActionType) {
     if (locked || busyRef.current.has(type)) return;
     busyRef.current.add(type);
     if (type === "stamp") setCelebrate(false);
     setStatus((s) => ({ ...s, [type]: "sending" }));
+    const rewardsBefore = view.rewards;
 
     try {
-      const res = await fetch(`/api/essai/${encodeURIComponent(data.token)}/action`, {
+      const res = await fetch(`/api/essai/${encodeURIComponent(view.token)}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type }),
@@ -270,13 +229,24 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
       if (!res.ok || !isActionResponse(body)) {
         throw new FriendlyError(actionErrorMessage(res.status, body), res.status);
       }
-
-      setStampCount(body.stampCount);
-      setStamps(body.stamps);
-      if (body.rewards > rewards) setCelebrate(true);
-      setRewards(body.rewards);
-      if (type === "stamp") refreshBanner(body.stamps);
       if (body.message) setLastMessage(body.message);
+
+      if (type === "stamp") {
+        const completed = body.rewards > rewardsBefore;
+        // La nouvelle bande est préchargée puis affichée en même temps que
+        // le « pop » du tampon et le compteur.
+        await essai.refresh({
+          preloadBanner: true,
+          onApplied: () => {
+            if (completed) {
+              setCelebrate(true);
+              burstConfetti({ colors: brandColors });
+            } else if (body.stamps > 0) {
+              setPop({ key: Date.now(), index: body.stamps - 1 });
+            }
+          },
+        });
+      }
       setStatus((s) => ({ ...s, [type]: "sent" }));
 
       const timerId = window.setTimeout(() => {
@@ -289,29 +259,112 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
       busyRef.current.delete(type);
       setStatus((s) => ({ ...s, [type]: "error" }));
       if (err instanceof FriendlyError) {
-        // 404 / 410 : démo expirée ou supprimée → on fige les tests avec le
-        // message du serveur plutôt que de laisser réessayer en boucle.
-        if (err.status === 404 || err.status === 410) setLocked(err.message);
-        toast.error(err.message);
+        if (err.status === 404 || err.status === 410) {
+          setLocked("Les tests en direct sont en pause pour cette carte.");
+        } else {
+          toast.info(err.message);
+        }
       } else {
-        toast.error("Connexion impossible. Vérifiez votre connexion Internet, puis réessayez.");
+        toast.info("Connexion impossible. Vérifiez votre connexion Internet, puis réessayez.");
       }
     }
   }
 
-  const { background, text, accent } = data.colors;
-  const accentText = pickContrast(accent);
-  const isMobile = platform !== null && platform !== "desktop";
-  const iosWithoutApple = platform === "ios" && !data.appleWalletAvailable;
-  const noWallet = !data.appleWalletAvailable && !data.googleWalletAvailable;
+  // ── Confettis ──
+
+  function onWalletClick(e: MouseEvent<HTMLDivElement>) {
+    const link = (e.target as HTMLElement).closest("a");
+    if (link) burstConfetti({ origin: link, colors: brandColors });
+  }
+
+  const garderHref = `/essai/${encodeURIComponent(view.token)}/garder`;
+  function onKeep(e: MouseEvent<HTMLAnchorElement>) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+      return;
+    }
+    e.preventDefault();
+    burstConfetti({ origin: e.currentTarget, colors: brandColors });
+    window.setTimeout(() => router.push(garderHref), prefersReducedMotion() ? 0 : NAV_DELAY_MS);
+  }
+
+  // ── Dérivés ──
+
+  const counter = hasCounter(view.cardType);
+  const passData: WalletPassData = {
+    token: view.token,
+    name: view.name,
+    logoUrl: view.logoUrl,
+    colors: view.colors,
+    cardType: view.cardType,
+    stamps: view.stamps,
+    stampCount: view.stampCount,
+    labelStamps: view.labelStamps,
+    rewardText: view.rewardText,
+    firstName: view.firstName,
+    bannerUrl: view.bannerUrl,
+    photoUrl: view.photoUrl,
+  };
+  const ariaLabel = [
+    `Aperçu de votre carte ${platform === "apple" ? "Apple Wallet" : "Google Wallet"} : ${view.name}.`,
+    counter ? `${view.labelStamps} : ${view.stamps} sur ${view.stampCount}.` : "",
+    view.firstName ? `Bonjour ${view.firstName}.` : "",
+    `Notre offre : ${view.rewardText}.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  // Retouches : créateur seulement, et tant que la carte est une démo vivante
+  // (gardée → elle se modifie depuis le tableau de bord ; démo terminée).
+  const editable = boot.canEdit && !view.claimed && !view.expired;
+  const suggestions = view.suggestions.filter((s) => !dismissed.includes(s));
+  const isMobile = device !== null && device !== "desktop";
+  const iosWithoutApple = device === "ios" && !boot.appleWalletAvailable;
+  const noWallet = !boot.appleWalletAvailable && !boot.googleWalletAvailable;
+  const expiresLabel = formatDay(view.expiresAt);
 
   const whatsappText =
-    `Bonjour ! Je viens de créer la carte de fidélité de « ${data.name} » ` +
-    `avec aswallet et j'aimerais en parler avec vous. Voici ma carte : ${data.pageUrl}`;
+    `Bonjour ! Je viens de créer la carte de fidélité de « ${view.name} » ` +
+    `avec aswallet et j'aimerais en parler avec vous. Voici ma carte : ${boot.pageUrl}`;
+
+  const actions: ReadonlyArray<{
+    type: EssaiActionType;
+    title: string;
+    hint: string;
+    sentLabel: string;
+    Icon: LucideIcon;
+  }> = [
+    ...(counter
+      ? [
+          {
+            type: "stamp" as const,
+            title: view.cardType === "cashback" ? "Créditer des points" : "Ajouter un tampon",
+            hint: "Comme si votre client passait en caisse.",
+            sentLabel: "C'est fait ! Regardez votre téléphone.",
+            Icon: Plus,
+          },
+        ]
+      : []),
+    {
+      type: "promo",
+      title: "Recevoir une promo",
+      hint: "Une notification, même téléphone verrouillé.",
+      sentLabel: "Envoyé ! Regardez votre téléphone.",
+      Icon: Bell,
+    },
+    {
+      type: "review",
+      title: "Demande d'avis Google",
+      hint: "Vos clients vous notent en un appui.",
+      sentLabel: "Envoyé ! Regardez votre téléphone.",
+      Icon: Star,
+    },
+  ];
+  const accent = view.colors.accent;
+  const accentText = pickContrast(accent);
 
   return (
-    <div className="min-h-[calc(100dvh-52px)] bg-beige">
-      <header className="mx-auto flex h-16 max-w-xl items-center justify-between gap-3 px-4 sm:px-6 lg:max-w-5xl">
+    <div className="min-h-[calc(100dvh-52px)] overflow-x-clip bg-beige">
+      <header className="mx-auto flex h-16 max-w-xl items-center justify-between gap-3 px-4 sm:px-6 lg:max-w-6xl">
         <Link
           href="/"
           className="inline-flex min-h-[44px] items-center rounded-md text-xl font-bold tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
@@ -329,272 +382,161 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
         </Link>
       </header>
 
-      <div className="mx-auto max-w-xl px-4 pb-16 pt-2 sm:px-6 lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start lg:gap-10 lg:pt-6">
-        {/* ── Colonne carte ── */}
-        <div className="lg:sticky lg:top-6">
-          <p
-            className="inline-flex items-center gap-1.5 rounded-full bg-yellow px-3 py-1 text-[11px] font-bold uppercase text-foreground sm:text-xs"
-            style={FONT_UI}
-          >
-            <PartyPopper size={13} aria-hidden />
-            Votre carte est prête
-          </p>
-
-          {/* Carte aux couleurs du commerce — bande de tampons RÉELLE. */}
-          <div
-            className="mt-4 overflow-hidden rounded-[28px] p-4 shadow-[0_30px_60px_-24px_rgba(0,0,0,0.45)] ring-1 ring-black/5 sm:p-5"
-            style={{ backgroundColor: background, color: text }}
-          >
-            <div className="flex items-center gap-3">
-              {data.logoUrl ? (
-                <Image
-                  src={data.logoUrl}
-                  alt={`Logo de ${data.name}`}
-                  width={56}
-                  height={56}
-                  unoptimized
-                  loading="eager"
-                  className="h-14 w-14 shrink-0 rounded-2xl object-contain"
-                />
-              ) : (
-                <span
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl font-bold"
-                  style={{ backgroundColor: accent, color: accentText }}
-                  aria-hidden
-                >
-                  {data.name.charAt(0).toUpperCase()}
-                </span>
-              )}
-              <div className="min-w-0">
-                <p
-                  className="text-[11px] font-semibold uppercase tracking-wider"
-                  style={{ ...FONT_UI, opacity: 0.7 }}
-                >
-                  Carte de fidélité
-                </p>
-                <h1
-                  className="break-words text-xl leading-tight sm:text-2xl"
-                  style={FONT_TITLE}
-                >
-                  {data.name}
-                </h1>
-              </div>
-            </div>
-
-            <div
-              className="relative mt-4 overflow-hidden rounded-2xl"
-              style={{
-                aspectRatio: `${BANNER_WIDTH} / ${BANNER_HEIGHT}`,
-                backgroundColor: "rgba(0,0,0,0.12)",
-              }}
+      <div className="mx-auto max-w-xl px-4 pb-16 pt-1 sm:px-6 lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] lg:items-start lg:gap-12 lg:pt-4">
+        {/* ── Colonne aperçu ── */}
+        <div className="lg:sticky lg:top-4">
+          <div className="text-center">
+            <p
+              className="inline-flex items-center gap-1.5 rounded-full bg-yellow px-3 py-1 text-[11px] font-bold uppercase text-foreground sm:text-xs"
+              style={FONT_UI}
             >
-              {bannerFailed ? (
-                <p
-                  className="flex h-full items-center justify-center px-4 text-center text-sm"
-                  style={{ ...FONT_TEXT, opacity: 0.75 }}
-                >
-                  Aperçu momentanément indisponible
-                </p>
-              ) : (
-                <Image
-                  src={bannerSrc}
-                  alt={`Vos tampons : ${stamps} sur ${stampCount}`}
-                  fill
-                  unoptimized
-                  loading="eager"
-                  sizes="(min-width: 1024px) 440px, 100vw"
-                  className="object-cover"
-                  onError={() => setBannerFailed(true)}
-                />
-              )}
-              {bannerLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/15">
-                  <LoaderCircle
-                    size={28}
-                    className="text-white motion-safe:animate-spin"
-                    aria-hidden
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] items-end gap-4">
-              <div>
-                <p
-                  className="text-[11px] font-semibold uppercase tracking-wider"
-                  style={{ ...FONT_UI, opacity: 0.7 }}
-                >
-                  {data.labelStamps}
-                </p>
-                <p
-                  className="text-2xl font-semibold tabular-nums"
-                  style={FONT_UI}
-                  aria-live="polite"
-                >
-                  {stamps}
-                  <span className="text-base" style={{ opacity: 0.7 }}>
-                    {" "}
-                    / {stampCount}
-                  </span>
-                </p>
-              </div>
-              <div className="min-w-0 text-right">
-                <p
-                  className="text-[11px] font-semibold uppercase tracking-wider"
-                  style={{ ...FONT_UI, opacity: 0.7 }}
-                >
-                  Notre offre
-                </p>
-                <p
-                  className="break-words text-sm font-semibold leading-snug sm:text-base"
-                  style={FONT_UI}
-                >
-                  {data.rewardText}
-                </p>
-              </div>
-            </div>
+              <PartyPopper size={13} aria-hidden />
+              Votre carte est prête
+            </p>
+            <h1 className="sr-only">Votre carte de fidélité {view.name}</h1>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1">
-            <div
-              className="flex items-center gap-2"
-              role="img"
-              aria-label="Couleurs détectées pour votre carte"
-            >
-              <span className="text-xs text-muted-foreground" style={FONT_TEXT}>
-                Vos couleurs
-              </span>
-              <span className="flex -space-x-1.5">
-                {data.palette.map((color) => (
-                  <span
-                    key={color}
-                    className="h-6 w-6 rounded-full ring-2 ring-beige"
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </span>
-            </div>
-            {!data.expired && (
-              <p className="text-xs text-muted-foreground" style={FONT_TEXT}>
-                Démo active jusqu&apos;au {data.expiresLabel}
-              </p>
-            )}
-          </div>
+          <WalletPreviewStage
+            className="mt-4"
+            data={passData}
+            platform={platform}
+            onPlatformChange={(p) => {
+              setPop(null);
+              setPlatformChoice(p);
+            }}
+            pop={pop}
+            busy={{
+              logo: essai.mediaBusy === "logo",
+              strip: essai.mediaBusy === "photo",
+              reward: essai.rewriting,
+            }}
+            ariaLabel={ariaLabel}
+          />
 
-          {data.warnings.length > 0 && (
-            <div className="mt-4 flex gap-3 rounded-2xl bg-white p-4 ring-1 ring-foreground/5">
-              <Lightbulb size={18} className="mt-0.5 shrink-0 text-amber-500" aria-hidden />
-              <div className="min-w-0 text-sm leading-relaxed text-foreground/80" style={FONT_TEXT}>
-                {data.warnings.map((w) => (
-                  <p key={w}>{w}</p>
-                ))}
-                <Link
-                  href="/essai?mode=photo"
-                  className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-md font-semibold text-foreground underline underline-offset-4 hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
-                  style={FONT_UI}
-                >
-                  Refaire avec une photo
-                  <ArrowRight size={14} aria-hidden />
-                </Link>
-              </div>
-            </div>
+          {!view.expired && expiresLabel && (
+            <p className="mt-4 text-center text-xs text-muted-foreground" style={FONT_TEXT}>
+              Démo active jusqu&apos;au {expiresLabel}
+            </p>
           )}
         </div>
 
-        {/* ── Colonne étapes ── */}
+        {/* ── Colonne actions ── */}
         <div className="mt-8 space-y-5 lg:mt-0">
+          {editable ? (
+            <>
+              {suggestions.length > 0 && (
+                <Suggestions
+                  suggestions={suggestions}
+                  sourceUrl={boot.sourceUrl}
+                  onPick={openPicker}
+                />
+              )}
+
+              <RetouchPanel
+                view={view}
+                palette={boot.palette}
+                tab={tab}
+                onTab={setTab}
+                saveState={essai.saveState}
+                rewriting={essai.rewriting}
+                mediaBusy={essai.mediaBusy}
+                onUpdate={essai.update}
+                onFlush={() => void essai.flush()}
+                onRewrite={essai.rewriteOffer}
+                onPick={openPicker}
+              />
+            </>
+          ) : (
+            <RetouchLockedNote reason={view.claimed ? "claimed" : view.expired ? "expired" : "viewer"} />
+          )}
+
           <Step n={1} id={`${uid}-step1`} title="Ajoutez-la à votre téléphone">
-            {platform === null ? (
-              // Rendu serveur : on ne sait pas encore s'il s'agit d'un
-              // téléphone ou d'un ordinateur (réglé dès l'hydratation).
-              <div className="h-28 rounded-2xl bg-beige motion-safe:animate-pulse" aria-hidden />
-            ) : noWallet ? (
-              <p className="text-sm leading-relaxed text-muted-foreground" style={FONT_TEXT}>
-                L&apos;ajout au téléphone est momentanément indisponible.
-                Réessayez un peu plus tard.
-              </p>
-            ) : isMobile ? (
-              <>
+            <div onClickCapture={onWalletClick}>
+              {device === null ? (
+                <div className="h-28 rounded-2xl bg-beige motion-safe:animate-pulse" aria-hidden />
+              ) : noWallet ? (
                 <p className="text-sm leading-relaxed text-muted-foreground" style={FONT_TEXT}>
-                  Un seul appui&nbsp;: votre carte s&apos;ajoute à votre
-                  téléphone, comme une carte d&apos;embarquement.
+                  L&apos;ajout au téléphone revient dans un instant. Réessayez un peu plus tard.
                 </p>
-                <div className="mt-4">
-                  <WalletButtons
-                    instanceToken={data.token}
-                    appleWalletAvailable={data.appleWalletAvailable}
-                    googleWalletAvailable={data.googleWalletAvailable}
-                  />
-                </div>
-                {iosWithoutApple && (
-                  <p
-                    className="mt-3 rounded-xl bg-amber-50 p-3 text-sm leading-relaxed text-amber-900"
-                    style={FONT_TEXT}
-                  >
-                    L&apos;ajout à Apple Wallet arrive très bientôt sur iPhone.
-                    En attendant, vous pouvez tester avec un téléphone Android.
+              ) : isMobile ? (
+                <>
+                  <p className="text-sm leading-relaxed text-muted-foreground" style={FONT_TEXT}>
+                    Un seul appui&nbsp;: votre carte s&apos;ajoute à votre téléphone,
+                    comme une carte d&apos;embarquement.
                   </p>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="flex flex-col items-center gap-5 sm:flex-row">
-                  {data.qrDataUrl && (
-                    <div className="shrink-0 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-foreground/10">
-                      <Image
-                        src={data.qrDataUrl}
-                        alt="QR code à scanner avec votre téléphone"
-                        width={184}
-                        height={184}
-                        unoptimized
-                        className="h-[184px] w-[184px]"
-                      />
-                    </div>
-                  )}
-                  <div className="text-center sm:text-left">
-                    <p className="flex items-center justify-center gap-2 font-semibold text-foreground sm:justify-start" style={FONT_UI}>
-                      <Smartphone size={18} aria-hidden />
-                      Scannez avec votre téléphone
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground" style={FONT_TEXT}>
-                      Ouvrez l&apos;appareil photo et visez ce code. Cette page
-                      s&apos;ouvre sur votre téléphone&nbsp;: touchez
-                      «&nbsp;Ajouter&nbsp;», c&apos;est tout.
-                    </p>
+                  <div className="mt-4">
+                    <WalletButtons
+                      instanceToken={view.token}
+                      appleWalletAvailable={boot.appleWalletAvailable}
+                      googleWalletAvailable={boot.googleWalletAvailable}
+                    />
                   </div>
-                </div>
-                <div className="mt-5 border-t border-border pt-5">
-                  <p className="mb-3 text-center text-sm text-muted-foreground" style={FONT_TEXT}>
-                    Ou ajoutez-la depuis cet ordinateur&nbsp;:
-                  </p>
-                  <WalletButtons
-                    instanceToken={data.token}
-                    appleWalletAvailable={data.appleWalletAvailable}
-                    googleWalletAvailable={data.googleWalletAvailable}
-                  />
-                </div>
-              </>
-            )}
+                  {iosWithoutApple && (
+                    <p className="mt-3 rounded-xl bg-beige p-3 text-sm leading-relaxed text-foreground/80" style={FONT_TEXT}>
+                      L&apos;ajout à Apple Wallet arrive très bientôt sur iPhone. En
+                      attendant, vous pouvez tester avec un téléphone Android.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-col items-center gap-5 sm:flex-row">
+                    {boot.qrDataUrl && (
+                      <div className="shrink-0 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-foreground/10">
+                        <Image
+                          src={boot.qrDataUrl}
+                          alt="QR code à scanner avec votre téléphone"
+                          width={176}
+                          height={176}
+                          unoptimized
+                          className="h-[176px] w-[176px]"
+                        />
+                      </div>
+                    )}
+                    <div className="text-center sm:text-left">
+                      <p
+                        className="flex items-center justify-center gap-2 font-semibold text-foreground sm:justify-start"
+                        style={FONT_UI}
+                      >
+                        <Smartphone size={18} aria-hidden />
+                        Scannez avec votre téléphone
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground" style={FONT_TEXT}>
+                        Ouvrez l&apos;appareil photo et visez ce code. Cette page
+                        s&apos;ouvre sur votre téléphone&nbsp;: touchez
+                        «&nbsp;Ajouter&nbsp;», c&apos;est tout.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-5 border-t border-border pt-5">
+                    <p className="mb-3 text-center text-sm text-muted-foreground" style={FONT_TEXT}>
+                      Ou ajoutez-la depuis cet ordinateur&nbsp;:
+                    </p>
+                    <WalletButtons
+                      instanceToken={view.token}
+                      appleWalletAvailable={boot.appleWalletAvailable}
+                      googleWalletAvailable={boot.googleWalletAvailable}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
           </Step>
 
           <Step n={2} id={`${uid}-step2`} title="Testez-la en direct">
             {locked ? (
-              <p
-                className="flex gap-2.5 rounded-xl bg-amber-50 p-3 text-sm leading-relaxed text-amber-900"
-                style={FONT_TEXT}
-              >
-                <TriangleAlert size={18} className="mt-0.5 shrink-0" aria-hidden />
+              <p className="rounded-xl bg-beige p-3 text-sm leading-relaxed text-foreground/80" style={FONT_TEXT}>
                 {locked}
               </p>
             ) : (
               <>
                 <p className="text-sm leading-relaxed text-muted-foreground" style={FONT_TEXT}>
-                  {isMobile || platform === null
-                    ? "Ajoutez d'abord la carte (étape 1), puis touchez un bouton : le résultat arrive sur votre téléphone."
-                    : "Ajoutez d'abord la carte à votre téléphone (étape 1) : c'est là que tout s'affiche."}
+                  {isMobile || device === null
+                    ? "Ajoutez d'abord la carte (étape 1), puis touchez un bouton : le résultat arrive sur votre téléphone et sur l'aperçu."
+                    : "Ajoutez d'abord la carte à votre téléphone (étape 1) : c'est là que tout s'affiche."}
                 </p>
                 <div className="mt-4 space-y-3">
-                  {ACTIONS.map(({ type, title, hint, sentLabel, Icon }) => {
+                  {actions.map(({ type, title, hint, sentLabel, Icon }) => {
                     const state = status[type];
                     const busy = state === "sending" || state === "sent";
                     return (
@@ -604,36 +546,31 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
                         onClick={() => void runAction(type)}
                         aria-disabled={busy}
                         aria-busy={state === "sending"}
-                        className={`flex w-full items-center gap-4 rounded-2xl border-2 p-3.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow sm:p-4 ${
+                        className={cn(
+                          "flex w-full items-center gap-4 rounded-2xl border-2 p-3.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow sm:p-4",
                           state === "sent"
                             ? "cursor-default border-emerald-400 bg-emerald-50"
                             : state === "sending"
                               ? "cursor-wait border-foreground/30 bg-white"
                               : "cursor-pointer border-border bg-white hover:border-foreground"
-                        }`}
+                        )}
                       >
                         <span
                           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-                          style={{ backgroundColor: accent, color: accentText }}
+                          style={{ backgroundColor: accent, color: accentText, transition: "background-color 500ms ease, color 500ms ease" }}
                           aria-hidden
                         >
                           <Icon size={22} strokeWidth={2.5} />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span
-                            className="block text-base font-semibold text-foreground"
-                            style={FONT_UI}
-                          >
+                          <span className="block text-base font-semibold text-foreground" style={FONT_UI}>
                             {title}
                           </span>
                           <span
-                            className={`mt-0.5 block text-sm leading-snug ${
-                              state === "sent"
-                                ? "font-semibold text-emerald-800"
-                                : state === "error"
-                                  ? "text-red-700"
-                                  : "text-muted-foreground"
-                            }`}
+                            className={cn(
+                              "mt-0.5 block text-sm leading-snug",
+                              state === "sent" ? "font-semibold text-emerald-800" : "text-muted-foreground"
+                            )}
                             style={FONT_TEXT}
                             aria-live="polite"
                           >
@@ -642,9 +579,9 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
                               : state === "sent"
                                 ? sentLabel
                                 : state === "error"
-                                  ? "Échec de l'envoi — touchez pour réessayer."
+                                  ? "Touchez pour réessayer."
                                   : type === "stamp"
-                                    ? `${hint} (${stamps}/${stampCount})`
+                                    ? `${hint} (${view.stamps}/${view.stampCount})`
                                     : hint}
                           </span>
                         </span>
@@ -652,7 +589,7 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
                           {state === "sending" ? (
                             <LoaderCircle size={22} className="motion-safe:animate-spin" />
                           ) : state === "sent" ? (
-                            <Check size={22} strokeWidth={3} className="text-emerald-600" />
+                            <Check size={22} strokeWidth={3} className={cn("text-emerald-600", styles.checkPop)} />
                           ) : (
                             <ArrowRight size={20} />
                           )}
@@ -665,22 +602,21 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
                 {celebrate && (
                   <p
                     role="status"
-                    className="mt-4 flex gap-2.5 rounded-2xl bg-yellow p-4 text-sm leading-relaxed text-foreground"
+                    className={cn("mt-4 flex gap-2.5 rounded-2xl bg-yellow p-4 text-sm leading-relaxed text-foreground", styles.riseIn)}
                     style={FONT_TEXT}
                   >
                     <PartyPopper size={18} className="mt-0.5 shrink-0" aria-hidden />
                     <span>
-                      <strong style={FONT_UI}>Carte complète&nbsp;!</strong> Votre
-                      client vient de débloquer&nbsp;: {data.rewardText}
-                      {rewards > 1 ? ` (${rewards} récompenses en attente)` : ""}
+                      <strong style={FONT_UI}>Carte complète&nbsp;!</strong> Votre client
+                      vient de débloquer&nbsp;: {view.rewardText}
                     </span>
                   </p>
                 )}
 
                 {lastMessage && (
-                  <div className="mt-4 rounded-2xl bg-beige p-4">
+                  <div className={cn("mt-4 rounded-2xl bg-beige p-4", styles.riseIn)}>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" style={FONT_UI}>
-                      Message envoyé sur le téléphone
+                      Message reçu sur le téléphone
                     </p>
                     <p className="mt-1.5 break-words text-sm leading-relaxed text-foreground" style={FONT_TEXT}>
                       «&nbsp;{lastMessage}&nbsp;»
@@ -697,7 +633,8 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
           >
             <div
               aria-hidden
-              className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-yellow/25 blur-3xl"
+              className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full opacity-30"
+              style={{ background: "radial-gradient(closest-side, #fff382, transparent)" }}
             />
             <div className="relative">
               <div className="flex items-center gap-3">
@@ -713,16 +650,17 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
                 </h2>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-white/75" style={FONT_TEXT}>
-                Gardez cette carte telle quelle&nbsp;: on crée votre espace
-                commerçant avec, sans rien ressaisir.
+                Gardez cette carte telle quelle&nbsp;: on crée votre espace commerçant
+                avec, sans rien ressaisir.
               </p>
 
               <Link
-                href={`/essai/${encodeURIComponent(data.token)}/garder`}
+                href={garderHref}
+                onClick={onKeep}
                 className="mt-5 inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-yellow px-6 text-base font-semibold text-foreground shadow-xl transition-colors hover:bg-yellow-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/60"
                 style={FONT_UI}
               >
-                {data.claimed ? "Retrouver ma carte" : "Je garde ma carte"}
+                {view.claimed ? "Retrouver ma carte" : "Je garde ma carte"}
                 <ArrowRight size={18} aria-hidden />
               </Link>
               <p className="mt-2 text-center text-xs text-white/60" style={FONT_TEXT}>
@@ -741,7 +679,7 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
               </a>
 
               <a
-                href={`/api/essai/${encodeURIComponent(data.token)}/poster`}
+                href={`/api/essai/${encodeURIComponent(view.token)}/poster`}
                 className="mx-auto mt-3 flex min-h-[44px] w-fit items-center justify-center gap-2 rounded-md px-2 text-sm font-semibold text-white/80 underline underline-offset-4 transition-colors hover:text-yellow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 style={FONT_UI}
               >
@@ -758,14 +696,36 @@ export function EssaiResult({ data }: { data: EssaiResultData }) {
               className="inline-flex min-h-[44px] items-center rounded-md font-semibold text-foreground underline underline-offset-4 hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
               style={FONT_UI}
             >
-              Recommencer avec un autre lien ou une photo
+              Recommencer avec un autre lien
             </Link>
           </p>
         </div>
       </div>
+
+      {/* Sélecteurs de fichiers (logo / photo), ouverts par les boutons. */}
+      {editable && (["logo", "photo"] as const).map((kind) => (
+        <input
+          key={kind}
+          ref={(node) => {
+            fileInputs.current[kind] = node;
+          }}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          tabIndex={-1}
+          aria-hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void onFile(kind, file);
+          }}
+        />
+      ))}
     </div>
   );
 }
+
+// ─── Sous-composants ──────────────────────────────────────────────────────
 
 function Step({
   n,
@@ -779,10 +739,7 @@ function Step({
   children: ReactNode;
 }) {
   return (
-    <section
-      aria-labelledby={id}
-      className="rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-foreground/5 sm:p-6"
-    >
+    <section aria-labelledby={id} className="rounded-[28px] bg-white p-5 shadow-sm ring-1 ring-foreground/5 sm:p-6">
       <div className="flex items-center gap-3">
         <span
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-yellow text-sm font-bold text-foreground"
@@ -797,5 +754,165 @@ function Step({
       </div>
       <div className="mt-4">{children}</div>
     </section>
+  );
+}
+
+/** Remplace le panneau de retouches quand elles ne sont pas possibles ici. */
+function RetouchLockedNote({ reason }: { reason: "claimed" | "expired" | "viewer" }) {
+  const content =
+    reason === "claimed" ? (
+      <>
+        <p className="font-semibold leading-snug text-foreground" style={FONT_UI}>
+          Votre carte est dans votre espace
+        </p>
+        <p className="mt-0.5 text-sm leading-snug text-muted-foreground" style={FONT_TEXT}>
+          Modifiez-la depuis votre{" "}
+          <Link
+            href="/dashboard"
+            className="font-semibold text-foreground underline underline-offset-4 hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+          >
+            tableau de bord
+          </Link>
+          .
+        </p>
+      </>
+    ) : reason === "expired" ? (
+      <>
+        <p className="font-semibold leading-snug text-foreground" style={FONT_UI}>
+          Démo terminée
+        </p>
+        <p className="mt-0.5 text-sm leading-snug text-muted-foreground" style={FONT_TEXT}>
+          Les retouches sont fermées&nbsp;: gardez votre carte telle quelle, ou créez-en
+          une nouvelle en 30&nbsp;secondes.
+        </p>
+      </>
+    ) : (
+      <p className="text-sm leading-snug text-muted-foreground" style={FONT_TEXT}>
+        Les retouches se font depuis l&apos;appareil sur lequel la carte a été créée.
+      </p>
+    );
+  return (
+    <div className="rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-foreground/5">{content}</div>
+  );
+}
+
+/** Invitations douces tirées de `view.suggestions` (jamais d'alerte). */
+function Suggestions({
+  suggestions,
+  sourceUrl,
+  onPick,
+}: {
+  suggestions: EssaiSuggestion[];
+  sourceUrl: string | null;
+  onPick: (kind: MediaKind) => void;
+}) {
+  const items: Array<{
+    key: string;
+    icon: ReactNode;
+    title: string;
+    text: string;
+    action: ReactNode;
+  }> = [];
+
+  const btn =
+    "inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-foreground px-4 text-sm font-semibold text-white transition-colors hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow cursor-pointer";
+
+  if (suggestions.includes("add_screenshot")) {
+    const href = sourceUrl
+      ? `/essai?url=${encodeURIComponent(sourceUrl)}&mode=capture`
+      : "/essai?mode=capture";
+    items.push({
+      key: "add_screenshot",
+      icon: <InstagramGlyph />,
+      title: "Votre vrai logo Instagram, en une capture",
+      text: "Une capture d'écran de votre profil suffit : on y récupère votre logo et vos couleurs exactes.",
+      action: (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link href={href} className={btn} style={FONT_UI}>
+            Ajouter une capture
+          </Link>
+          <button
+            type="button"
+            onClick={() => onPick("logo")}
+            className="inline-flex min-h-[44px] items-center rounded-md px-1 text-sm font-semibold text-foreground underline underline-offset-4 hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground cursor-pointer"
+            style={FONT_UI}
+          >
+            ou importer mon logo
+          </button>
+        </div>
+      ),
+    });
+  } else if (suggestions.includes("add_logo")) {
+    items.push({
+      key: "add_logo",
+      icon: <ImagePlus size={18} aria-hidden />,
+      title: "Ajoutez votre logo pour un rendu parfait",
+      text: "Il s'affiche en haut de votre carte, à côté de votre nom.",
+      action: (
+        <button type="button" onClick={() => onPick("logo")} className={btn} style={FONT_UI}>
+          <Plus size={16} aria-hidden />
+          Ajouter mon logo
+        </button>
+      ),
+    });
+  }
+  if (suggestions.includes("add_photo")) {
+    items.push({
+      key: "add_photo",
+      icon: <Store size={18} aria-hidden />,
+      title: "Ajoutez une photo de votre devanture",
+      text: "Elle remplit la bande de votre carte, derrière les tampons.",
+      action: (
+        <button type="button" onClick={() => onPick("photo")} className={btn} style={FONT_UI}>
+          <Plus size={16} aria-hidden />
+          Ajouter une photo
+        </button>
+      ),
+    });
+  }
+
+  if (items.length === 0) return null;
+  return (
+    <div className="space-y-3">
+      {items.map((item) => (
+        <div
+          key={item.key}
+          className={cn("flex gap-3 rounded-[24px] bg-white p-4 shadow-sm ring-1 ring-foreground/5", styles.riseIn)}
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow text-foreground" aria-hidden>
+            {item.icon}
+          </span>
+          <div className="min-w-0">
+            <p className="font-semibold leading-snug text-foreground" style={FONT_UI}>
+              {item.title}
+            </p>
+            <p className="mt-0.5 text-sm leading-snug text-muted-foreground" style={FONT_TEXT}>
+              {item.text}
+            </p>
+            <div className="mt-3">{item.action}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function InstagramGlyph() {
+  return (
+    <svg
+      width={18}
+      height={18}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="0.6" fill="currentColor" />
+    </svg>
   );
 }

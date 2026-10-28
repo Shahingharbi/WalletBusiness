@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
 import {
+  bannerVersionOf,
   generateApplePassBuffer,
   isAppleWalletConfigured,
 } from "@/lib/apple-wallet";
@@ -113,6 +114,8 @@ export async function GET(
       lastCampaignMessage: instanceTyped.last_campaign_message ?? null,
       lastCampaignAt: instanceTyped.last_campaign_at ?? null,
       googleReviewUrl: activeReviewUrl(card.auto_push_settings),
+      hasBanner: Boolean(design.banner_url),
+      bannerVersion: bannerVersionOf(card.design),
     });
 
     return new NextResponse(new Uint8Array(buffer), {

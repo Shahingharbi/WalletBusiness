@@ -14,7 +14,12 @@
  * garde le meilleur score au-dessus d'un seuil — sinon « autre ».
  */
 
-import { ESSAI_CATEGORIES, type CategoryPreset, type EssaiCategory } from "@/lib/essai/types";
+import {
+  ESSAI_CATEGORIES,
+  type CategoryPreset,
+  type EssaiCardType,
+  type EssaiCategory,
+} from "@/lib/essai/types";
 
 // ─── Normalisation de texte (partagée avec website / instagram / maps) ────
 
@@ -34,228 +39,346 @@ export function normalizeForMatch(input: string): string {
     .trim();
 }
 
-// ─── Préréglages par métier ───────────────────────────────────────────────
+// ─── Offres par métier × type de carte ────────────────────────────────────
 
 const NBSP = "\u00a0";
+/** Signe moins typographique (−10 %), pas un tiret. */
+const MINUS = "\u2212";
+
+/** Récompense affichée dans la rangée « NOTRE OFFRE » du wallet. */
+export const REWARD_MAX = 36;
+/** Libellé du compteur (« MENUS 3 / 10 »). */
+export const LABEL_MAX = 12;
+/** Notification promo de démo. */
+export const PROMO_MAX = 110;
+/** Échelle du compteur « Points » (≤ MAX_STAMPS de la carte). */
+const POINTS_COUNT = 10;
+
+const pct = (n: number) => `${MINUS}${n}${NBSP}%`;
+const eur = (n: number) => `${n}${NBSP}€`;
+const vip = (perk: string) => `VIP${NBSP}: ${perk}`;
+
+interface CategoryOffers {
+  label: string;
+  stampIcon: CategoryPreset["stampIcon"];
+  stampShape: CategoryPreset["stampShape"];
+  /** Carte à tampons : nombre de cases, récompense, libellé du compteur. */
+  stamp: { count: number; reward: string; label: string };
+  /** Carte à points : valeur offerte pour POINTS_COUNT points. */
+  pointsValue: number;
+  /** Remise permanente. */
+  discount: string;
+  /** Avantage VIP (sans le préfixe « VIP : »). */
+  vipPerk: string;
+  /** Notification promo d'une carte à tampons (`{n}` = nom). */
+  promo: string;
+  emoji: string;
+  /** Ce sur quoi porte une promo (« votre menu »). */
+  item: string;
+  /** Quand (« ce soir »). */
+  when: string;
+  /** Cadeau d'une soirée VIP (« la boisson et le dessert offerts »). */
+  vipGift: string;
+}
 
 /**
- * Récompenses volontairement modestes et crédibles (≤ 60 car.) : un
- * commerçant doit pouvoir se dire « oui, je ferais ça » en voyant la démo.
- * Libellés de tampons ≤ 14 car. (slots étroits Apple / Google Wallet).
+ * Offres volontairement modestes et crédibles : un commerçant doit pouvoir se
+ * dire « oui, je ferais ça » en voyant la démo. Toutes les récompenses
+ * tiennent en 36 caractères (rangée « NOTRE OFFRE » d'Apple Wallet).
  */
-export const CATEGORY_PRESETS: Record<EssaiCategory, CategoryPreset> = {
+const OFFERS: Record<EssaiCategory, CategoryOffers> = {
   kebab: {
-    label: "Kebab",
-    stampIcon: "kebab",
-    stampShape: "squircle",
-    stampCount: 10,
-    rewardText: "10 menus achetés = 1 menu offert",
-    labelStamps: "Menus",
+    label: "Kebab", stampIcon: "kebab", stampShape: "squircle",
+    stamp: { count: 10, reward: "10 menus = 1 menu offert", label: "Menus" },
+    pointsValue: 5, discount: `${pct(10)} sur tous vos menus`, vipPerk: "boisson offerte à chaque menu",
+    promo: `🔥 {n}${NBSP}: ${pct(20)} sur votre menu ce soir de 18${NBSP}h à 20${NBSP}h${NBSP}!`,
+    emoji: "🔥", item: "votre menu", when: "ce soir", vipGift: "la boisson et le dessert offerts",
   },
   burger: {
-    label: "Burger",
-    stampIcon: "star",
-    stampShape: "squircle",
-    stampCount: 10,
-    rewardText: "10 burgers achetés = 1 burger offert",
-    labelStamps: "Burgers",
+    label: "Burger", stampIcon: "star", stampShape: "squircle",
+    stamp: { count: 10, reward: "10 burgers = 1 burger offert", label: "Burgers" },
+    pointsValue: 5, discount: `${pct(10)} sur tous vos burgers`, vipPerk: "frites offertes à chaque menu",
+    promo: `🍔 {n}${NBSP}: votre 2e burger à ${pct(50)} aujourd'hui seulement${NBSP}!`,
+    emoji: "🍔", item: "vos burgers", when: "ce soir", vipGift: "les frites XL offertes",
   },
   tacos: {
-    label: "Tacos",
-    stampIcon: "star",
-    stampShape: "squircle",
-    stampCount: 10,
-    rewardText: "10 tacos achetés = 1 tacos offert",
-    labelStamps: "Tacos",
+    label: "Tacos", stampIcon: "star", stampShape: "squircle",
+    stamp: { count: 10, reward: "10 tacos = 1 tacos offert", label: "Tacos" },
+    pointsValue: 5, discount: `${pct(10)} sur tous vos tacos`, vipPerk: "boisson offerte à chaque tacos",
+    promo: `🌮 {n}${NBSP}: la boisson offerte avec votre tacos ce soir${NBSP}!`,
+    emoji: "🌮", item: "votre tacos", when: "ce soir", vipGift: "le dessert offert",
   },
   chicken: {
-    label: "Poulet",
-    stampIcon: "crown",
-    stampShape: "squircle",
-    stampCount: 10,
-    rewardText: "10 menus achetés = 1 menu offert",
-    labelStamps: "Menus",
+    label: "Poulet", stampIcon: "crown", stampShape: "squircle",
+    stamp: { count: 10, reward: "10 menus = 1 menu offert", label: "Menus" },
+    pointsValue: 5, discount: `${pct(10)} sur tous vos menus`, vipPerk: "3 tenders offerts par menu",
+    promo: `🍗 {n}${NBSP}: 3 tenders offerts avec votre menu ce soir${NBSP}!`,
+    emoji: "🍗", item: "votre menu", when: "ce soir", vipGift: "6 tenders offerts",
   },
   pizza: {
-    label: "Pizzeria",
-    stampIcon: "pizza",
-    stampShape: "circle",
-    stampCount: 10,
-    rewardText: "La 10e pizza offerte",
-    labelStamps: "Pizzas",
+    label: "Pizzeria", stampIcon: "pizza", stampShape: "circle",
+    stamp: { count: 10, reward: "10 pizzas = 1 pizza offerte", label: "Pizzas" },
+    pointsValue: 5, discount: `${pct(10)} sur toutes les pizzas`, vipPerk: "boisson offerte par pizza",
+    promo: `🍕 {n}${NBSP}: la 2e pizza à ${pct(50)} ce soir, sur place ou à emporter${NBSP}!`,
+    emoji: "🍕", item: "vos pizzas", when: "ce soir", vipGift: "le dessert offert",
   },
   sushi: {
-    label: "Sushi",
-    stampIcon: "star",
-    stampShape: "circle",
-    stampCount: 8,
-    rewardText: "8 commandes = 1 menu offert",
-    labelStamps: "Commandes",
+    label: "Sushi", stampIcon: "star", stampShape: "circle",
+    stamp: { count: 8, reward: "8 commandes = 1 plateau offert", label: "Commandes" },
+    pointsValue: 5, discount: `${pct(10)} sur toute la carte`, vipPerk: "dessert offert à chaque visite",
+    promo: `🍣 {n}${NBSP}: ${pct(15)} sur votre commande ce midi${NBSP}!`,
+    emoji: "🍣", item: "votre commande", when: "ce midi", vipGift: "les gyozas offerts",
   },
   restaurant: {
-    label: "Restaurant",
-    stampIcon: "star",
-    stampShape: "circle",
-    stampCount: 10,
-    rewardText: "10 repas = 1 plat offert",
-    labelStamps: "Repas",
+    label: "Restaurant", stampIcon: "star", stampShape: "circle",
+    stamp: { count: 10, reward: "10 repas = 1 plat offert", label: "Repas" },
+    pointsValue: 5, discount: `${pct(10)} sur toute la carte`, vipPerk: "café offert à chaque repas",
+    promo: `🍽️ {n}${NBSP}: le dessert vous est offert ce midi${NBSP}!`,
+    emoji: "🍽️", item: "votre addition", when: "ce midi", vipGift: "le dessert offert",
   },
   boulangerie: {
-    label: "Boulangerie",
-    stampIcon: "baguette",
-    stampShape: "circle",
-    stampCount: 10,
-    rewardText: "10 passages = 1 viennoiserie offerte",
-    labelStamps: "Passages",
+    label: "Boulangerie", stampIcon: "baguette", stampShape: "circle",
+    stamp: { count: 10, reward: "10 passages = 1 viennoiserie offerte", label: "Passages" },
+    pointsValue: 3, discount: `${pct(5)} sur toute la boutique`, vipPerk: "1 croissant offert par semaine",
+    promo: `🥐 {n}${NBSP}: 1 croissant offert pour 1 baguette achetée ce matin${NBSP}!`,
+    emoji: "🥐", item: "vos achats", when: "ce matin", vipGift: "le croissant offert",
   },
   patisserie: {
-    label: "Pâtisserie",
-    stampIcon: "heart",
-    stampShape: "circle",
-    stampCount: 8,
-    rewardText: "8 achats = 1 pâtisserie offerte",
-    labelStamps: "Achats",
+    label: "Pâtisserie", stampIcon: "heart", stampShape: "circle",
+    stamp: { count: 8, reward: "8 achats = 1 pâtisserie offerte", label: "Achats" },
+    pointsValue: 5, discount: `${pct(10)} sur toute la boutique`, vipPerk: `${pct(15)} sur les entremets`,
+    promo: `🍰 {n}${NBSP}: ${pct(20)} sur les entremets ce week-end${NBSP}!`,
+    emoji: "🍰", item: "les entremets", when: "ce week-end", vipGift: "une pâtisserie offerte",
   },
   cafe: {
-    label: "Café",
-    stampIcon: "coffee",
-    stampShape: "circle",
-    stampCount: 9,
-    rewardText: "9 cafés achetés = le 10e offert",
-    labelStamps: "Cafés",
+    label: "Café", stampIcon: "coffee", stampShape: "circle",
+    stamp: { count: 10, reward: "10 cafés = 1 café offert", label: "Cafés" },
+    pointsValue: 3, discount: `${pct(10)} sur toutes vos boissons`, vipPerk: "un cookie offert par boisson",
+    promo: `☕ {n}${NBSP}: votre cappuccino à ${pct(50)} jusqu'à 11${NBSP}h${NBSP}!`,
+    emoji: "☕", item: "vos boissons", when: "ce matin", vipGift: "le cookie offert",
   },
   bar: {
-    label: "Bar",
-    stampIcon: "star",
-    stampShape: "hex",
-    stampCount: 8,
-    rewardText: "8 verres achetés = le 9e offert",
-    labelStamps: "Verres",
+    label: "Bar", stampIcon: "star", stampShape: "hex",
+    stamp: { count: 8, reward: "8 boissons = la 9e offerte", label: "Boissons" },
+    pointsValue: 5, discount: `${pct(10)} sur toute la carte`, vipPerk: "happy hour toute la soirée",
+    promo: `🍹 {n}${NBSP}: happy hour prolongée jusqu'à 21${NBSP}h ce soir${NBSP}!`,
+    emoji: "🍹", item: "vos boissons", when: "ce soir", vipGift: "la planche à partager offerte",
   },
   glacier: {
-    label: "Glacier",
-    stampIcon: "heart",
-    stampShape: "circle",
-    stampCount: 8,
-    rewardText: "8 glaces achetées = 1 glace offerte",
-    labelStamps: "Glaces",
+    label: "Glacier", stampIcon: "heart", stampShape: "circle",
+    stamp: { count: 8, reward: "8 glaces = 1 glace offerte", label: "Glaces" },
+    pointsValue: 3, discount: `${pct(10)} sur toutes les glaces`, vipPerk: "1 boule offerte par cornet",
+    promo: `🍦 {n}${NBSP}: 1 boule offerte pour 2 achetées cet après-midi${NBSP}!`,
+    emoji: "🍦", item: "vos glaces", when: "cet après-midi", vipGift: "la boule en plus offerte",
   },
   coiffeur: {
-    label: "Coiffeur",
-    stampIcon: "scissors",
-    stampShape: "circle",
-    stampCount: 8,
-    rewardText: "8 coupes = la 9e offerte",
-    labelStamps: "Coupes",
+    label: "Coiffeur", stampIcon: "scissors", stampShape: "circle",
+    stamp: { count: 8, reward: "8 coupes = la 9e offerte", label: "Coupes" },
+    pointsValue: 5, discount: `${pct(10)} sur toutes les prestations`, vipPerk: "soin offert à chaque coupe",
+    promo: `✂️ {n}${NBSP}: ${pct(20)} sur les colorations cette semaine${NBSP}!`,
+    emoji: "✂️", item: "votre coupe", when: "cette semaine", vipGift: "le soin profond offert",
   },
   barbier: {
-    label: "Barbier",
-    stampIcon: "crown",
-    stampShape: "shield",
-    stampCount: 8,
-    rewardText: "8 coupes = la 9e offerte",
-    labelStamps: "Coupes",
+    label: "Barbier", stampIcon: "crown", stampShape: "shield",
+    stamp: { count: 8, reward: "8 coupes = la 9e offerte", label: "Coupes" },
+    pointsValue: 5, discount: `${pct(10)} sur coupes et barbes`, vipPerk: "taille de barbe offerte",
+    promo: `💈 {n}${NBSP}: la taille de barbe offerte avec votre coupe cette semaine${NBSP}!`,
+    emoji: "💈", item: "votre coupe", when: "cette semaine", vipGift: "la taille de barbe offerte",
   },
   beaute: {
-    label: "Institut de beauté",
-    stampIcon: "sparkle",
-    stampShape: "circle",
-    stampCount: 6,
-    rewardText: `−20${NBSP}% sur votre 6e soin`,
-    labelStamps: "Soins",
+    label: "Institut de beauté", stampIcon: "sparkle", stampShape: "circle",
+    stamp: { count: 6, reward: `${pct(20)} sur votre 6e soin`, label: "Soins" },
+    pointsValue: 10, discount: `${pct(10)} sur tous les soins`, vipPerk: `${pct(15)} sur tous les soins`,
+    promo: `✨ {n}${NBSP}: ${pct(20)} sur votre soin du visage cette semaine${NBSP}!`,
+    emoji: "✨", item: "vos soins", when: "cette semaine", vipGift: "un soin express offert",
   },
   onglerie: {
-    label: "Onglerie",
-    stampIcon: "diamond",
-    stampShape: "circle",
-    stampCount: 6,
-    rewardText: `−20${NBSP}% sur votre 6e pose`,
-    labelStamps: "Poses",
+    label: "Onglerie", stampIcon: "diamond", stampShape: "circle",
+    stamp: { count: 6, reward: `${pct(20)} sur votre 6e pose`, label: "Poses" },
+    pointsValue: 10, discount: `${pct(10)} sur toutes les poses`, vipPerk: "nail art offert à chaque pose",
+    promo: `💅 {n}${NBSP}: ${pct(15)} sur votre pose semi-permanent cette semaine${NBSP}!`,
+    emoji: "💅", item: "votre pose", when: "cette semaine", vipGift: "le nail art offert",
   },
   fleuriste: {
-    label: "Fleuriste",
-    stampIcon: "flower",
-    stampShape: "circle",
-    stampCount: 8,
-    rewardText: "8 achats = 1 bouquet offert",
-    labelStamps: "Achats",
+    label: "Fleuriste", stampIcon: "flower", stampShape: "circle",
+    stamp: { count: 8, reward: "8 achats = 1 bouquet offert", label: "Achats" },
+    pointsValue: 5, discount: `${pct(10)} sur tous les bouquets`, vipPerk: "la livraison toujours offerte",
+    promo: `💐 {n}${NBSP}: ${pct(15)} sur tous les bouquets ce week-end${NBSP}!`,
+    emoji: "💐", item: "vos bouquets", when: "ce week-end", vipGift: "la livraison offerte",
   },
   epicerie: {
-    label: "Épicerie",
-    stampIcon: "leaf",
-    stampShape: "squircle",
-    stampCount: 10,
-    rewardText: `10 passages = 5${NBSP}€ offerts`,
-    labelStamps: "Passages",
+    label: "Épicerie", stampIcon: "leaf", stampShape: "squircle",
+    stamp: { count: 10, reward: `10 passages = ${eur(5)} offerts`, label: "Passages" },
+    pointsValue: 5, discount: `${pct(5)} sur toutes vos courses`, vipPerk: `${pct(5)} sur toutes vos courses`,
+    promo: `🛒 {n}${NBSP}: ${pct(10)} sur vos courses aujourd'hui${NBSP}!`,
+    emoji: "🛒", item: "vos courses", when: "aujourd'hui", vipGift: "une surprise offerte en caisse",
   },
   boucherie: {
-    label: "Boucherie",
-    stampIcon: "star",
-    stampShape: "shield",
-    stampCount: 10,
-    rewardText: `10 achats = 5${NBSP}€ offerts`,
-    labelStamps: "Achats",
+    label: "Boucherie", stampIcon: "star", stampShape: "shield",
+    stamp: { count: 10, reward: `10 achats = ${eur(5)} offerts`, label: "Achats" },
+    pointsValue: 5, discount: `${pct(5)} sur tous vos achats`, vipPerk: `${pct(10)} sur les colis de viande`,
+    promo: `🥩 {n}${NBSP}: ${pct(10)} sur les colis de viande ce week-end${NBSP}!`,
+    emoji: "🥩", item: "vos colis de viande", when: "ce week-end", vipGift: "les merguez offertes",
   },
   pressing: {
-    label: "Pressing",
-    stampIcon: "sparkle",
-    stampShape: "hex",
-    stampCount: 10,
-    rewardText: "10 articles = 1 article nettoyé offert",
-    labelStamps: "Articles",
+    label: "Pressing", stampIcon: "sparkle", stampShape: "hex",
+    stamp: { count: 10, reward: "10 articles = 1 article offert", label: "Articles" },
+    pointsValue: 5, discount: `${pct(10)} sur tous vos articles`, vipPerk: "retrait express offert",
+    promo: `👔 {n}${NBSP}: ${pct(20)} sur le nettoyage de vos chemises cette semaine${NBSP}!`,
+    emoji: "👔", item: "vos chemises", when: "cette semaine", vipGift: "le repassage offert",
   },
   autre: {
-    label: "Commerce",
-    stampIcon: "star",
-    stampShape: "circle",
-    stampCount: 10,
-    rewardText: "10 passages = 1 cadeau offert",
-    labelStamps: "Passages",
+    label: "Commerce", stampIcon: "star", stampShape: "circle",
+    stamp: { count: 10, reward: "10 passages = 1 cadeau offert", label: "Passages" },
+    pointsValue: 5, discount: `${pct(10)} sur tous vos achats`, vipPerk: "un cadeau à chaque visite",
+    promo: `🎁 {n}${NBSP}: ${pct(10)} sur votre prochain passage cette semaine${NBSP}!`,
+    emoji: "🎁", item: "vos achats", when: "cette semaine", vipGift: "un cadeau offert",
   },
 };
 
-// ─── Message promo de démo ────────────────────────────────────────────────
-
-const PROMO_MAX = 120;
-
 /**
- * Une phrase vendeuse par métier. `{n}` = nom du commerce. Espaces
- * insécables avant « : » et « ! » (typographie française).
+ * Préréglages « carte à tampons » par métier (icône, forme, nombre de cases,
+ * récompense, libellé). Pour les autres types de carte, voir `offerFor`.
  */
-const PROMO_TEMPLATES: Record<EssaiCategory, string> = {
-  kebab: `🔥 {n}${NBSP}: −20${NBSP}% sur votre menu ce soir de 18${NBSP}h à 20${NBSP}h${NBSP}!`,
-  burger: `🍔 {n}${NBSP}: votre 2e burger à −50${NBSP}% aujourd'hui seulement${NBSP}!`,
-  tacos: `🌮 {n}${NBSP}: la boisson offerte avec votre tacos ce soir${NBSP}!`,
-  chicken: `🍗 {n}${NBSP}: 3 tenders offerts avec votre menu ce soir${NBSP}!`,
-  pizza: `🍕 {n}${NBSP}: la 2e pizza à −50${NBSP}% ce soir, sur place ou à emporter${NBSP}!`,
-  sushi: `🍣 {n}${NBSP}: −15${NBSP}% sur votre commande ce midi${NBSP}!`,
-  restaurant: `🍽️ {n}${NBSP}: le dessert vous est offert ce midi${NBSP}!`,
-  boulangerie: `🥐 {n}${NBSP}: 1 croissant offert pour 1 baguette achetée ce matin${NBSP}!`,
-  patisserie: `🍰 {n}${NBSP}: −20${NBSP}% sur les entremets ce week-end${NBSP}!`,
-  cafe: `☕ {n}${NBSP}: votre cappuccino à −50${NBSP}% jusqu'à 11${NBSP}h${NBSP}!`,
-  bar: `🍹 {n}${NBSP}: happy hour prolongée jusqu'à 21${NBSP}h ce soir${NBSP}!`,
-  glacier: `🍦 {n}${NBSP}: 1 boule offerte pour 2 achetées cet après-midi${NBSP}!`,
-  coiffeur: `✂️ {n}${NBSP}: −20${NBSP}% sur les colorations cette semaine${NBSP}!`,
-  barbier: `💈 {n}${NBSP}: la taille de barbe offerte avec votre coupe cette semaine${NBSP}!`,
-  beaute: `✨ {n}${NBSP}: −20${NBSP}% sur votre soin du visage cette semaine${NBSP}!`,
-  onglerie: `💅 {n}${NBSP}: −15${NBSP}% sur votre pose semi-permanent cette semaine${NBSP}!`,
-  fleuriste: `💐 {n}${NBSP}: −15${NBSP}% sur tous les bouquets ce week-end${NBSP}!`,
-  epicerie: `🛒 {n}${NBSP}: −10${NBSP}% sur vos courses aujourd'hui${NBSP}!`,
-  boucherie: `🥩 {n}${NBSP}: −10${NBSP}% sur les colis de viande ce week-end${NBSP}!`,
-  pressing: `👔 {n}${NBSP}: −20${NBSP}% sur le nettoyage de vos chemises cette semaine${NBSP}!`,
-  autre: `🎁 {n}${NBSP}: −10${NBSP}% sur votre prochain passage cette semaine${NBSP}!`,
-};
+export const CATEGORY_PRESETS: Record<EssaiCategory, CategoryPreset> = Object.fromEntries(
+  ESSAI_CATEGORIES.map((c) => {
+    const o = OFFERS[c];
+    return [
+      c,
+      {
+        label: o.label,
+        stampIcon: o.stampIcon,
+        stampShape: o.stampShape,
+        stampCount: o.stamp.count,
+        rewardText: o.stamp.reward,
+        labelStamps: o.stamp.label,
+      },
+    ];
+  }),
+) as Record<EssaiCategory, CategoryPreset>;
 
-/**
- * Texte de la notification « promo » envoyée pendant la démo (≤ 120 car.).
- * Le nom est raccourci (…) si besoin pour tenir dans la limite.
- */
-export function promoMessageFor(category: EssaiCategory, name: string): string {
-  const template = PROMO_TEMPLATES[category] ?? PROMO_TEMPLATES.autre;
+/** Insère le nom dans un modèle de promo, raccourci (…) si besoin pour tenir en PROMO_MAX. */
+function fillPromo(template: string, name: string): string {
   let n = (name ?? "").replace(/\s+/g, " ").trim() || "Votre commerce";
   const room = PROMO_MAX - template.replace("{n}", "").length;
   if (n.length > room) n = `${n.slice(0, Math.max(1, room - 1)).trimEnd()}…`;
   return template.replace("{n}", n);
+}
+
+function promoTemplate(category: EssaiCategory, cardType: EssaiCardType): string {
+  const o = OFFERS[category] ?? OFFERS.autre;
+  switch (cardType) {
+    case "cashback":
+      return `${o.emoji} {n}${NBSP}: points doublés sur ${o.item} ${o.when}${NBSP}!`;
+    case "discount":
+      return `${o.emoji} {n}${NBSP}: votre remise est doublée sur ${o.item} ${o.when}${NBSP}!`;
+    case "membership":
+      return `${o.emoji} {n}${NBSP}: spécial membres VIP ${o.when}, ${o.vipGift}${NBSP}!`;
+    default:
+      return o.promo;
+  }
+}
+
+/**
+ * Texte de la notification « promo » envoyée pendant la démo (≤ 110 car.),
+ * cohérent avec le métier ET le type de carte.
+ */
+export function promoMessageFor(category: EssaiCategory, name: string, cardType: EssaiCardType = "stamp"): string {
+  return fillPromo(promoTemplate(category, cardType), name);
+}
+
+export interface EssaiOffer {
+  /** Récompense (≤ 36 car.) : rangée « NOTRE OFFRE ». */
+  rewardText: string;
+  /** Libellé du compteur (≤ 12 car.). */
+  labelStamps: string;
+  /** Cases du compteur (tampons) ou échelle des points. */
+  stampCount: number;
+  /** Notification promo de démo (≤ 110 car.). */
+  promoMessage: string;
+}
+
+/**
+ * Offre crédible pour un métier × un type de carte :
+ *  - stamp      : « 10 menus = 1 menu offert » (compteur = tampons) ;
+ *  - cashback   : points, « 10 points = 5 € offerts » (compteur « Points » / 10) ;
+ *  - discount   : remise permanente, « −10 % sur toute la carte » ;
+ *  - membership : carte VIP, « VIP : boisson offerte à chaque menu ».
+ */
+export function offerFor(category: EssaiCategory, cardType: EssaiCardType, name: string): EssaiOffer {
+  const o = OFFERS[category] ?? OFFERS.autre;
+  const promoMessage = promoMessageFor(category, name, cardType);
+  switch (cardType) {
+    case "cashback":
+      return {
+        rewardText: `${POINTS_COUNT} points = ${eur(o.pointsValue)} offerts`,
+        labelStamps: "Points",
+        stampCount: POINTS_COUNT,
+        promoMessage,
+      };
+    case "discount":
+      return { rewardText: o.discount, labelStamps: "Remise", stampCount: o.stamp.count, promoMessage };
+    case "membership":
+      return { rewardText: vip(o.vipPerk), labelStamps: "Membre VIP", stampCount: o.stamp.count, promoMessage };
+    default:
+      return { rewardText: o.stamp.reward, labelStamps: o.stamp.label, stampCount: o.stamp.count, promoMessage };
+  }
+}
+
+/**
+ * Typographie française sur un texte libre (souvent écrit par l'IA) :
+ * espace insécable avant « : ; ! ? % € », « -10 % » → « −10 % ».
+ */
+export function frenchTypography(text: string): string {
+  return (text ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/(^|[\s(])-(?=\d)/g, `$1${MINUS}`)
+    .replace(/ ?([:;!?%€])/g, (m, p: string, offset: number, s: string) => {
+      // « 12:30 », URLs : pas d'espace ajoutée entre deux caractères collés.
+      if (p === ":" && m === ":" && /\d/.test(s[offset - 1] ?? "") && /\d/.test(s[offset + 1] ?? "")) return m;
+      if (m === p && offset === 0) return m;
+      return `${NBSP}${p}`;
+    })
+    .replace(new RegExp(`${NBSP}+`, "g"), NBSP);
+}
+
+/**
+ * Tout nombre qui n'est ni un pourcentage ni un montant doit valoir 1, le
+ * nombre de cases, ou le suivant (« 9 cafés achetés = le 10e offert »).
+ */
+export function rewardFitsCount(text: string, count: number): boolean {
+  const allowed = new Set([1, count, count + 1]);
+  const re = /(\d+)(?=(\s*)(%|€)?)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    if (m[3]) continue; // −20 %, 5 €
+    if (!allowed.has(Number(m[1]))) return false;
+  }
+  return true;
+}
+
+/**
+ * Une récompense (écrite par l'IA) est-elle cohérente avec le type de carte ?
+ * Longueur ≤ 36, et : tampons → nombres alignés sur la grille ; points →
+ * parle de points ; remise → un % ou un montant ; VIP → « VIP » / « membre ».
+ */
+export function isOfferCoherent(text: string, cardType: EssaiCardType, stampCount: number): boolean {
+  const s = (text ?? "").trim();
+  if (!s || s.length > REWARD_MAX) return false;
+  const t = normalizeForMatch(s);
+  const mentionsPoints = /\bpoints?\b|\bpts\b/.test(t);
+  const mentionsVip = /\bvip\b|\bmembres?\b/.test(t);
+  switch (cardType) {
+    case "cashback":
+      return mentionsPoints && rewardFitsCount(s, stampCount);
+    case "discount":
+      return /%|€/.test(s) && !mentionsPoints && !/\btampons?\b/.test(t);
+    case "membership":
+      return mentionsVip;
+    default:
+      return !mentionsPoints && !mentionsVip && rewardFitsCount(s, stampCount);
+  }
 }
 
 // ─── Détection du métier ──────────────────────────────────────────────────
@@ -905,4 +1028,26 @@ export function nameFromDomain(hostname: string): string {
   // repli de l'appelant à un nom absurde.
   if (!label || IGNORED_SUBDOMAIN.test(label) || label.startsWith("xn--")) return "";
   return humanizeSlug(label);
+}
+
+/**
+ * Le libellé du compteur correspond-il à la récompense ? (« Baguettes » ↔
+ * « 10 baguettes = 1 baguette offerte ») — sinon la carte afficherait
+ * « PASSAGES 3 / 10 » à côté d'une offre en baguettes.
+ */
+export function labelFitsReward(label: string, reward: string): boolean {
+  const stem = normalizeForMatch(label).replace(/(?:s|x)$/, "");
+  return stem.length >= 3 && normalizeForMatch(reward).includes(stem);
+}
+
+/**
+ * Une notification promo (écrite par l'IA) est-elle cohérente avec le type
+ * de carte et vraiment « promo » (un avantage concret, pas un slogan) ?
+ */
+export function isPromoCoherent(promo: string, cardType: EssaiCardType): boolean {
+  const t = normalizeForMatch(promo);
+  if (!/\d|%|€|offert|gratuit|double|moitie|cadeau/.test(`${t} ${promo}`)) return false;
+  const mentionsPoints = /\bpoints?\b/.test(t);
+  if (cardType === "cashback") return true;
+  return !mentionsPoints;
 }

@@ -1,0 +1,466 @@
+/*
+ * Animations de l'aperçu « réplique Wallet » (/essai).
+ *
+ * Règles :
+ *  - uniquement transform / opacity (compositeur → 60 fps, même sur un
+ *    téléphone d'entrée de gamme) ; les seules transitions de couleur sont
+ *    celles du fond / texte de la carte, demandées explicitement ;
+ *  - tout ce qui bouge est déclaré sous `prefers-reduced-motion:
+ *    no-preference` : par défaut (et pour qui réduit les animations), rien
+ *    ne bouge, l'interface reste complète.
+ */
+
+/* ─── Scène + inclinaison 3D ─────────────────────────────────────────── */
+
+.stage {
+  position: relative;
+  perspective: 1400px;
+  touch-action: pan-y;
+}
+
+/* Inclinaison pilotée par --tilt-x / --tilt-y (−1…1), écrits à chaque
+   frame par useTilt sur .stage. */
+.tilt {
+  position: relative;
+  transform: rotateX(calc(var(--tilt-y, 0) * -7deg))
+    rotateY(calc(var(--tilt-x, 0) * 9deg));
+  will-change: transform;
+}
+
+/* Halo couleur de marque derrière le téléphone (dégradé radial, sans
+   filtre de flou : rien à recalculer pendant l'inclinaison). */
+.aura {
+  position: absolute;
+  inset: 4% -6% 10%;
+  border-radius: 50%;
+  opacity: 0.55;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(closest-side, #000 0%, rgba(0, 0, 0, 0.35) 55%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 0%, rgba(0, 0, 0, 0.35) 55%, transparent 100%);
+  transition: background-color 600ms ease;
+}
+
+/* ─── Entrée de la carte dans le Wallet ──────────────────────────────── */
+
+.passEnter {
+  transform-origin: 50% 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .passEnter {
+    animation: pass-enter 1050ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+  }
+  .phoneEnter {
+    animation: phone-enter 700ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .passEnter,
+  .phoneEnter {
+    animation: soft-fade 300ms ease-out both;
+  }
+}
+
+@keyframes pass-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 78%, 0) scale(0.9) rotateX(14deg);
+  }
+  30% {
+    opacity: 1;
+  }
+  72% {
+    transform: translate3d(0, -1.6%, 0) scale(1.006) rotateX(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes phone-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes soft-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ─── Reflet holographique ───────────────────────────────────────────── */
+
+.sheen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Reflet doux qui suit l'inclinaison (souris / gyroscope). */
+.glare {
+  position: absolute;
+  inset: -45%;
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 255, 255, 0.34),
+    rgba(255, 255, 255, 0.1) 45%,
+    transparent 75%
+  );
+  mix-blend-mode: screen;
+  opacity: calc(var(--tilt-m, 0) * 0.85);
+  transform: translate3d(calc(var(--tilt-x, 0) * 32%), calc(var(--tilt-y, 0) * 26%), 0);
+  will-change: transform, opacity;
+}
+
+/* Irisation très légère, en parallaxe inverse du reflet. */
+.holo {
+  position: absolute;
+  inset: -30% -60%;
+  background: linear-gradient(
+    112deg,
+    transparent 30%,
+    rgba(255, 120, 200, 0.16) 40%,
+    rgba(255, 236, 140, 0.14) 46%,
+    rgba(120, 230, 255, 0.16) 52%,
+    rgba(170, 140, 255, 0.12) 58%,
+    transparent 68%
+  );
+  mix-blend-mode: screen;
+  opacity: calc(0.18 + var(--tilt-m, 0) * 0.7);
+  transform: translate3d(calc(var(--tilt-x, 0) * -22%), 0, 0);
+  will-change: transform, opacity;
+}
+
+/* Balayage unique à l'apparition de la carte. */
+.sweep {
+  position: absolute;
+  inset: -10% -80%;
+  opacity: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.05) 44%,
+    rgba(255, 255, 255, 0.42) 49%,
+    rgba(255, 228, 248, 0.24) 51.5%,
+    rgba(190, 240, 255, 0.2) 54%,
+    transparent 59%
+  );
+  mix-blend-mode: screen;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sweep {
+    animation: sheen-sweep 1500ms cubic-bezier(0.45, 0, 0.2, 1) 850ms both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glare,
+  .holo {
+    display: none;
+  }
+}
+
+@keyframes sheen-sweep {
+  0% {
+    opacity: 0;
+    transform: translate3d(-48%, 0, 0);
+  }
+  12% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(48%, 0, 0);
+  }
+}
+
+/* ─── Bande : fondu enchaîné + « pop » du tampon ─────────────────────── */
+
+.bannerLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 420ms ease-out;
+}
+
+.bannerLayerReady {
+  opacity: 1;
+}
+
+.burst {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+}
+
+.burstGlow,
+.burstRing,
+.burstSpark {
+  position: absolute;
+  opacity: 0;
+}
+
+.burstGlow {
+  inset: -35%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 70%);
+}
+
+.burstRing {
+  inset: -6%;
+  border-radius: 50%;
+  border: 3px solid var(--burst-color, #fff);
+}
+
+.burstSpark {
+  left: 50%;
+  top: 50%;
+  width: 11%;
+  height: 11%;
+  margin: -5.5% 0 0 -5.5%;
+  border-radius: 50%;
+  background: var(--burst-color, #fff);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .burstGlow {
+    animation: burst-glow 700ms ease-out both;
+  }
+  .burstRing {
+    animation: burst-ring 760ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+  .burstSpark {
+    animation: burst-spark 720ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+}
+
+@keyframes burst-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  30% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+}
+
+@keyframes burst-ring {
+  0% {
+    opacity: 1;
+    transform: scale(0.55);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+@keyframes burst-spark {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a, 0deg)) translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a, 0deg)) translate3d(0, -760%, 0) scale(0.4);
+  }
+}
+
+/* Compteur « 2 / 10 » qui saute quand un tampon arrive. */
+.countPop {
+  display: inline-block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .countPop {
+    animation: count-pop 560ms cubic-bezier(0.3, 1.7, 0.5, 1) both;
+  }
+}
+
+@keyframes count-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.32);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ─── Chargement (miroitement) ───────────────────────────────────────── */
+
+.shimmer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0 -100%;
+  background: linear-gradient(
+    100deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.28) 50%,
+    transparent 65%
+  );
+  transform: translate3d(-35%, 0, 0);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .shimmer::after {
+    animation: shimmer-move 1300ms ease-in-out infinite;
+  }
+}
+
+@keyframes shimmer-move {
+  from {
+    transform: translate3d(-35%, 0, 0);
+  }
+  to {
+    transform: translate3d(35%, 0, 0);
+  }
+}
+
+/* ─── Petites entrées d'interface ────────────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  .riseIn {
+    animation: rise-in 380ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+  .checkPop {
+    animation: check-pop 420ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  }
+  .pulseRing::after {
+    animation: pulse-ring 1600ms ease-out 3;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes check-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Anneau qui pulse autour d'une tuile mise en avant (transform + opacity). */
+.pulseRing {
+  position: relative;
+}
+
+.pulseRing::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 2px solid rgba(26, 30, 34, 0.5);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes pulse-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+/* Barre de progression : scaleX (pas de width animée). */
+.progressFill {
+  transform-origin: 0 50%;
+  transition: transform 600ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* ─── Confettis (ajout au Wallet, « Je garde ma carte ») ─────────────── */
+
+.confettiLayer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 70;
+  overflow: hidden;
+}
+
+.confettiPiece {
+  position: absolute;
+  display: block;
+  margin: -4px 0 0 -4px;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: confetti-burst var(--dur, 1800ms) linear var(--delay, 0ms) forwards;
+}
+
+@keyframes confetti-burst {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    animation-timing-function: cubic-bezier(0.12, 0.75, 0.3, 1);
+  }
+  26% {
+    opacity: 1;
+    transform: translate3d(calc(var(--dx) * 0.72), var(--up), 0) rotate(calc(var(--rot) * 0.3));
+    animation-timing-function: cubic-bezier(0.45, 0, 0.85, 0.55);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dx), calc(var(--up) + var(--fall)), 0) rotate(var(--rot));
+  }
+}

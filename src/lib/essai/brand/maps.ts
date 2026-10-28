@@ -18,6 +18,7 @@
  */
 
 import { clampName } from "@/lib/essai/brand/category";
+import { rankPlacesPhotoNames } from "@/lib/essai/brand/photo";
 import { normalizeUserUrl, safeFetch, SafeFetchError } from "@/lib/essai/brand/safe-fetch";
 import type { MapsSignals } from "@/lib/essai/types";
 
@@ -38,6 +39,7 @@ const PLACES_FIELDS = [
   "location",
   "websiteUri",
   "googleMapsUri",
+  "photos",
 ];
 
 const ERR_INVALID = "Ce lien Google Maps n'est pas valide. Copiez-le depuis le bouton « Partager » de la fiche.";
@@ -327,6 +329,7 @@ interface PlacesPlace {
   location?: { latitude?: number; longitude?: number };
   websiteUri?: string;
   googleMapsUri?: string;
+  photos?: unknown[];
 }
 
 function placesKey(): string | null {
@@ -511,6 +514,8 @@ export async function extractMapsSignals(url: string): Promise<MapsSignals> {
       reviewUrl: place.id ? reviewUrlFor(place.id) : mapsUrl,
       mapsUrl: httpUrlOrNull(place.googleMapsUri) ?? mapsUrl,
       placesApiUsed: true,
+      placeId: place.id ?? parsed.placeId,
+      photoNames: rankPlacesPhotoNames(place.photos, placeName ?? parsed.name),
     };
   }
 
@@ -531,5 +536,6 @@ export async function extractMapsSignals(url: string): Promise<MapsSignals> {
         : null,
     mapsUrl,
     placesApiUsed: false,
+    placeId: parsed.placeId,
   };
 }

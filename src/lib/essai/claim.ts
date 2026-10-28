@@ -6,7 +6,7 @@ import { requirePlan, type BusinessBillingState } from "@/lib/billing";
 import { REVIEW_DEFAULT_DELAY, isValidReviewUrl } from "@/lib/google-review";
 import { findEssaiBusinessId } from "@/lib/essai/business";
 import { EssaiError, ESSAI_NOT_FOUND_ERROR } from "@/lib/essai/errors";
-import { loadEssai, updateEssaiMeta, type LoadedEssai } from "@/lib/essai/load";
+import { essaiCardType, loadEssai, updateEssaiMeta, type LoadedEssai } from "@/lib/essai/load";
 import type { EssaiCategory, EssaiClaimResponse } from "@/lib/essai/types";
 
 /**
@@ -21,8 +21,9 @@ import type { EssaiCategory, EssaiClaimResponse } from "@/lib/essai/types";
  *   compare-and-swap AVANT l'insert : deux requêtes simultanées ne peuvent pas
  *   créer deux copies.
  * - Gating identique à la création de carte (`requirePlan("extra_cards")`).
- * - La copie est propre : `design` sans la clé `essai`, logo recopié dans le
- *   dossier du commerce (la carte ne dépend plus des fichiers de la démo).
+ * - La copie est propre : `design` sans la clé `essai`, logo et photo de la
+ *   bande recopiés dans le dossier du commerce (la carte ne dépend plus des
+ *   fichiers de la démo), type de carte conservé (tampons, points, remise, VIP).
  * - Le commerce est complété s'il est encore « vierge » (logo, catégorie,
  *   nom générique) et l'onboarding est marqué terminé : le commerçant arrive
  *   directement sur SA carte.
@@ -125,22 +126,25 @@ function storagePathFromPublicUrl(url: string | null): string | null {
 }
 
 /**
- * Recopie le logo de la démo dans le dossier du commerce (même convention
- * que /api/upload). En cas d'échec on garde l'URL de la démo : la carte
- * reste fonctionnelle, simplement liée au fichier d'origine.
+ * Recopie une image de la démo (logo, photo de bande) dans le dossier du
+ * commerce (même convention que /api/upload). En cas d'échec on garde l'URL
+ * de la démo : la carte reste fonctionnelle, simplement liée au fichier
+ * d'origine.
  */
-async function copyLogo(
+async function copyAsset(
   admin: SupabaseClient,
-  logoUrl: string | null,
-  businessId: string
+  sourceUrl: string | null,
+  businessId: string,
+  folder: "logos" | "banners"
 ): Promise<{ url: string | null; path: string | null }> {
-  const from = storagePathFromPublicUrl(logoUrl);
-  if (!from) return { url: logoUrl, path: null };
-  const to = `${businessId}/logos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+  const from = storagePathFromPublicUrl(sourceUrl);
+  if (!from) return { url: sourceUrl, path: null };
+  const ext = /\.(png|jpe?g|webp)$/i.exec(from)?.[1]?.toLowerCase() ?? "png";
+  const to = `${businessId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await admin.storage.from(LOGO_BUCKET).copy(from, to);
   if (error) {
-    console.warn("[essai/claim] copie du logo impossible, URL de la démo conservée :", error.message);
-    return { url: logoUrl, path: null };
+    console.warn(`[essai/claim] copie ${folder} impossible, URL de la démo conservée :`, error.message);
+    return { url: sourceUrl, path: null };
   }
   const {
     data: { publicUrl },
@@ -254,13 +258,21 @@ export async function claimEssaiCard(args: {
     throw new EssaiError("Cette carte a déjà été gardée par un autre compte.", 409);
   }
 
-  // 4. Copie de la carte.
-  const source = loaded.card;
+  // 4. Copie de la carte. On relit l'essai APRÈS la réservation : une retouche
+  // concurrente a pu passer entre la première lecture et la réservation ; les
+  // suivantes échouent désormais (carte « gardée »), donc cet état est final.
+  const fresh = await loadEssai(args.token);
+  const source = fresh?.card ?? loaded.card;
   const design = Object.fromEntries(
     Object.entries(source.design).filter(([key]) => key !== "essai")
   ) as Record<string, unknown>;
-  const logo = await copyLogo(admin, source.design.logo_url, businessId);
+  const [logo, banner] = await Promise.all([
+    copyAsset(admin, source.design.logo_url, businessId, "logos"),
+    copyAsset(admin, source.design.banner_url ?? null, businessId, "banners"),
+  ]);
   design.logo_url = logo.url;
+  design.banner_url = banner.url;
+  const copiedPaths = [logo.path, banner.path].filter((p): p is string => Boolean(p));
 
   // Le lien d'avis trouvé à l'analyse est pré-rempli (désactivé) dans les
   // réglages « Demande d'avis Google » : le commerçant n'a qu'à l'activer.
@@ -281,7 +293,7 @@ export async function claimEssaiCard(args: {
     id: newCardId,
     business_id: businessId,
     name: source.name,
-    card_type: "stamp",
+    card_type: essaiCardType(source.card_type),
     status: "active",
     barcode_type: source.barcode_type ?? "qr",
     stamp_count: source.stamp_count,
@@ -301,9 +313,9 @@ export async function claimEssaiCard(args: {
     } catch (rollbackErr) {
       console.error("[essai/claim] annulation de la réservation échouée :", rollbackErr);
     }
-    if (logo.path) {
-      const { error: rmErr } = await admin.storage.from(LOGO_BUCKET).remove([logo.path]);
-      if (rmErr) console.error("[essai/claim] suppression du logo recopié échouée :", rmErr.message);
+    if (copiedPaths.length > 0) {
+      const { error: rmErr } = await admin.storage.from(LOGO_BUCKET).remove(copiedPaths);
+      if (rmErr) console.error("[essai/claim] suppression des images recopiées échouée :", rmErr.message);
     }
     throw new Error(`[essai/claim] insert de la copie : ${insertErr.message}`);
   }

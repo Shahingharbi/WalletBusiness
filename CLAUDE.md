@@ -85,7 +85,9 @@ Stack : Next.js 16 (App Router, Turbopack) + React 19 + Tailwind v4 + Supabase.
 - Générateur public : lien (site / Google Maps / Instagram) ou photo → vraie carte d'essai installable tout de suite. Extraction dans `lib/essai/brand/*` (orchestrateur `analyzeBrand`), création `lib/essai/create.ts`, démo `lib/essai/actions.ts`, « garder » `lib/essai/claim.ts`, contrat `lib/essai/types.ts`.
 - Cartes d'essai portées par le commerce interne slug `aswallet-essai` (exclu de /admin et du cron auto-push). Métadonnées dans `cards.design.essai` (retirées à la copie).
 - **Toute requête sortante vers une URL fournie par l'utilisateur passe par `lib/essai/brand/safe-fetch.ts`** (anti-SSRF). Ne jamais fetch instagram.com / facebook.com.
-- IA optionnelle (`ANTHROPIC_API_KEY`, modèle `claude-opus-5-5`), Places optionnel (`GOOGLE_PLACES_API_KEY`) : sans clé, tout se dégrade proprement.
+- IA = **Gemini** (`@google/genai`, `GEMINI_API_KEY`) avec relais entre 4 modèles (quota gratuit par minute très bas) ; Places (`GOOGLE_PLACES_API_KEY`) pour photos + lien d'avis. Sans clé : tout se dégrade sans message.
+- **Photo de bande obligatoire** (`brand/photo.ts`, repli photo de stock du métier). Types de carte Tampons / Points / Remise / VIP (`offerFor`). Retouches PATCH / media **réservées au créateur** (cookie `essai_k_<token>` ↔ `design.essai.edit_key_hash`). Jamais de message technique à l'utilisateur (`suggestions`).
+- Apple : « Bonjour » toujours à gauche, offre à droite (`buildApplePassFields`). Google : titre = type de carte, rangée Bonjour | offre via `classTemplateInfo` (sauf > 20 tampons). Affiche (`lib/poster.tsx`) : 1 page A4, QR → `/c/<cardId>`.
 - Rate-limit : 5 créations / min / IP, 15 actions / min.
 
 ## Gotchas Next.js 16

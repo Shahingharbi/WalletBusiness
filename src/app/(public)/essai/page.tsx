@@ -5,7 +5,7 @@ import { MAX_LINK_LENGTH } from "./link-kind";
 export const metadata: Metadata = {
   title: "Votre carte de fidélité en 30 secondes",
   description:
-    "Collez le lien de votre commerce ou prenez une photo de votre enseigne : votre carte de fidélité à vos couleurs, prête à ajouter dans Apple Wallet et Google Wallet. Sans inscription.",
+    "Collez le lien de votre commerce, ajoutez votre logo ou une photo : votre carte de fidélité à vos couleurs, prête à ajouter dans Apple Wallet et Google Wallet. Sans inscription.",
   alternates: { canonical: "/essai" },
 };
 
@@ -21,11 +21,14 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 
 /**
  * Générateur de carte d'essai.
- *  - `?url=…`      : lien collé depuis l'accueil → création lancée d'office ;
- *  - `?mode=photo` : arrivée par « prenez une photo » → import photo ouvert.
+ *  - `?url=…`         : lien collé depuis l'accueil → création lancée d'office
+ *                       (site / Google Maps ; un lien Instagram affiche
+ *                       d'abord le guide « capture du profil ») ;
+ *  - `?mode=photo`    : arrivée par « prenez une photo » → tuile photo en avant ;
+ *  - `?mode=capture`  : retour depuis une carte → tuile capture en avant.
  *
- * Les paramètres sont lus ici (serveur) plutôt qu'avec useSearchParams pour
- * que le formulaire soit rendu complet dès le HTML initial, sans Suspense.
+ * Paramètres lus côté serveur (pas de useSearchParams) : le formulaire est
+ * complet dès le HTML initial, sans Suspense.
  */
 export default async function EssaiPage({
   searchParams,
@@ -33,10 +36,9 @@ export default async function EssaiPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const initialUrl = (firstParam(params.url) ?? "")
-    .trim()
-    .slice(0, MAX_LINK_LENGTH);
-  const initialPhotoMode = firstParam(params.mode) === "photo";
+  const initialUrl = (firstParam(params.url) ?? "").trim().slice(0, MAX_LINK_LENGTH);
+  const mode = firstParam(params.mode);
+  const initialMode = mode === "photo" || mode === "capture" ? mode : null;
 
-  return <EssaiForm initialUrl={initialUrl} initialPhotoMode={initialPhotoMode} />;
+  return <EssaiForm initialUrl={initialUrl} initialMode={initialMode} />;
 }

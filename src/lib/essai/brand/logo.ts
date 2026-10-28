@@ -6,6 +6,11 @@
  *    logo (minuscule, vide, photo) et normalise le meilleur.
  *  - `logoFromImage(image, box)` : logo tiré d'une image envoyée (photo,
  *    capture Instagram) — recadré sur `box` si l'IA l'a localisé.
+ *  - `logoFromUpload(image)` : logo déposé — TOUTE image acceptée, badge 512 ;
+ *  - `logoFromAvatar(image, box)` : photo de profil ronde d'une capture
+ *    Instagram / Facebook → badge propre (masque rond, sans l'interface) ;
+ *  - `googleFaviconCandidate(host)` : icône via le service de Google, pour les
+ *    sites qui bloquent les robots ;
  *  - `typographicLogo(name, colors)` : initiales sur badge arrondi, quand
  *    aucun vrai logo n'est exploitable.
  *
@@ -24,8 +29,8 @@ import { createElement } from "react";
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { getIconPath } from "@/lib/stamp-render";
-import type { BrandColors, BrandLogo, LogoCandidate } from "../types";
-import { contrastRatio, isHexColor, paletteFromRgba } from "./colors";
+import type { BrandColors, BrandLogo, LogoCandidate, UploadedImage } from "../types";
+import { contrastRatio, deltaE, isHexColor, paletteFromRgba } from "./colors";
 import { safeFetch } from "./safe-fetch";
 
 // ─── Réglages ─────────────────────────────────────────────────────────────
@@ -665,6 +670,226 @@ export async function logoFromImage(
   box?: { x: number; y: number; w: number; h: number } | null,
 ): Promise<BrandLogo | null> {
   return (await logoFromImageWithSource(image, box))?.logo ?? null;
+}
+
+// ─── Logo déposé ──────────────────────────────────────────────────────────
+
+/** Image déposée illisible (format inconnu, fichier corrompu). Message affichable. */
+export class LogoReadError extends Error {
+  constructor() {
+    super("Ce logo n'a pas pu être lu. Essayez avec une autre image (PNG ou JPG).");
+    this.name = "LogoReadError";
+  }
+}
+
+/** Carré centré aux coins arrondis (photo, avatar, image sans fond uni). */
+async function squareBadge(r: Raster): Promise<PreparedLogo> {
+  const square = await sharp(r.data, rawInput(r))
+    .resize(SIZE, SIZE, { fit: "cover", position: "centre", kernel: "lanczos3" })
+    .png()
+    .toBuffer();
+  const png = await sharp(square)
+    .composite([{ input: roundedRectSvg("#ffffff"), blend: "dest-in" }])
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
+    .toBuffer();
+  return { logo: { png, width: SIZE, height: SIZE, kind: "real" }, source: square };
+}
+
+/**
+ * Logo déposé par le commerçant : TOUTE image est acceptée et normalisée en
+ * badge 512×512 (logo détouré → badge contrasté ; logo sur fond uni →
+ * recentré sur son fond ; photo / avatar → carré arrondi). Variante qui
+ * renvoie aussi la source (palette). Lève `LogoReadError` si illisible.
+ */
+export async function logoFromUploadWithSource(image: UploadedImage): Promise<PreparedLogo> {
+  const decoded = image?.buffer?.length ? await decodeImage(image.buffer, 2048) : null;
+  if (!decoded) throw new LogoReadError();
+  try {
+    const result = await normalize(decoded, { strict: false });
+    if (result) return { logo: result.logo, source: result.source };
+  } catch (err) {
+    console.warn("[essai/logo] logo déposé, normalisation de repli:", err instanceof Error ? err.message : err);
+  }
+  // Image unie, ou quasi transparente : on la montre telle quelle.
+  return squareBadge(decoded.raster);
+}
+
+/** Logo déposé → badge 512×512 (voir `logoFromUploadWithSource`). */
+export async function logoFromUpload(image: UploadedImage): Promise<BrandLogo> {
+  return (await logoFromUploadWithSource(image)).logo;
+}
+
+// ─── Photo de profil (capture Instagram / Facebook) ───────────────────────
+
+type Rgb = [number, number, number];
+
+function pixel(r: Raster, x: number, y: number): Rgb {
+  const i = (Math.min(r.height - 1, Math.max(0, y)) * r.width + Math.min(r.width - 1, Math.max(0, x))) * 4;
+  return [r.data[i], r.data[i + 1], r.data[i + 2]];
+}
+
+function near(a: Rgb, b: Rgb, tol: number): boolean {
+  return Math.abs(a[0] - b[0]) <= tol && Math.abs(a[1] - b[1]) <= tol && Math.abs(a[2] - b[2]) <= tol;
+}
+
+function toHex([r, g, b]: Rgb): string {
+  return `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * Couleur dominante d'un anneau (rayons rMin..rMax) si elle est uniforme
+ * (≥ 80 % des pixels à ±36 par canal) — fond d'un logo dans son avatar rond.
+ */
+function uniformRingColor(r: Raster, cx: number, cy: number, rMin: number, rMax: number): string | null {
+  const samples: Rgb[] = [];
+  for (let k = 0; k < 4; k++) {
+    const rad = rMin + ((rMax - rMin) * k) / 3;
+    for (let a = 0; a < 96; a++) {
+      const t = (a / 96) * Math.PI * 2;
+      samples.push(pixel(r, Math.round(cx + rad * Math.cos(t)), Math.round(cy + rad * Math.sin(t))));
+    }
+  }
+  const bins = new Map<number, Rgb[]>();
+  for (const s of samples) {
+    const key = ((s[0] >> 5) << 6) | ((s[1] >> 5) << 3) | (s[2] >> 5);
+    const list = bins.get(key) ?? [];
+    list.push(s);
+    bins.set(key, list);
+  }
+  const mode = [...bins.values()].sort((a, b) => b.length - a.length)[0];
+  if (!mode) return null;
+  const ref: Rgb = [0, 1, 2].map((c) => mode.reduce((sum, p) => sum + p[c], 0) / mode.length) as Rgb;
+  const close = samples.filter((s) => near(s, ref, 36));
+  if (close.length < samples.length * 0.8) return null;
+  return toHex([0, 1, 2].map((c) => close.reduce((sum, p) => sum + p[c], 0) / close.length) as Rgb);
+}
+
+/**
+ * Photo de profil ronde repérée (par l'IA) sur une capture d'écran → badge
+ * propre, sans un pixel de l'interface autour :
+ *  1. on resserre la zone sur le disque (pixels ≠ fond de l'interface) ;
+ *  2. avatar « logo sur fond uni » → disque posé sur une tuile de SA couleur
+ *     de fond (raccord invisible, rendu « icône d'app ») ;
+ *  3. avatar photo → carré inscrit dans le disque, coins arrondis.
+ * Le contour extérieur (anneau de story, liseré) est toujours écarté.
+ */
+export async function logoFromAvatar(
+  image: Buffer,
+  box: { x: number; y: number; w: number; h: number },
+): Promise<PreparedLogo | null> {
+  try {
+    if (![box.x, box.y, box.w, box.h].every((v) => Number.isFinite(v)) || box.w <= 0 || box.h <= 0) return null;
+    const decoded = await decodeImage(image, 2048);
+    if (!decoded) return null;
+    const full = decoded.raster;
+
+    // Zone de l'IA + 8 % de marge, en pixels.
+    const mx = box.w * 0.08;
+    const my = box.h * 0.08;
+    const left = Math.max(0, Math.round((box.x - mx) * full.width));
+    const top = Math.max(0, Math.round((box.y - my) * full.height));
+    const right = Math.min(full.width, Math.round((box.x + box.w + mx) * full.width));
+    const bottom = Math.min(full.height, Math.round((box.y + box.h + my) * full.height));
+    if (right - left < 32 || bottom - top < 32) return null;
+    const { data, info } = await sharp(full.data, rawInput(full))
+      .extract({ left, top, width: right - left, height: bottom - top })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const r: Raster = { data, width: info.width, height: info.height };
+
+    // 1. Disque : boîte des pixels différents du fond de l'interface (coins).
+    let cx = r.width / 2;
+    let cy = r.height / 2;
+    let radius = Math.min(r.width, r.height) / 2;
+    const corners = [pixel(r, 1, 1), pixel(r, r.width - 2, 1), pixel(r, 1, r.height - 2), pixel(r, r.width - 2, r.height - 2)];
+    const ui = corners[0];
+    if (corners.every((c) => near(c, ui, 24))) {
+      let minX = r.width;
+      let minY = r.height;
+      let maxX = -1;
+      let maxY = -1;
+      for (let y = 0; y < r.height; y++) {
+        for (let x = 0; x < r.width; x++) {
+          if (!near(pixel(r, x, y), ui, 40)) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      const bw = maxX - minX + 1;
+      const bh = maxY - minY + 1;
+      const minSide = Math.min(r.width, r.height);
+      if (maxX >= 0 && bw / bh > 0.8 && bw / bh < 1.25 && Math.min(bw, bh) >= minSide * 0.55) {
+        cx = minX + bw / 2;
+        cy = minY + bh / 2;
+        radius = Math.min(bw, bh) / 2;
+      }
+    }
+
+    // 2. Intérieur du disque. Fond uni jusqu'au bord → on garde presque tout
+    //    le disque (un texte proche du bord reste entier) ; sinon on écarte
+    //    l'anneau de story et son liseré blanc (~16 % extérieurs).
+    const fill = uniformRingColor(r, cx, cy, radius * 0.74, radius * 0.86);
+    const edge = fill ? uniformRingColor(r, cx, cy, radius * 0.93, radius * 0.96) : null;
+    const innerFactor = fill && edge && deltaE(fill, edge) < 10 ? 0.97 : 0.84;
+    const inner = radius * innerFactor;
+    const sq = Math.max(8, Math.floor(inner * 2));
+    const sx = Math.max(0, Math.min(r.width - sq, Math.round(cx - inner)));
+    const sy = Math.max(0, Math.min(r.height - sq, Math.round(cy - inner)));
+    const side = Math.min(sq, r.width - sx, r.height - sy);
+    const disc = await sharp(r.data, rawInput(r))
+      .extract({ left: sx, top: sy, width: side, height: side })
+      .resize(SIZE, SIZE, { fit: "fill", kernel: "lanczos3" })
+      .png()
+      .toBuffer();
+    const circleMask = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}"><circle cx="${SIZE / 2}" cy="${SIZE / 2}" r="${SIZE / 2}" fill="#fff"/></svg>`,
+    );
+    const source = await sharp(disc).composite([{ input: circleMask, blend: "dest-in" }]).png().toBuffer();
+
+    let png: Buffer;
+    if (fill) {
+      // Logo sur fond uni : disque sur une tuile de la même couleur.
+      png = await sharp(roundedRectSvg(fill))
+        .composite([{ input: source, left: 0, top: 0 }])
+        .png({ compressionLevel: 9, adaptiveFiltering: true })
+        .toBuffer();
+    } else {
+      // Avatar photo : carré inscrit (74 % du diamètre), coins arrondis.
+      const cut = Math.round(SIZE * (0.74 / innerFactor));
+      const off = Math.round((SIZE - cut) / 2);
+      png = await sharp(disc)
+        .extract({ left: off, top: off, width: cut, height: cut })
+        .resize(SIZE, SIZE, { kernel: "lanczos3" })
+        .composite([{ input: roundedRectSvg("#ffffff"), blend: "dest-in" }])
+        .png({ compressionLevel: 9, adaptiveFiltering: true })
+        .toBuffer();
+    }
+    return { logo: { png, width: SIZE, height: SIZE, kind: "real" }, source };
+  } catch (err) {
+    console.warn("[essai/logo] photo de profil inexploitable:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ─── Favicon via Google (sites qui bloquent les robots) ───────────────────
+
+/**
+ * Icône du site servie par le service public de Google (il la met en cache
+ * de son côté, même quand le site nous refuse en 403). Si Google n'a rien,
+ * il répond 404 avec un globe générique 16 px : rejeté par logo.ts (erreur
+ * HTTP, puis taille minimale de 48 px).
+ */
+export function googleFaviconCandidate(hostname: string): LogoCandidate | null {
+  const host = (hostname ?? "").trim().toLowerCase().replace(/\.$/, "");
+  if (!host || !host.includes(".") || /^[\d.]+$/.test(host) || host.includes(":")) return null;
+  return {
+    url: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=256`,
+    kind: "favicon",
+    size: 256,
+  };
 }
 
 // ─── Logo typographique ───────────────────────────────────────────────────

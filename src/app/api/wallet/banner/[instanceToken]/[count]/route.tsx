@@ -114,7 +114,7 @@ async function prefetchAsDataUri(
 
   // 2. Si SVG, on l'embed tel quel (sharp peut rasteriser mais c'est risqué
   //    sur les SVG avec polices externes — Satori gère le SVG en data URI).
-  const head = buf.slice(0, Math.min(buf.length, 64)).toString("utf8");
+  const head = buf.subarray(0, Math.min(buf.length, 64)).toString("utf8");
   if (head.trim().startsWith("<?xml") || head.includes("<svg")) {
     return `data:image/svg+xml;base64,${buf.toString("base64")}`;
   }
@@ -192,6 +192,10 @@ export async function GET(
     // (stamp/cashback) ou juste la bannière+icône (discount/membership).
     // Apple/Google passent ce param via apple-wallet.ts::fetchStrip et
     // google-wallet.ts::bannerUri.
+    //
+    // `?v=` (version du design, cf. bannerVersionOf) est volontairement
+    // ignoré ici : il ne sert qu'à changer l'URL (cache Apple / Google / CDN)
+    // quand la photo, les couleurs ou les tampons changent.
     const kindParam = new URL(request.url).searchParams.get("kind");
     const cardKind: "stamp" | "cashback" | "discount" | "membership" =
       kindParam === "cashback" ||
@@ -339,7 +343,9 @@ export async function GET(
             position: "relative",
           }}
         >
-          {/* Overlay : sombre si photo (lisibilité), discret sinon */}
+          {/* Voile sur la photo : assez sombre sous la grille pour que les
+              tampons ressortent, très léger sans grille (remise / VIP) pour
+              laisser la photo plein cadre respirer. */}
           {bannerUrl && (
             <div
               style={{
@@ -349,8 +355,9 @@ export async function GET(
                 right: 0,
                 bottom: 0,
                 display: "flex",
-                backgroundImage:
-                  "linear-gradient(135deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.45) 100%)",
+                backgroundImage: showStampsGrid
+                  ? "linear-gradient(135deg, rgba(0,0,0,0.26) 0%, rgba(0,0,0,0.42) 100%)"
+                  : "linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.22) 100%)",
               }}
             />
           )}
@@ -502,8 +509,6 @@ function renderStamp(p: StampProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          // Ombre portée prononcée pour donner un effet "validé / scellé".
-          filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.28))",
         }}
       >
         <svg
@@ -512,6 +517,10 @@ function renderStamp(p: StampProps) {
           viewBox="0 0 24 24"
           style={{ display: "flex" }}
         >
+          {/* Ombre portée DANS le SVG (forme décalée) : un `filter:
+              drop-shadow` CSS sur le conteneur était rendu par Satori comme
+              un carré sombre autour du tampon, très visible sur photo. */}
+          <path d={shapePath} fill="#000000" fillOpacity={0.3} transform="translate(0 0.75)" />
           <path
             d={shapePath}
             fill={p.accent}
@@ -538,7 +547,6 @@ function renderStamp(p: StampProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.18))",
       }}
     >
       <svg
@@ -547,6 +555,7 @@ function renderStamp(p: StampProps) {
         viewBox="0 0 24 24"
         style={{ display: "flex" }}
       >
+        <path d={shapePath} fill="#000000" fillOpacity={0.2} transform="translate(0 0.5)" />
         <path
           d={shapePath}
           fill="#ffffff"

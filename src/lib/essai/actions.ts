@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isCounterKind, normalizeCardKind } from "@/lib/apple-wallet";
 import { syncLoyaltyObject } from "@/lib/google-wallet";
 import { pushAppleWalletUpdate } from "@/lib/apple-wallet-push";
 import {
@@ -212,6 +213,9 @@ export async function runEssaiAction(
   const admin = createAdminClient();
   const { card, instance } = loaded;
   const labelStamps = card.design.label_stamps || null;
+  const kind = normalizeCardKind(card.card_type);
+  // Bande versionnée : même URL que l'aperçu et que le pass installé.
+  const bannerVersion = loaded.meta.design_version;
   const url = appUrl();
 
   let stamps = instance.stamps_collected;
@@ -220,6 +224,11 @@ export async function runEssaiAction(
   let pushes: Promise<unknown>[];
 
   if (type === "stamp") {
+    // Remise / Carte VIP : pas de compteur sur la carte (l'interface ne
+    // propose pas le tampon pour ces types).
+    if (!isCounterKind(kind)) {
+      throw new EssaiError("Cette carte n'a pas de tampons : essayez plutôt une promo.", 422);
+    }
     ({ stamps, rewards } = await addStamp(admin, loaded));
     // Tampon = mise à jour silencieuse (comme un vrai passage en caisse).
     pushes = [
@@ -231,7 +240,8 @@ export async function runEssaiAction(
         undefined,
         card.stamp_count,
         labelStamps,
-        "stamp"
+        kind,
+        { bannerVersion }
       ),
       pushAppleWalletUpdate(instance.token),
     ];
@@ -265,8 +275,8 @@ export async function runEssaiAction(
         message,
         card.stamp_count,
         labelStamps,
-        "stamp",
-        { header, notify: true, links }
+        kind,
+        { header, notify: true, links, bannerVersion }
       ),
       pushAppleWalletUpdate(instance.token),
     ];

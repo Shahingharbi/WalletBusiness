@@ -4,14 +4,10 @@
  * les robots de toute façon — cf. safe-fetch.ts qui refuse ce domaine).
  *
  * Le logo et les couleurs exactes viennent alors d'une capture d'écran du
- * profil (analysée par l'IA / logo.ts) : d'où le message d'aide exporté.
+ * profil (analysée par l'IA / logo.ts). Même principe pour Facebook.
  */
 
 import { clampName, humanizeSlug } from "@/lib/essai/brand/category";
-
-/** À ajouter aux `warnings` du profil quand la source est un lien Instagram sans image. */
-export const INSTAGRAM_SCREENSHOT_WARNING =
-  "Pour récupérer le logo et les couleurs exactes d'Instagram, ajoutez une capture d'écran du profil.";
 
 const INSTAGRAM_HOSTS = new Set(["instagram.com", "www.instagram.com", "m.instagram.com", "instagr.am", "www.instagr.am"]);
 
@@ -100,4 +96,52 @@ export function parseInstagram(url: string): { handle: string; nameGuess: string
   // Un pseudo ne peut ni commencer ni finir par un point, ni en contenir deux d'affilée.
   if (!HANDLE_RE.test(handle) || /^\.|\.$|\.\./.test(handle)) return null;
   return { handle, nameGuess: guessNameFromHandle(handle) };
+}
+
+// ─── Facebook (même principe : jamais récupéré, seul le lien est lu) ──────
+
+const FACEBOOK_HOSTS = /^(?:(?:www|m|mobile|web|business|fr-fr|fr)\.)?(?:facebook\.com|fb\.com|fb\.me)$/i;
+
+/** Segments de chemin Facebook qui ne désignent pas une page de commerce. */
+const FACEBOOK_RESERVED = new Set([
+  "profile.php", "groups", "events", "watch", "marketplace", "share", "sharer", "sharer.php",
+  "photo", "photo.php", "photos", "story.php", "permalink.php", "reel", "reels", "login",
+  "login.php", "help", "policies", "privacy", "gaming", "hashtag", "search", "home.php",
+  "settings", "messages", "notifications", "bookmarks", "stories", "l.php", "dialog", "plugins",
+]);
+
+/** `true` pour un lien facebook.com / fb.com / fb.me. */
+export function isFacebookUrl(url: string): boolean {
+  const u = parseUrl(url);
+  return Boolean(u && FACEBOOK_HOSTS.test(u.hostname));
+}
+
+/**
+ * Nom probable d'une page Facebook à partir de son lien :
+ * `facebook.com/BoulangerieDupont` → « Boulangerie Dupont » ;
+ * `/p/Chez-Ali-100063…/`, `/people/Chez-Ali/100…/`, `/pages/Chez-Ali/123…` → « Chez Ali ».
+ * null pour un lien sans nom (profile.php?id=…, publication, groupe…).
+ */
+export function parseFacebook(url: string): { handle: string; nameGuess: string } | null {
+  const u = parseUrl(url);
+  if (!u || !FACEBOOK_HOSTS.test(u.hostname)) return null;
+  const segments = u.pathname
+    .split("/")
+    .map((s) => {
+      try {
+        return decodeURIComponent(s).trim();
+      } catch {
+        return "";
+      }
+    })
+    .filter(Boolean);
+  if (segments.length === 0) return null;
+  let raw = segments[0];
+  if (["p", "people", "pages", "pg"].includes(raw.toLowerCase())) raw = segments[1] ?? "";
+  if (!raw || FACEBOOK_RESERVED.has(raw.toLowerCase())) return null;
+  // « Chez-Ali-100063512345678 » : l'identifiant numérique final n'est pas le nom.
+  const handle = raw.replace(/[-.]?\d{6,}$/, "");
+  if (!/^[\p{L}\p{N}._-]{2,80}$/u.test(handle)) return null;
+  const guess = humanizeSlug(handle.replace(/-/g, "_"));
+  return guess ? { handle, nameGuess: clampName(guess) } : null;
 }

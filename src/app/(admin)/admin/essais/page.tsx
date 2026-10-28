@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findEssaiBusinessId } from "@/lib/essai/business";
 import { essaiExpiry, parseEssaiMeta } from "@/lib/essai/load";
+import { ESSAI_CARD_TYPE_LABELS } from "@/lib/essai/types";
 import type { EssaiCategory, EssaiMeta, EssaiSource } from "@/lib/essai/types";
 
 /**
@@ -436,11 +437,9 @@ function Brand({ row }: { row: EssaiRow }) {
         <p className="text-[11px] text-muted-foreground">
           {formatDate(row.createdAt)}
           {row.meta.logo_kind === "typographic" && " · logo généré"}
-          {row.meta.warnings.length > 0 && (
-            <span title={row.meta.warnings.join("\n")}>
-              {" "}
-              · {row.meta.warnings.length} avert.
-            </span>
+          {row.meta.photo_source === "stock" && " · photo du métier"}
+          {row.meta.card_type && row.meta.card_type !== "stamp" && (
+            <> · {ESSAI_CARD_TYPE_LABELS[row.meta.card_type]}</>
           )}
         </p>
       </div>

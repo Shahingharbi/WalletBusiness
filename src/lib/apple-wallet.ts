@@ -1,4 +1,4 @@
-import { PKPass } from "passkit-generator";
+import { PKPass, type Field } from "passkit-generator";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -25,6 +25,61 @@ export type CardKind =
   | "cashback"
   | "discount"
   | "membership";
+
+/** `cards.card_type` (texte libre en DB) → type rendu par les wallets. */
+export function normalizeCardKind(value: unknown): CardKind {
+  return value === "cashback" || value === "discount" || value === "membership"
+    ? value
+    : "stamp";
+}
+
+/** Types avec compteur « X / Y » (les autres : avantage permanent, pas de grille). */
+export function isCounterKind(kind: CardKind): boolean {
+  return kind === "stamp" || kind === "cashback";
+}
+
+/**
+ * Version de la bande (strip Apple / heroImage Google) d'une carte, ajoutée
+ * en `?v=` à l'URL de /api/wallet/banner : quand le design change (photo,
+ * couleurs, tampons), l'URL change et Apple / Google / les CDN ne peuvent
+ * plus servir l'ancienne image.
+ *
+ *  - carte d'essai : `design.essai.design_version` (incrémenté à chaque retouche) ;
+ *  - autre carte   : empreinte courte des champs du design qui changent l'image.
+ */
+export function bannerVersionOf(design: Record<string, unknown> | null | undefined): string {
+  const d = design ?? {};
+  const essai = d.essai as { design_version?: unknown } | null | undefined;
+  const v = Number(essai?.design_version);
+  if (Number.isFinite(v) && v > 0) return String(Math.floor(v));
+  const material = [
+    d.banner_url,
+    d.background_color,
+    d.accent_color,
+    d.stamp_icon,
+    d.stamp_shape,
+    d.stamp_active_url,
+    d.stamp_inactive_url,
+  ]
+    .map((x) => (typeof x === "string" ? x : ""))
+    .join("|");
+  return crypto.createHash("sha1").update(material).digest("hex").slice(0, 8);
+}
+
+/**
+ * Chemin (relatif) de la bande dynamique photo + tampons d'une carte client.
+ * Même image pour Apple (strip), Google (heroImage) et l'aperçu du site.
+ */
+export function walletBannerPath(
+  token: string,
+  stamps: number,
+  kind: CardKind,
+  version?: string | number | null,
+): string {
+  const count = Math.max(0, Math.floor(Number(stamps) || 0));
+  const v = version === null || version === undefined || version === "" ? "" : `&v=${encodeURIComponent(String(version))}`;
+  return `/api/wallet/banner/${encodeURIComponent(token)}/${count}?kind=${kind}${v}`;
+}
 
 interface ApplePassParams {
   cardId: string;
@@ -85,11 +140,23 @@ interface ApplePassParams {
    */
   lastCampaignAt?: string | null;
   /**
+   * La carte a-t-elle une photo de bande (design.banner_url) ? `false` pour
+   * une carte Remise / VIP sans photo : pas de bande (elle serait vide, sans
+   * tampons) et l'offre courte reprend sa place en grand (primaryFields).
+   * Absent = considéré comme présent (comportement par défaut).
+   */
+  hasBanner?: boolean;
+  /**
    * Lien vers le formulaire d'avis Google du commerce (demande d'avis
    * activée sur la carte). Affiché au verso — iOS rend les URLs des
    * backFields cliquables.
    */
   googleReviewUrl?: string | null;
+  /**
+   * Version de la bande (cf. {@link bannerVersionOf}) : casse le cache de
+   * l'image quand le design change sans que le nombre de tampons change.
+   */
+  bannerVersion?: string | number | null;
 }
 
 const TEAM_ID = process.env.APPLE_TEAM_ID ?? "";
@@ -261,11 +328,13 @@ async function fetchStrip(
   token: string,
   count: number,
   kind: CardKind,
+  version?: string | number | null,
 ): Promise<{ "strip.png"?: Buffer; "strip@2x.png"?: Buffer; "strip@3x.png"?: Buffer }> {
   // Le banner endpoint peut rendre différemment selon le type :
-  // - stamp/cashback : grille de tampons
-  // - discount/membership : juste la bannière avec overlay icône
-  const url = `${appUrl}/api/wallet/banner/${token}/${count}?kind=${kind}`;
+  // - stamp/cashback : photo + grille de tampons
+  // - discount/membership : photo seule (pas de compteur)
+  // `v` : la bande change d'URL quand le design change (cache CDN contourné).
+  const url = `${appUrl.replace(/\/$/, "")}${walletBannerPath(token, count, kind, version)}`;
   try {
     // 4s timeout — si l'endpoint plante, on génère le pass sans strip plutôt que d'échouer.
     const ctrl = new AbortController();
@@ -288,6 +357,159 @@ async function fetchStrip(
   }
 }
 
+/** Prénom affiché « Bonjour <prénom> » : 1er mot, borné (la rangée est partagée). */
+function greetingName(raw: string | null | undefined): string {
+  const first = (raw ?? "").replace(/\s+/g, " ").trim().split(" ")[0] ?? "";
+  return first.length > 16 ? `${first.slice(0, 15)}…` : first;
+}
+
+export interface ApplePassFields {
+  headerFields: Field[];
+  primaryFields: Field[];
+  secondaryFields: Field[];
+  auxiliaryFields: Field[];
+  backFields: Field[];
+}
+
+/**
+ * Champs du pass (storeCard), communs à TOUTES les cartes :
+ *
+ *   en-tête   : logo + nom du commerce (logoText) … « TAMPONS 2 / 10 » à droite
+ *               (stamp / cashback uniquement — pas de compteur pour remise / VIP)
+ *   bande     : strip.png (photo + grille de tampons), AUCUN champ par-dessus
+ *   rangée    : « BONJOUR Shahin » TOUJOURS à gauche · « NOTRE OFFRE … » à droite
+ *               (sans prénom : l'offre seule)
+ *   QR        : « Propulsé par aswallet »
+ *
+ * Pure (aucun réseau / certificat) : testable sans les clés Apple.
+ */
+export function buildApplePassFields(
+  p: Pick<
+    ApplePassParams,
+    | "cardId"
+    | "cardName"
+    | "cardKind"
+    | "customerInstanceToken"
+    | "customerFirstName"
+    | "stampsCollected"
+    | "stampsTotal"
+    | "rewardText"
+    | "appUrl"
+    | "stampsLabel"
+    | "lastCampaignMessage"
+    | "lastCampaignAt"
+    | "googleReviewUrl"
+    | "hasBanner"
+  >,
+): ApplePassFields {
+  const kind = normalizeCardKind(p.cardKind);
+  const headerFields: Field[] = [];
+  const primaryFields: Field[] = [];
+  const secondaryFields: Field[] = [];
+  const backFields: Field[] = [];
+
+  // Compteur "X / Y" UNIQUEMENT pour stamp/cashback. Avant ce check, les
+  // cartes Discount/Membership affichaient "Tampons 0/8" ce qui n'avait
+  // aucun sens (Membership = pas de compteur, Discount = avantage permanent).
+  if (isCounterKind(kind)) {
+    headerFields.push({
+      key: "points",
+      // Pour cashback, le label par défaut est "Visites" plutôt que "Tampons".
+      label: shortLabel(p.stampsLabel, kind === "cashback" ? "Visites" : "Tampons", 14),
+      value: `${p.stampsCollected} / ${p.stampsTotal}`,
+      textAlignment: "PKTextAlignmentRight",
+    });
+  }
+
+  // Rangée sous la bande : « Bonjour <prénom> » à GAUCHE puis l'offre à
+  // DROITE, dans cet ordre, sur la même rangée (secondaryFields). Plus rien
+  // en primaryFields : sur une storeCard ils se posent PAR-DESSUS la bande et
+  // masquaient la photo / les tampons. L'offre complète est aussi au verso.
+  // Espaces normalisés, insécables conservés (« −10 % » ne se coupe pas).
+  const reward = (p.rewardText ?? "").replace(/[^\S  ]+/g, " ").trim();
+  const firstName = greetingName(p.customerFirstName);
+  if (firstName) {
+    secondaryFields.push({
+      key: "card",
+      label: "Bonjour",
+      value: firstName,
+      textAlignment: "PKTextAlignmentLeft",
+    });
+  }
+  // Remise / VIP sans photo : il n'y a pas de bande, l'offre courte (≤ 18
+  // car.) s'affiche en grand comme avant la refonte.
+  const offerAsPrimary =
+    !isCounterKind(kind) && p.hasBanner === false && reward.length > 0 && reward.length <= 18;
+  if (offerAsPrimary) {
+    primaryFields.push({ key: "offer", label: "Notre offre", value: reward });
+  } else if (reward) {
+    secondaryFields.push({
+      key: "offer",
+      label: "Notre offre",
+      value: reward,
+      textAlignment: firstName ? "PKTextAlignmentRight" : "PKTextAlignmentLeft",
+    });
+  }
+
+  backFields.push(
+    { key: "card-name", label: "Carte", value: p.cardName },
+    { key: "reward-text", label: "Récompense", value: p.rewardText },
+  );
+
+  // Field "Annonce" — déclenche la notif lockscreen iOS avec le contenu du
+  // message. Placé en TÊTE des backFields (juste après les infos carte de
+  // base) pour qu'il soit visible immédiatement au verso. `changeMessage`
+  // = "%@" signifie : quand la value de ce field change vs le pass local,
+  // iOS affiche EXACTEMENT cette value en notification riche.
+  //
+  // IMPORTANT : le field DOIT exister dans TOUS les passes (avec value vide
+  // ou message par défaut) sinon iOS ne peut pas comparer "old vs new" et
+  // n'affichera pas la notif. C'est pourquoi on insère le field même quand
+  // lastCampaignMessage est null/vide — avec une value placeholder discrète.
+  const announcementMessage = (p.lastCampaignMessage ?? "").trim();
+  const announcementValue =
+    announcementMessage.length > 0 ? announcementMessage : "Aucune annonce pour le moment.";
+  const announcementLabel = (() => {
+    if (!p.lastCampaignAt) return "Annonce";
+    try {
+      const d = new Date(p.lastCampaignAt);
+      const formatted = new Intl.DateTimeFormat("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(d);
+      return `Annonce du ${formatted}`;
+    } catch {
+      return "Annonce";
+    }
+  })();
+  backFields.push({
+    key: "announcement",
+    label: announcementLabel,
+    value: announcementValue,
+    changeMessage: "%@",
+  });
+
+  if (p.googleReviewUrl) {
+    backFields.push({
+      key: "google-review",
+      label: "Laissez-nous un avis Google ⭐",
+      value: p.googleReviewUrl,
+    });
+  }
+
+  backFields.push(
+    {
+      key: "view-online",
+      label: "Voir ma carte en ligne",
+      value: `${p.appUrl}/c/${p.cardId}/status/${p.customerInstanceToken}`,
+    },
+    { key: "support", label: "Support", value: "contact@aswallet.fr" },
+  );
+
+  return { headerFields, primaryFields, secondaryFields, auxiliaryFields: [], backFields };
+}
+
 export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffer> {
   if (!isAppleWalletConfigured()) {
     throw new Error("Apple Wallet not configured");
@@ -299,10 +521,14 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   void p.rewardsAvailable;
 
   // Parallel fetch : merchant logo + strip image (gain de temps).
-  const passKind: CardKind = (p.cardKind as CardKind) ?? "stamp";
+  const passKind = normalizeCardKind(p.cardKind);
+  // Remise / VIP sans photo : pas de strip (l'image serait entièrement vide).
+  const withStrip = isCounterKind(passKind) || p.hasBanner !== false;
   const [merchantLogo, stripBuffers] = await Promise.all([
     fetchMerchantLogo(p.logoUrl),
-    fetchStrip(p.appUrl, p.customerInstanceToken, p.stampsCollected, passKind),
+    withStrip
+      ? fetchStrip(p.appUrl, p.customerInstanceToken, p.stampsCollected, passKind, p.bannerVersion)
+      : Promise.resolve({}),
   ]);
   // Order matters: defaults first, merchant logo overrides them, strip last.
   const buffers = { ...loadIconBuffers(), ...merchantLogo, ...stripBuffers };
@@ -399,155 +625,16 @@ export async function generateApplePassBuffer(p: ApplePassParams): Promise<Buffe
   );
 
   // Type "storeCard" = carte de fidélité Apple Wallet (avec strip image visuelle).
-  // Le rendu s'adapte au type de carte :
-  //  - stamp / cashback : headerField "X / Y" + strip image avec grille
-  //  - discount / membership : pas de compteur, juste l'offre en grand
+  // Champs construits par buildApplePassFields (ordre et règles communs à
+  // toutes les cartes, testables sans certificat).
   pass.type = "storeCard";
 
-  const kind: CardKind = (p.cardKind as CardKind) ?? "stamp";
-  const isCounter = kind === "stamp" || kind === "cashback";
-
-  // Compteur "X / Y" UNIQUEMENT pour stamp/cashback. Avant ce check, les
-  // cartes Discount/Membership affichaient "Tampons 0/8" ce qui n'avait
-  // aucun sens (Membership = pas de compteur, Discount = avantage permanent).
-  if (isCounter) {
-    pass.headerFields.push({
-      key: "points",
-      // Pour cashback, le label par défaut est "Visites" plutôt que "Tampons".
-      label: shortLabel(
-        p.stampsLabel,
-        kind === "cashback" ? "Visites" : "Tampons",
-        14,
-      ),
-      value: `${p.stampsCollected} / ${p.stampsTotal}`,
-    });
-  }
-
-  // Récompense : un SEUL champ "Notre offre" dont la taille s'adapte.
-  // Apple rend chaque slot à une taille différente (primary > secondary >
-  // auxiliary) → en plaçant l'offre dans le slot le plus haut quand elle est
-  // courte, on la rend automatiquement plus grosse sans CSS.
-  //
-  //   ≤ 18 chars  → primaryFields  → texte ÉNORME ("Café offert")
-  //   19 → 32     → secondaryFields → texte moyen ("9 cafés = 1 offert")
-  //   33 +        → auxiliaryFields → petit (cas "12 tampons = 1 sandwich à 6,60€")
-  const reward = (p.rewardText ?? "").trim();
-  const firstName = (p.customerFirstName ?? "").trim();
-
-  let rewardSlot: "primary" | "secondary" | "auxiliary" | null = null;
-  if (reward.length > 0) {
-    if (reward.length <= 18) rewardSlot = "primary";
-    else if (reward.length <= 32) rewardSlot = "secondary";
-    else rewardSlot = "auxiliary";
-  }
-
-  // "Bonjour {firstName}" en secondaryFields (sauf si l'offre y est déjà,
-  // auquel cas on bascule en auxiliaryFields pour ne pas saturer la rangée).
-  if (firstName.length > 0) {
-    if (rewardSlot === "secondary") {
-      pass.auxiliaryFields.push({
-        key: "card",
-        label: "Bonjour",
-        value: firstName,
-      });
-    } else {
-      pass.secondaryFields.push({
-        key: "card",
-        label: "Bonjour",
-        value: firstName,
-      });
-    }
-  }
-
-  if (rewardSlot === "primary") {
-    pass.primaryFields.push({
-      key: "offer",
-      label: "Notre offre",
-      value: reward,
-    });
-  } else if (rewardSlot === "secondary") {
-    pass.secondaryFields.push({
-      key: "offer",
-      label: "Notre offre",
-      value: reward,
-    });
-  } else if (rewardSlot === "auxiliary") {
-    pass.auxiliaryFields.push({
-      key: "offer",
-      label: "Notre offre",
-      value: reward,
-    });
-  }
-
-  pass.backFields.push(
-    {
-      key: "card-name",
-      label: "Carte",
-      value: p.cardName,
-    },
-    {
-      key: "reward-text",
-      label: "Récompense",
-      value: p.rewardText,
-    },
-  );
-
-  // Field "Annonce" — déclenche la notif lockscreen iOS avec le contenu du
-  // message. Placé en TÊTE des backFields (juste après les infos carte de
-  // base) pour qu'il soit visible immédiatement au verso. `changeMessage`
-  // = "%@" signifie : quand la value de ce field change vs le pass local,
-  // iOS affiche EXACTEMENT cette value en notification riche.
-  //
-  // IMPORTANT : le field DOIT exister dans TOUS les passes (avec value vide
-  // ou message par défaut) sinon iOS ne peut pas comparer "old vs new" et
-  // n'affichera pas la notif. C'est pourquoi on insère le field même quand
-  // lastCampaignMessage est null/vide — avec une value placeholder discrète.
-  const announcementMessage = (p.lastCampaignMessage ?? "").trim();
-  const announcementValue =
-    announcementMessage.length > 0
-      ? announcementMessage
-      : "Aucune annonce pour le moment.";
-  const announcementLabel = (() => {
-    if (!p.lastCampaignAt) return "Annonce";
-    try {
-      const d = new Date(p.lastCampaignAt);
-      const formatted = new Intl.DateTimeFormat("fr-FR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }).format(d);
-      return `Annonce du ${formatted}`;
-    } catch {
-      return "Annonce";
-    }
-  })();
-  pass.backFields.push({
-    key: "announcement",
-    label: announcementLabel,
-    value: announcementValue,
-    changeMessage: "%@",
-  } as unknown as Parameters<typeof pass.backFields.push>[0]);
-
-  if (p.googleReviewUrl) {
-    pass.backFields.push({
-      key: "google-review",
-      label: "Laissez-nous un avis Google ⭐",
-      value: p.googleReviewUrl,
-    });
-  }
-
-  pass.backFields.push(
-    {
-      key: "view-online",
-      label: "Voir ma carte en ligne",
-      value: `${p.appUrl}/c/${p.cardId}/status/${p.customerInstanceToken}`,
-    },
-    {
-      key: "support",
-      label: "Support",
-      value: "contact@aswallet.fr",
-    },
-  );
+  const fields = buildApplePassFields(p);
+  pass.headerFields.push(...fields.headerFields);
+  pass.primaryFields.push(...fields.primaryFields);
+  pass.secondaryFields.push(...fields.secondaryFields);
+  pass.auxiliaryFields.push(...fields.auxiliaryFields);
+  pass.backFields.push(...fields.backFields);
 
   // QR code lisible par l'app scanner du commerçant. altText apparaît
   // sous le QR — on remplace le serial number (chaîne aléatoire pas

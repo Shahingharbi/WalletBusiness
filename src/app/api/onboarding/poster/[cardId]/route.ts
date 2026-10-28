@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { posterQrDataUrl, renderPosterPdf } from "@/lib/poster";
+import { renderPosterPdf } from "@/lib/poster";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 30;
 
 interface CardDesign {
   accent_color?: string | null;
   background_color?: string | null;
   text_color?: string | null;
   logo_url?: string | null;
+  banner_url?: string | null;
 }
 
 export async function GET(
@@ -60,25 +63,25 @@ export async function GET(
     } | null;
     const design = (card.design || {}) as CardDesign;
 
-    const origin =
+    const origin = (
       process.env.NEXT_PUBLIC_APP_URL ??
       process.env.NEXT_PUBLIC_SITE_URL ??
       _req.headers.get("origin") ??
-      `https://${_req.headers.get("host") ?? "aswallet.app"}`;
-    const installUrl = `${origin.replace(/\/$/, "")}/c/${card.id}`;
-
-    const qrDataUrl = await posterQrDataUrl(installUrl);
-
-    const accentColor = design.accent_color || "#fbbf24";
-    const logoUrl = design.logo_url || business?.logo_url || null;
+      `https://${_req.headers.get("host") ?? "aswallet.app"}`
+    ).replace(/\/$/, "");
+    const installUrl = `${origin}/c/${card.id}`;
 
     const buffer = await renderPosterPdf({
       businessName: business?.name ?? "Votre commerce",
       cardName: card.name,
       rewardText: card.reward_text ?? "",
-      qrDataUrl,
-      accentColor,
-      logoUrl,
+      qrValue: installUrl,
+      accentColor: design.accent_color || "#fbbf24",
+      backgroundColor: design.background_color || null,
+      textColor: design.text_color || null,
+      logoUrl: design.logo_url || business?.logo_url || null,
+      photoUrl: design.banner_url || null,
+      appUrl: origin,
     });
 
     const safeName = (card.name || "carte").toLowerCase().replace(/[^a-z0-9]+/g, "-");

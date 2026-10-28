@@ -1,46 +1,52 @@
 import { cache } from "react";
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
-import { ESSAI_TTL_DAYS, loadEssai, type LoadedEssai } from "@/lib/essai/load";
+import {
+  ESSAI_TTL_DAYS,
+  buildEssaiCardView,
+  canEditEssai,
+  essaiEditCookieName,
+  loadEssai,
+  type LoadedEssai,
+} from "@/lib/essai/load";
 import { isAppleWalletConfigured } from "@/lib/apple-wallet";
 import { isGoogleWalletConfigured } from "@/lib/google-wallet";
-import { pickContrast } from "@/lib/utils";
-import { EssaiResult, type EssaiResultData } from "./essai-result";
+import { EssaiResult, type EssaiResultBoot } from "./essai-result";
 
 /**
- * Page résultat d'une carte d'essai : « ajoutez-la à votre téléphone »,
- * « testez-la en direct », « elle vous plaît ? ».
+ * Page résultat d'une carte d'essai : aperçu « réplique Wallet » en
+ * vedette, retouches en direct, ajout au téléphone, tests, « je garde ».
  *
- * Server component : la carte est chargée via `loadEssai` (qui n'accepte QUE
- * les cartes du commerce essai) puis réduite à un objet sérialisable minimal
- * pour le composant client — rien d'interne (ids, meta complète) ne part
- * dans le HTML.
+ * Server component : la vue initiale (`EssaiCardView`, la même que
+ * GET /api/essai/<token>?view=full) est calculée ici pour que la carte
+ * apparaisse dès le premier affichage ; le client la relit ensuite et la
+ * tient à jour à chaque retouche.
+ *
+ * Retouches réservées au créateur (`canEdit`) : cookie httpOnly
+ * `essai_k_<token>` valide, ou carte ancienne sans clé d'édition. Sans lui
+ * (lien partagé, QR scanné depuis un téléphone…) la page reste complète
+ * — aperçu, ajout au téléphone, tests, « je garde », WhatsApp, affiche —
+ * mais sans panneau de retouches.
  */
 
 type Params = Promise<{ token: string }>;
 
 const HEX_RE = /^#[0-9a-f]{6}$/i;
-const FALLBACK_BG = "#141414";
-const FALLBACK_ACCENT = "#fbbf24";
 const PAGE_BG = "#f9f7f0";
 
-// `cache` : generateMetadata, generateViewport et la page partagent UNE seule
-// lecture en base par requête.
+// `cache` : generateMetadata et la page partagent UNE lecture par requête.
 const getEssai = cache((token: string): Promise<LoadedEssai | null> => loadEssai(token));
 
 function hex(value: unknown): string | null {
-  return typeof value === "string" && HEX_RE.test(value.trim())
-    ? value.trim().toLowerCase()
-    : null;
+  return typeof value === "string" && HEX_RE.test(value.trim()) ? value.trim().toLowerCase() : null;
 }
 
 /**
- * URL absolue de cette page, pour le QR code (scanné par le téléphone) et le
- * message WhatsApp. Déduite de l'hôte de la requête pour être juste partout
- * (aswallet.fr, domaine Vercel de secours, localhost en dev) ; repli sur
- * NEXT_PUBLIC_APP_URL si l'en-tête est absent ou douteux.
+ * URL absolue de cette page, pour le QR code (scanné par le téléphone) et
+ * le message WhatsApp. Déduite de l'hôte de la requête (aswallet.fr,
+ * domaine Vercel, localhost) ; repli sur NEXT_PUBLIC_APP_URL.
  */
 async function absoluteUrl(path: string): Promise<string> {
   const h = await headers();
@@ -60,19 +66,7 @@ async function absoluteUrl(path: string): Promise<string> {
   return `${base}${path}`;
 }
 
-/**
- * « 2 novembre » — formaté côté serveur, à l'heure de Paris, pour que le
- * texte soit identique au rendu serveur et à l'hydratation.
- */
-function formatDay(iso: string): string {
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "numeric",
-    month: "long",
-    timeZone: "Europe/Paris",
-  }).format(new Date(iso));
-}
-
-/** QR code SVG (net à toute taille) en data URL ; `null` si la génération échoue. */
+/** QR code SVG en data URL ; `null` si la génération échoue. */
 async function qrDataUrl(text: string): Promise<string | null> {
   try {
     const svg = await QRCode.toString(text, {
@@ -98,63 +92,40 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   };
 }
 
-export async function generateViewport({ params }: { params: Params }): Promise<Viewport> {
-  const { token } = await params;
-  const essai = await getEssai(token);
-  // Sur mobile, la barre du navigateur prend la couleur de la carte.
-  return { themeColor: (essai && hex(essai.card.design.background_color)) || PAGE_BG };
-}
+export const viewport: Viewport = { themeColor: PAGE_BG };
 
 export default async function EssaiResultPage({ params }: { params: Params }) {
   const { token } = await params;
   const essai = await getEssai(token);
   if (!essai) notFound();
 
-  const { card, instance, meta } = essai;
-  const design = card.design;
+  const view = buildEssaiCardView(essai);
+  const editKey = (await cookies()).get(essaiEditCookieName(essai.instance.token))?.value;
+  const canEdit = canEditEssai(essai.meta, editKey);
 
-  const background = hex(design.background_color) ?? FALLBACK_BG;
-  const accent = hex(design.accent_color) ?? FALLBACK_ACCENT;
-  const text = hex(design.text_color) ?? pickContrast(background);
-  const stampCount = Math.max(1, Math.floor(card.stamp_count) || 10);
-  const logoUrl =
-    typeof design.logo_url === "string" && /^https?:\/\//.test(design.logo_url)
-      ? design.logo_url
-      : null;
-
-  // Pastilles « vos couleurs » : fond + accent + palette mesurée, sans doublon.
+  // Pastilles « vos couleurs » : couleurs de la carte + palette mesurée.
   const palette = Array.from(
     new Set(
-      [background, accent, ...meta.palette.map(hex)].filter(
-        (c): c is string => Boolean(c)
-      )
+      [view.colors.background, view.colors.accent, ...essai.meta.palette]
+        .map(hex)
+        .filter((c): c is string => Boolean(c))
     )
-  ).slice(0, 5);
+  ).slice(0, 4);
 
-  const pageUrl = await absoluteUrl(`/essai/${encodeURIComponent(instance.token)}`);
+  const pageUrl = await absoluteUrl(`/essai/${encodeURIComponent(view.token)}`);
 
-  const data: EssaiResultData = {
-    token: instance.token,
-    name: card.name,
-    logoUrl,
-    colors: { background, text, accent },
+  const boot: EssaiResultBoot = {
+    view,
     palette,
-    rewardText: card.reward_text,
-    labelStamps: design.label_stamps || "Tampons",
-    stampCount,
-    stamps: Math.min(Math.max(0, instance.stamps_collected), stampCount),
-    rewards: Math.max(0, instance.rewards_available),
-    warnings: meta.warnings.slice(0, 2),
-    claimed: meta.claimed !== null,
-    active: card.status === "active" && instance.status === "active",
-    expired: essai.expired,
+    sourceUrl: essai.meta.source_url,
+    active: essai.card.status === "active" && essai.instance.status === "active",
     ttlDays: ESSAI_TTL_DAYS,
-    expiresLabel: formatDay(essai.expiresAt),
+    canEdit,
     pageUrl,
     qrDataUrl: await qrDataUrl(pageUrl),
     appleWalletAvailable: isAppleWalletConfigured(),
     googleWalletAvailable: isGoogleWalletConfigured(),
   };
 
-  return <EssaiResult data={data} />;
+  return <EssaiResult boot={boot} />;
 }
