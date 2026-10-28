@@ -6,13 +6,25 @@
  * immédiatement sur l'aperçu ; l'enregistrement se fait tout seul.
  */
 
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useId,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import {
   Check,
+  ExternalLink,
   ImagePlus,
+  Link2,
   LoaderCircle,
+  MapPin,
   Palette,
   Pipette,
+  Star,
   Store,
   Type,
   WandSparkles,
@@ -84,10 +96,12 @@ export function RetouchPanel({
   saveState,
   rewriting,
   mediaBusy,
+  reviewBusy,
   onUpdate,
   onFlush,
   onRewrite,
   onPick,
+  onLinkGoogleMaps,
 }: {
   view: EssaiCardView;
   /** Couleurs détectées sur la marque (pastilles « vos couleurs »). */
@@ -97,10 +111,14 @@ export function RetouchPanel({
   saveState: SaveState;
   rewriting: boolean;
   mediaBusy: MediaKind | null;
+  /** Lien Google Maps en cours de résolution. */
+  reviewBusy: boolean;
   onUpdate: (patch: EssaiUpdateRequest, delayMs?: number) => void;
   onFlush: () => void;
   onRewrite: () => void;
   onPick: (kind: MediaKind) => void;
+  /** Lie la fiche Google : `null` si c'est fait, sinon un message doux. */
+  onLinkGoogleMaps: (url: string) => Promise<string | null>;
 }) {
   const uid = useId();
   const tabRefs = useRef<Record<RetouchTab, HTMLButtonElement | null>>({
@@ -262,6 +280,12 @@ export function RetouchPanel({
               }}
               onCommit={onFlush}
             />
+            <GoogleReviewLink
+              url={view.review?.url ?? null}
+              label={view.review?.label ?? null}
+              busy={reviewBusy}
+              onLink={onLinkGoogleMaps}
+            />
           </div>
         )}
 
@@ -307,7 +331,7 @@ export function RetouchPanel({
             />
             <MediaCard
               title="Photo de la bande"
-              hint="Derrière vos tampons."
+              hint={view.cardType === "stamp" ? "Derrière vos tampons." : "En fond de la bande de votre carte."}
               action="Remplacer la photo"
               busy={mediaBusy === "photo"}
               onPick={() => onPick("photo")}
@@ -408,6 +432,159 @@ function LiveTextField({
           {hint}
         </p>
       )}
+    </div>
+  );
+}
+
+/** Première URL d'un texte collé (le partage Maps ajoute souvent le nom avant). */
+function firstUrl(text: string): string | null {
+  const m = /https?:\/\/[^\s<>"']+/i.exec(text);
+  return m ? m[0] : null;
+}
+
+/**
+ * Bloc « Avis Google » : fiche liée à la demande d'avis (ou aucune), et
+ * champ pour coller le lien Google Maps de SA fiche — utile quand la fiche
+ * n'a pas été trouvée, ou pour une chaîne à plusieurs boutiques.
+ */
+function GoogleReviewLink({
+  url,
+  label,
+  busy,
+  onLink,
+}: {
+  url: string | null;
+  label: string | null;
+  busy: boolean;
+  onLink: (url: string) => Promise<string | null>;
+}) {
+  const id = useId();
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const linked = Boolean(url);
+
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const value = (firstUrl(draft) ?? draft).trim();
+    if (busy) return;
+    if (!value) {
+      setError("Collez d'abord le lien de votre fiche Google Maps.");
+      return;
+    }
+    setError(null);
+    const failure = await onLink(value);
+    if (failure) setError(failure);
+    else setDraft("");
+  }
+
+  function onPaste(e: ClipboardEvent<HTMLInputElement>) {
+    const found = firstUrl(e.clipboardData.getData("text"));
+    if (!found) return;
+    e.preventDefault();
+    setDraft(found);
+    setError(null);
+  }
+
+  return (
+    <div className="rounded-2xl bg-beige p-4">
+      <div className="flex items-start gap-3">
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-foreground"
+          aria-hidden
+        >
+          <Star size={16} strokeWidth={2.4} />
+        </span>
+        <div className="min-w-0 flex-1" aria-live="polite">
+          <p className="text-sm font-semibold text-foreground" style={FONT_UI}>
+            Avis Google
+          </p>
+          {linked ? (
+            <>
+              <p className="mt-0.5 flex items-start gap-1.5 text-sm leading-snug text-foreground/85" style={FONT_TEXT}>
+                <MapPin size={15} className="mt-0.5 shrink-0 text-emerald-700" aria-hidden />
+                <span className="min-w-0 break-words">
+                  <span className="sr-only">Fiche liée : </span>
+                  {label ?? "Votre fiche Google est liée."}
+                </span>
+              </p>
+              <a
+                href={url as string}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="-ml-1 inline-flex min-h-[36px] items-center gap-1 rounded-md px-1 text-xs font-semibold text-foreground underline underline-offset-4 hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+                style={FONT_UI}
+              >
+                Vérifier le lien d&apos;avis
+                <ExternalLink size={12} aria-hidden />
+              </a>
+            </>
+          ) : (
+            <p className="mt-0.5 text-sm leading-snug text-muted-foreground" style={FONT_TEXT}>
+              Aucune fiche Google trouvée&nbsp;: collez son lien pour que vos clients
+              arrivent directement sur votre page d&apos;avis.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <form className="mt-3" onSubmit={(e) => void submit(e)} noValidate>
+        <label htmlFor={id} className="block text-sm font-semibold text-foreground" style={FONT_UI}>
+          {linked ? "Pas la bonne boutique ? " : ""}Collez le lien Google Maps de votre fiche
+        </label>
+        <div className="mt-2 flex flex-col gap-2 min-[440px]:flex-row">
+          <input
+            id={id}
+            type="url"
+            inputMode="url"
+            value={draft}
+            maxLength={2048}
+            placeholder="https://maps.app.goo.gl/…"
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="go"
+            aria-describedby={`${id}-hint${error ? ` ${id}-error` : ""}`}
+            aria-invalid={error ? true : undefined}
+            onPaste={onPaste}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              if (error) setError(null);
+            }}
+            className="h-12 w-full min-w-0 flex-1 rounded-xl border-2 border-border bg-white px-3.5 text-base text-foreground outline-none transition-colors placeholder:text-foreground/35 focus:border-foreground"
+            style={FONT_TEXT}
+          />
+          <button
+            type="submit"
+            disabled={busy}
+            aria-busy={busy || undefined}
+            className="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-1.5 rounded-xl bg-foreground px-4 text-sm font-semibold text-white transition-colors hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow disabled:cursor-wait disabled:opacity-70 cursor-pointer"
+            style={FONT_UI}
+          >
+            {busy ? (
+              <LoaderCircle size={16} className="motion-safe:animate-spin" aria-hidden />
+            ) : (
+              <Link2 size={16} aria-hidden />
+            )}
+            <span className="whitespace-nowrap">
+              {busy ? "Recherche…" : linked ? "Changer de fiche" : "Lier ma fiche"}
+            </span>
+          </button>
+        </div>
+        <p id={`${id}-hint`} className="mt-1.5 text-xs leading-snug text-muted-foreground" style={FONT_TEXT}>
+          Google Maps → votre commerce → Partager → Copier le lien. Plusieurs boutiques&nbsp;?
+          Collez le lien de celle-ci.
+        </p>
+        {error && (
+          <p
+            id={`${id}-error`}
+            role="alert"
+            className="mt-2 rounded-xl bg-white px-3 py-2 text-sm leading-snug text-foreground"
+            style={FONT_TEXT}
+          >
+            {error}
+          </p>
+        )}
+      </form>
     </div>
   );
 }

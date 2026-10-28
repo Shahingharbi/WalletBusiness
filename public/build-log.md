@@ -5,6 +5,20 @@
 
 ---
 
+## 2026-10-28 (soir) — /essai : cas Chicken Spot, visuels par type, 100 % offres gratuites
+
+### Retours client appliqués
+- **Logo Instagram** : la photo de profil est repérée sur la capture (avec ou sans IA), recadrée au centre, sans l'anneau de story. Nom commercial au lieu du pseudo (`chickenspotfrance` → « Chicken Spot »), site de la bio lu (chickenspot.com).
+- **Points / Remise / VIP ne montrent plus de tampons** : jauge en verre « 2 / 10 points », sceau « REMISE −10 % », plaque « MEMBRE VIP » (`lib/banner-render.tsx`). Libellé de compteur par défaut d'une carte points = « Points » (Apple + Google).
+- **Vrai lien d'avis** : fiche Google trouvée par le nom (`findPlace`, France d'abord, homonymes écartés, « Boulangerie Paul Lyon » → fiche PAUL) → `writereview?placeid=`. La fiche retenue est affichée dans les retouches, avec un champ « lien Google Maps » pour la corriger (chaînes à plusieurs adresses). La recherche Google « nom avis » ne sert plus qu'en tout dernier recours.
+- **Icône baguette** des tampons redessinée (lue avant comme un « sens interdit »).
+
+### Gratuit
+- Gemini uniquement pour les images ; texte via Groq (`GROQ_API_KEY` sur Vercel) ; nom / logo / avis trouvés sans IA d'abord.
+- Google Places ne renvoie aucune photo à ce compte (même la fiche de démo de Google) → photo de stock du métier quand le commerce n'en fournit pas.
+
+---
+
 ## 2026-10-28 — /essai v2 : réplique Wallet waouh, photo obligatoire, types de carte, Gemini, affiche premium
 
 ### Retours client appliqués

@@ -15,8 +15,13 @@
  *   QR blanc 285 × 297 px à 24 px du bas · carte 680 × 998 px.
  *
  * La bande n'est PAS redessinée : c'est l'image réelle du pass
- * (`bannerUrl`, photo + tampons) servie au wallet, avec fondu enchaîné à
- * chaque changement.
+ * (`bannerUrl` : photo + tampons, jauge de points, badge remise / VIP selon
+ * le type) servie au wallet, avec fondu enchaîné à chaque changement. Une
+ * bande d'un autre type n'est jamais affichée : au changement de type, un
+ * chargement aux couleurs de la carte la remplace jusqu'à la nouvelle.
+ *
+ * Effets de tampon (éclat, étincelles, position dans la grille) : type
+ * « stamp » uniquement. Compteur d'en-tête : tampons et points seulement.
  */
 
 import { useMemo, useState, type CSSProperties } from "react";
@@ -79,6 +84,25 @@ export function hasCounter(type: EssaiCardType): boolean {
   return type === "stamp" || type === "cashback";
 }
 
+/** Libellé du compteur d'en-tête : « POINTS 2 / 10 » pour une carte à points. */
+export function counterLabel(type: EssaiCardType, labelStamps: string): string {
+  if (type === "cashback") return "Points";
+  return labelStamps.trim() || "Tampons";
+}
+
+/** `#rrggbb` + opacité → `#rrggbbaa` (repli : blanc translucide). */
+function withAlpha(hex: string, alpha: number): string {
+  const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return /^#[0-9a-f]{6}$/i.test(hex) ? `${hex}${a}` : `rgba(255,255,255,${alpha})`;
+}
+
+/** Fond du chargement de la bande : dégradé doux à l'accent de la carte. */
+function stripLoadingTint(accent: string): string {
+  return `linear-gradient(115deg, ${withAlpha(accent, 0.34)} 0%, ${withAlpha(accent, 0.12)} 55%, ${withAlpha(accent, 0.28)} 100%)`;
+}
+
 function clampInt(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.floor(Number.isFinite(v) ? v : min)));
 }
@@ -132,7 +156,7 @@ export function AppleWalletPass({ data, pop, busy }: PassProps) {
             {counter && (
               <>
                 <span className="block" style={appleLabel}>
-                  {data.labelStamps}
+                  {counterLabel(data.cardType, data.labelStamps)}
                 </span>
                 <span
                   className="block"
@@ -160,8 +184,13 @@ export function AppleWalletPass({ data, pop, busy }: PassProps) {
           className="relative overflow-hidden"
           style={{ aspectRatio: "375 / 144", backgroundColor: stripShade(background) }}
         >
-          <BannerImage src={data.bannerUrl} fallback={data.photoUrl} />
-          {pop && counter && (
+          <BannerImage
+            src={data.bannerUrl}
+            fallback={data.photoUrl}
+            cardType={data.cardType}
+            tint={stripLoadingTint(accent)}
+          />
+          {pop && data.cardType === "stamp" && (
             <StampBurst
               key={pop.key}
               index={pop.index}
@@ -322,7 +351,7 @@ export function GoogleWalletPass({ data, pop, busy }: PassProps) {
           {counter && (
             <span className="block" style={{ marginTop: "4.4cqw" }}>
               <span className="block" style={googleLabel}>
-                {data.labelStamps}
+                {counterLabel(data.cardType, data.labelStamps)}
               </span>
               <span
                 className="block"
@@ -388,8 +417,13 @@ export function GoogleWalletPass({ data, pop, busy }: PassProps) {
           className="relative overflow-hidden"
           style={{ aspectRatio: "1032 / 336", backgroundColor: "rgba(255,255,255,0.06)" }}
         >
-          <BannerImage src={data.bannerUrl} fallback={data.photoUrl} />
-          {pop && counter && (
+          <BannerImage
+            src={data.bannerUrl}
+            fallback={data.photoUrl}
+            cardType={data.cardType}
+            tint={stripLoadingTint(data.colors.accent)}
+          />
+          {pop && data.cardType === "stamp" && (
             <StampBurst
               key={pop.key}
               index={pop.index}
@@ -522,17 +556,51 @@ interface BannerLayer {
   ready: boolean;
 }
 
+/** Type rendu par une URL de bande (`?kind=`) ; `null` pour une photo seule. */
+function bannerKindOf(url: string): string | null {
+  try {
+    return new URL(url, "https://aswallet.invalid").searchParams.get("kind");
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Affiche l'image de la bande ; à chaque nouvelle URL, la nouvelle version
  * est posée PAR-DESSUS l'ancienne et apparaît en fondu une fois chargée
  * (aucun « trou » blanc entre deux versions). En cas d'échec : photo seule,
  * puis simple fond — jamais de message d'erreur.
+ *
+ * Changement de type : la bande de l'ancien type (ex. tampons) disparaît
+ * AUSSITÔT ; un chargement aux couleurs de la carte (`tint` + miroitement)
+ * la remplace jusqu'à ce que la bande du nouveau type soit chargée, qui
+ * apparaît alors en fondu.
  */
-function BannerImage({ src, fallback }: { src: string | null; fallback: string | null }) {
+function BannerImage({
+  src,
+  fallback,
+  cardType,
+  tint,
+}: {
+  src: string | null;
+  fallback: string | null;
+  cardType: EssaiCardType;
+  /** Fond du chargement (dégradé aux couleurs de la carte). */
+  tint: string;
+}) {
+  // Bande rendue pour un autre type (retouche pas encore confirmée par le
+  // serveur) : jamais affichée.
+  const isStale = (url: string) => {
+    const kind = bannerKindOf(url);
+    return kind !== null && kind !== cardType;
+  };
+
   const [failed, setFailed] = useState<readonly string[]>([]);
   const wanted =
     src && !failed.includes(src)
-      ? src
+      ? isStale(src)
+        ? null
+        : src
       : fallback && !failed.includes(fallback)
         ? fallback
         : null;
@@ -546,11 +614,16 @@ function BannerImage({ src, fallback }: { src: string | null; fallback: string |
     setPrevWanted(wanted);
     if (wanted) {
       setLayers((current) => [
-        ...current.filter((l) => l.ready && l.url !== wanted).slice(-1),
+        ...current.filter((l) => l.ready && l.url !== wanted && !isStale(l.url)).slice(-1),
         { url: wanted, ready: false },
       ]);
     }
   }
+
+  const visible = layers.filter((l) => !isStale(l.url));
+  // Une bande du bon type est affichée : le chargement s'efface derrière
+  // elle (après son fondu), sinon il est visible tout de suite.
+  const covered = visible.some((l) => l.ready);
 
   const markReady = (url: string) =>
     setLayers((current) =>
@@ -571,7 +644,21 @@ function BannerImage({ src, fallback }: { src: string | null; fallback: string |
 
   return (
     <>
-      {layers.map((layer) => (
+      <span
+        aria-hidden
+        className="absolute inset-0 block"
+        style={{
+          background: tint,
+          opacity: covered ? 0 : 1,
+          visibility: covered ? "hidden" : "visible",
+          transition: covered
+            ? "opacity 260ms ease 420ms, visibility 0s linear 680ms"
+            : "none",
+        }}
+      >
+        <span className={styles.shimmer} />
+      </span>
+      {visible.map((layer) => (
         // eslint-disable-next-line @next/next/no-img-element -- image générée à la volée, fondu maîtrisé à la main.
         <img
           key={layer.url}

@@ -25,7 +25,56 @@ const HANDLE_RE = /^[a-z0-9._]{1,30}$/;
 const BARE_HANDLE_RE = /^@([A-Za-z0-9._]{1,30})$/;
 
 /** Suffixes de pseudo sans valeur pour le nom (« chezali_officiel » → « Chez Ali »). */
-const NOISE_WORDS = new Set(["official", "officiel", "officielle", "offical", "insta", "ig", "page", "fr", "france"]);
+const NOISE_WORDS = new Set([
+  "official", "officiel", "officielle", "offical", "officiel1", "off", "insta", "ig", "page", "fr", "france",
+]);
+
+/**
+ * Ville / métier en fin de pseudo : retirés seulement s'il reste au moins
+ * 2 mots (« chez_ali_paris » → « Chez Ali », mais « bistrot_paris » reste entier).
+ */
+const PLACE_TRADE_WORDS = new Set([
+  "paris", "lyon", "marseille", "lille", "toulouse", "nantes", "bordeaux", "nice", "strasbourg", "montpellier",
+  "rennes", "resto", "restaurant", "shop", "store",
+]);
+
+/** Mot qui ne peut pas finir un nom (« cafe_de_paris » ne devient pas « Café de »). */
+const PARTICLE_RE = /^(?:de|du|des|d|la|le|les|l|a|au|aux|en|sur|in|of|the|chez)$/;
+
+/**
+ * Suffixes COLLÉS au nom (« chickenspotfrance » → « chickenspot »), du plus
+ * long au plus court. Jamais une ville ni un métier collés (« berenice »,
+ * « kickoff », « monstore » restent entiers). Retirés s'il reste ≥ 3 lettres.
+ */
+const GLUED_SUFFIXES = ["officielle", "officiel", "official", "offical", "france"];
+
+/**
+ * Restes trop génériques pour être un nom (« sushishop » ne devient pas
+ * « Sushi », « pizzaparis » ne devient pas « Pizza ») : on garde alors le suffixe.
+ */
+const GENERIC_REMAINDERS = new Set([
+  "sushi", "pizza", "pizzeria", "kebab", "burger", "burgers", "tacos", "chicken", "poulet", "wings", "food",
+  "coffee", "cafe", "the", "tea", "bar", "wine", "barber", "barbier", "beauty", "beaute", "nail", "nails",
+  "hair", "coiffure", "flower", "flowers", "fleurs", "bakery", "boulangerie", "patisserie", "bagel", "poke",
+  "ramen", "bubble", "street", "kitchen", "grill", "snack", "glace", "glacier", "crepe", "creperie", "bio",
+  "vintage", "concept", "le", "la", "les", "chez", "petit", "petite", "grand", "bon", "bonne", "vieux", "lepetit",
+  "lapetite", "legrand", "lebon", "labonne",
+]);
+
+/** Retire les suffixes collés (« chickenspotfranceofficiel » → « chickenspot »). */
+function stripGluedSuffixes(word: string): string {
+  let current = word;
+  for (let guard = 0; guard < 3; guard++) {
+    const lower = current.toLowerCase();
+    const suffix = GLUED_SUFFIXES.find((s) => lower.length > s.length && lower.endsWith(s));
+    if (!suffix) break;
+    const rest = current.slice(0, -suffix.length).replace(/[\s._-]+$/, "");
+    const letters = rest.replace(/[^a-z]/gi, "");
+    if (letters.length < 3 || GENERIC_REMAINDERS.has(rest.toLowerCase())) break;
+    current = rest;
+  }
+  return current;
+}
 
 function parseUrl(input: string): URL | null {
   const s = (input ?? "").trim();
@@ -52,10 +101,49 @@ export function isInstagramUrl(url: string): boolean {
 function guessNameFromHandle(handle: string): string {
   const base = handle.replace(/[._\d]+$/g, "").replace(/^[._]+/, "") || handle;
   const words = base.split(/[._]+/).filter(Boolean);
-  // On retire les mots parasites en fin (« _official », « .fr ») sauf s'il ne resterait rien.
-  while (words.length > 1 && NOISE_WORDS.has(words[words.length - 1].toLowerCase())) words.pop();
+  // On retire les mots parasites en fin (« _official », « .fr », ville) sauf
+  // s'il ne resterait qu'un reste générique (« sushi_shop », « le_petit_paris »)
+  // ou un mot de liaison (« cafe_de_paris »).
+  while (words.length > 1) {
+    const last = words[words.length - 1].toLowerCase();
+    const noise = NOISE_WORDS.has(last);
+    if (!noise && !PLACE_TRADE_WORDS.has(last)) break;
+    if (!noise && words.length < 3) break;
+    const rest = words.slice(0, -1);
+    if (PARTICLE_RE.test(rest[rest.length - 1].toLowerCase())) break;
+    if (GENERIC_REMAINDERS.has(rest.join("").toLowerCase())) break;
+    words.pop();
+  }
+  // Puis les suffixes collés au dernier mot (« chickenspotfrance »).
+  if (words.length > 0) words[words.length - 1] = stripGluedSuffixes(words[words.length - 1]);
   const guess = humanizeSlug(words.join("_"));
   return clampName(guess || handle);
+}
+
+const HANDLE_CITIES = [...PLACE_TRADE_WORDS].filter(
+  (w) => !["resto", "restaurant", "shop", "store"].includes(w)
+);
+
+/**
+ * Ville lue dans un pseudo (« lafabrique.bordeaux », « chezali_paris »,
+ * « pizzalyon ») → indice pour trouver la bonne fiche Google, ou null.
+ */
+export function cityFromHandle(handle: string | null | undefined): string | null {
+  const h = (handle ?? "").trim().replace(/^@/, "").toLowerCase().replace(/[._\d]+$/g, "");
+  const words = h.split(/[._]+/).filter(Boolean);
+  if (words.length > 1 && HANDLE_CITIES.includes(words[words.length - 1])) return words[words.length - 1];
+  const last = words[words.length - 1] ?? "";
+  // Collée : jamais « nice » (« berenice », « pizzanice » = mot anglais).
+  const glued = HANDLE_CITIES.find((c) => c !== "nice" && last.length - c.length >= 3 && last.endsWith(c));
+  return glued ?? null;
+}
+
+/**
+ * Nom lisible à partir d'un pseudo (« chickenspotfrance » → « Chicken Spot »).
+ * Exporté pour l'orchestrateur : l'IA renvoie parfois le pseudo brut.
+ */
+export function nameFromHandle(handle: string): string {
+  return guessNameFromHandle((handle ?? "").trim().replace(/^@/, "").toLowerCase());
 }
 
 /**

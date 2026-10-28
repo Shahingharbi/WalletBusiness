@@ -7,7 +7,7 @@
  *  - `logoFromImage(image, box)` : logo tiré d'une image envoyée (photo,
  *    capture Instagram) — recadré sur `box` si l'IA l'a localisé.
  *  - `logoFromUpload(image)` : logo déposé — TOUTE image acceptée, badge 512 ;
- *  - `logoFromAvatar(image, box)` : photo de profil ronde d'une capture
+ *  - `logoFromAvatar(image, box | null)` : photo de profil ronde d'une capture
  *    Instagram / Facebook → badge propre (masque rond, sans l'interface) ;
  *  - `googleFaviconCandidate(host)` : icône via le service de Google, pour les
  *    sites qui bloquent les robots ;
@@ -30,7 +30,7 @@ import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { getIconPath } from "@/lib/stamp-render";
 import type { BrandColors, BrandLogo, LogoCandidate, UploadedImage } from "../types";
-import { contrastRatio, deltaE, isHexColor, paletteFromRgba } from "./colors";
+import { contrastRatio, isHexColor, paletteFromRgba } from "./colors";
 import { safeFetch } from "./safe-fetch";
 
 // ─── Réglages ─────────────────────────────────────────────────────────────
@@ -471,7 +471,7 @@ function upscaleFactor(w: number, h: number): number {
  */
 async function normalize(
   decoded: Decoded,
-  opts: { strict: boolean; kind?: LogoCandidate["kind"] },
+  opts: { strict: boolean; kind?: LogoCandidate["kind"]; badgeHint?: string | null },
 ): Promise<(PreparedLogo & { upscale: number }) | null> {
   const r = decoded.raster;
   const analysis = analyze(r);
@@ -506,7 +506,11 @@ async function normalize(
   if (analysis.hasTransparency) {
     const box = analysis.alphaBox;
     const source = await cropToPng(r, box);
-    const badge = badgeColorFor(r, box);
+    let badge = badgeColorFor(r, box);
+    // Logo clair (blanc…) : badge à la couleur de la marque plutôt que noir,
+    // si elle le fait ressortir (contraste ≥ 3:1 avec le blanc).
+    const hint = opts.badgeHint;
+    if (badge === BADGE_DARK && hint && isHexColor(hint) && contrastRatio(hint, BADGE_LIGHT) >= 3) badge = hint;
     const png = await composeOnTile(source, badge, box.w / box.h);
     return {
       logo: { png, width: SIZE, height: SIZE, kind: "real" },
@@ -555,9 +559,11 @@ async function normalize(
  * candidats sont téléchargés en parallèle (budget temps), puis évalués dans
  * l'ordre : le premier assez net gagne ; sinon le moins pixelisé des
  * acceptables. Variante détaillée : renvoie aussi la source pour la palette.
+ * `badgeHint` (couleur de thème du site) : badge d'un logo clair détouré.
  */
 export async function prepareLogoWithSource(
   candidates: LogoCandidate[],
+  opts: { badgeHint?: string | null } = {},
 ): Promise<PreparedLogo | null> {
   const seen = new Set<string>();
   const list = candidates
@@ -579,7 +585,7 @@ export async function prepareLogoWithSource(
     try {
       const decoded = await decodeImage(bytes);
       if (!decoded) continue;
-      const result = await normalize(decoded, { strict: true, kind: list[i].kind });
+      const result = await normalize(decoded, { strict: true, kind: list[i].kind, badgeHint: opts.badgeHint });
       if (!result) continue;
       if (result.upscale <= GOOD_UPSCALE) return { logo: result.logo, source: result.source };
       if (!fallback || result.upscale < fallback.upscale) fallback = result;
@@ -728,149 +734,394 @@ function pixel(r: Raster, x: number, y: number): Rgb {
   return [r.data[i], r.data[i + 1], r.data[i + 2]];
 }
 
-function near(a: Rgb, b: Rgb, tol: number): boolean {
-  return Math.abs(a[0] - b[0]) <= tol && Math.abs(a[1] - b[1]) <= tol && Math.abs(a[2] - b[2]) <= tol;
+/** Écart d'un pixel au fond de l'interface au-delà duquel il « fait partie » d'un élément. */
+const UI_TOLERANCE = 28;
+/** Zone de l'IA agrandie de 25 % de chaque côté : elle est souvent décalée. */
+const AI_BOX_GROW = 0.25;
+/** Recherche sans IA : tiers supérieur (un peu plus) de la capture. */
+const AVATAR_SEARCH_HEIGHT = 0.42;
+/** Largeur de travail de la recherche sans IA (vitesse). */
+const AVATAR_SEARCH_WIDTH = 900;
+
+interface Region {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
-function toHex([r, g, b]: Rgb): string {
-  return `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+interface Disc {
+  cx: number;
+  cy: number;
+  radius: number;
+}
+
+/** Couleur du fond de l'interface : mode des pixels du pourtour de la zone. */
+function regionBackground(r: Raster, g: Region): Rgb {
+  const bins = new Map<number, { n: number; sum: [number, number, number] }>();
+  const add = (x: number, y: number) => {
+    const p = pixel(r, x, y);
+    const key = ((p[0] >> 4) << 8) | ((p[1] >> 4) << 4) | (p[2] >> 4);
+    const bin = bins.get(key) ?? { n: 0, sum: [0, 0, 0] };
+    bin.n++;
+    bin.sum[0] += p[0];
+    bin.sum[1] += p[1];
+    bin.sum[2] += p[2];
+    bins.set(key, bin);
+  };
+  const x1 = g.left + g.width - 1;
+  const y1 = g.top + g.height - 1;
+  for (let x = g.left; x <= x1; x++) {
+    add(x, g.top);
+    add(x, y1);
+  }
+  for (let y = g.top + 1; y < y1; y++) {
+    add(g.left, y);
+    add(x1, y);
+  }
+  let best = { n: 0, sum: [255, 255, 255] as [number, number, number] };
+  for (const bin of bins.values()) if (bin.n > best.n) best = bin;
+  return best.n ? [best.sum[0] / best.n, best.sum[1] / best.n, best.sum[2] / best.n] : [255, 255, 255];
+}
+
+function differs(r: Raster, x: number, y: number, bg: Rgb): boolean {
+  const i = (y * r.width + x) * 4;
+  return (
+    Math.abs(r.data[i] - bg[0]) > UI_TOLERANCE ||
+    Math.abs(r.data[i + 1] - bg[1]) > UI_TOLERANCE ||
+    Math.abs(r.data[i + 2] - bg[2]) > UI_TOLERANCE
+  );
 }
 
 /**
- * Couleur dominante d'un anneau (rayons rMin..rMax) si elle est uniforme
- * (≥ 80 % des pixels à ±36 par canal) — fond d'un logo dans son avatar rond.
+ * Plus grand disque (photo de profil, anneau de story compris) de la zone :
+ * composantes connexes des pixels « non-fond », quasi carrées, qui ne
+ * touchent pas le bord de la zone, dont le pourtour circulaire est plein et
+ * les coins de la boîte vides (un carré de publication n'est pas un disque).
+ * `preferCenter` : départage par la proximité du centre de la zone.
  */
-function uniformRingColor(r: Raster, cx: number, cy: number, rMin: number, rMax: number): string | null {
-  const samples: Rgb[] = [];
-  for (let k = 0; k < 4; k++) {
-    const rad = rMin + ((rMax - rMin) * k) / 3;
-    for (let a = 0; a < 96; a++) {
-      const t = (a / 96) * Math.PI * 2;
-      samples.push(pixel(r, Math.round(cx + rad * Math.cos(t)), Math.round(cy + rad * Math.sin(t))));
-    }
+function findDisc(
+  r: Raster,
+  g: Region,
+  opts: { minSide: number; preferCenter: boolean; minBackgroundShare?: number },
+): Disc | null {
+  const bg = regionBackground(r, g);
+  const { width: W, height: H } = g;
+  const mask = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) if (differs(r, g.left + x, g.top + y, bg)) mask[y * W + x] = 1;
   }
-  const bins = new Map<number, Rgb[]>();
-  for (const s of samples) {
-    const key = ((s[0] >> 5) << 6) | ((s[1] >> 5) << 3) | (s[2] >> 5);
-    const list = bins.get(key) ?? [];
-    list.push(s);
-    bins.set(key, list);
+  // Interface d'appli : le fond uni domine. Une photo (ciel, mur…) n'en a pas.
+  if (opts.minBackgroundShare) {
+    let filled = 0;
+    for (let i = 0; i < mask.length; i++) filled += mask[i];
+    if (1 - filled / mask.length < opts.minBackgroundShare) return null;
   }
-  const mode = [...bins.values()].sort((a, b) => b.length - a.length)[0];
-  if (!mode) return null;
-  const ref: Rgb = [0, 1, 2].map((c) => mode.reduce((sum, p) => sum + p[c], 0) / mode.length) as Rgb;
-  const close = samples.filter((s) => near(s, ref, 36));
-  if (close.length < samples.length * 0.8) return null;
-  return toHex([0, 1, 2].map((c) => close.reduce((sum, p) => sum + p[c], 0) / close.length) as Rgb);
-}
+  const at = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && mask[y * W + x] === 1;
 
-/**
- * Photo de profil ronde repérée (par l'IA) sur une capture d'écran → badge
- * propre, sans un pixel de l'interface autour :
- *  1. on resserre la zone sur le disque (pixels ≠ fond de l'interface) ;
- *  2. avatar « logo sur fond uni » → disque posé sur une tuile de SA couleur
- *     de fond (raccord invisible, rendu « icône d'app ») ;
- *  3. avatar photo → carré inscrit dans le disque, coins arrondis.
- * Le contour extérieur (anneau de story, liseré) est toujours écarté.
- */
-export async function logoFromAvatar(
-  image: Buffer,
-  box: { x: number; y: number; w: number; h: number },
-): Promise<PreparedLogo | null> {
-  try {
-    if (![box.x, box.y, box.w, box.h].every((v) => Number.isFinite(v)) || box.w <= 0 || box.h <= 0) return null;
-    const decoded = await decodeImage(image, 2048);
-    if (!decoded) return null;
-    const full = decoded.raster;
-
-    // Zone de l'IA + 8 % de marge, en pixels.
-    const mx = box.w * 0.08;
-    const my = box.h * 0.08;
-    const left = Math.max(0, Math.round((box.x - mx) * full.width));
-    const top = Math.max(0, Math.round((box.y - my) * full.height));
-    const right = Math.min(full.width, Math.round((box.x + box.w + mx) * full.width));
-    const bottom = Math.min(full.height, Math.round((box.y + box.h + my) * full.height));
-    if (right - left < 32 || bottom - top < 32) return null;
-    const { data, info } = await sharp(full.data, rawInput(full))
-      .extract({ left, top, width: right - left, height: bottom - top })
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    const r: Raster = { data, width: info.width, height: info.height };
-
-    // 1. Disque : boîte des pixels différents du fond de l'interface (coins).
-    let cx = r.width / 2;
-    let cy = r.height / 2;
-    let radius = Math.min(r.width, r.height) / 2;
-    const corners = [pixel(r, 1, 1), pixel(r, r.width - 2, 1), pixel(r, 1, r.height - 2), pixel(r, r.width - 2, r.height - 2)];
-    const ui = corners[0];
-    if (corners.every((c) => near(c, ui, 24))) {
-      let minX = r.width;
-      let minY = r.height;
-      let maxX = -1;
-      let maxY = -1;
-      for (let y = 0; y < r.height; y++) {
-        for (let x = 0; x < r.width; x++) {
-          if (!near(pixel(r, x, y), ui, 40)) {
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
+  const labels = new Int32Array(W * H);
+  const stack: number[] = [];
+  let best: { disc: Disc; score: number } | null = null;
+  let label = 0;
+  for (let start = 0; start < W * H; start++) {
+    if (!mask[start] || labels[start]) continue;
+    label++;
+    let minX = W;
+    let minY = H;
+    let maxX = -1;
+    let maxY = -1;
+    labels[start] = label;
+    stack.push(start);
+    while (stack.length) {
+      const p = stack.pop() as number;
+      const x = p % W;
+      const y = (p - x) / W;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const q = ny * W + nx;
+          if (mask[q] && !labels[q]) {
+            labels[q] = label;
+            stack.push(q);
           }
         }
       }
-      const bw = maxX - minX + 1;
-      const bh = maxY - minY + 1;
-      const minSide = Math.min(r.width, r.height);
-      if (maxX >= 0 && bw / bh > 0.8 && bw / bh < 1.25 && Math.min(bw, bh) >= minSide * 0.55) {
-        cx = minX + bw / 2;
-        cy = minY + bh / 2;
-        radius = Math.min(bw, bh) / 2;
+    }
+    const w = maxX - minX + 1;
+    const h = maxY - minY + 1;
+    if (Math.min(w, h) < opts.minSide || w / h < 0.85 || w / h > 1.18) continue;
+    if (minX === 0 || minY === 0 || maxX === W - 1 || maxY === H - 1) continue;
+
+    const cx = minX + w / 2;
+    const cy = minY + h / 2;
+    const radius = (w + h) / 4;
+    // Pourtour : à chaque angle, un pixel « non-fond » dans les 12 % extérieurs.
+    let rim = 0;
+    const ANGLES = 72;
+    for (let a = 0; a < ANGLES; a++) {
+      const t = (a / ANGLES) * Math.PI * 2;
+      for (let k = 0; k <= 6; k++) {
+        const rad = radius * (1 - 0.02 * k) - 0.5;
+        if (at(Math.round(cx + rad * Math.cos(t)), Math.round(cy + rad * Math.sin(t)))) {
+          rim++;
+          break;
+        }
       }
     }
+    if (rim < ANGLES * 0.85) continue;
+    // Coins de la boîte (hors du cercle) : vides pour un disque.
+    let cornerHits = 0;
+    let cornerSamples = 0;
+    for (const base of [45, 135, 225, 315]) {
+      for (const off of [-12, 0, 12]) {
+        const t = ((base + off) * Math.PI) / 180;
+        for (const f of [1.12, 1.2, 1.28]) {
+          const x = Math.round(cx + radius * f * Math.cos(t));
+          const y = Math.round(cy + radius * f * Math.sin(t));
+          if (x < minX || x > maxX || y < minY || y > maxY) continue;
+          cornerSamples++;
+          if (at(x, y)) cornerHits++;
+        }
+      }
+    }
+    if (cornerSamples > 0 && cornerHits > cornerSamples * 0.25) continue;
 
-    // 2. Intérieur du disque. Fond uni jusqu'au bord → on garde presque tout
-    //    le disque (un texte proche du bord reste entier) ; sinon on écarte
-    //    l'anneau de story et son liseré blanc (~16 % extérieurs).
-    const fill = uniformRingColor(r, cx, cy, radius * 0.74, radius * 0.86);
-    const edge = fill ? uniformRingColor(r, cx, cy, radius * 0.93, radius * 0.96) : null;
-    const innerFactor = fill && edge && deltaE(fill, edge) < 10 ? 0.97 : 0.84;
-    const inner = radius * innerFactor;
-    const sq = Math.max(8, Math.floor(inner * 2));
-    const sx = Math.max(0, Math.min(r.width - sq, Math.round(cx - inner)));
-    const sy = Math.max(0, Math.min(r.height - sq, Math.round(cy - inner)));
-    const side = Math.min(sq, r.width - sx, r.height - sy);
-    const disc = await sharp(r.data, rawInput(r))
-      .extract({ left: sx, top: sy, width: side, height: side })
-      .resize(SIZE, SIZE, { fit: "fill", kernel: "lanczos3" })
+    let score = radius;
+    if (opts.preferCenter) {
+      const d = Math.hypot(cx - W / 2, cy - H / 2) / Math.hypot(W / 2, H / 2);
+      score *= 1 - 0.5 * d;
+    }
+    if (!best || score > best.score) best = { disc: { cx: g.left + cx, cy: g.top + cy, radius }, score };
+  }
+  return best?.disc ?? null;
+}
+
+/** Zone (px) autour d'une boîte relative, agrandie de `grow` de chaque côté. */
+function grownRegion(r: Raster, box: Box, grow: number): Region | null {
+  const mx = box.w * grow;
+  const my = box.h * grow;
+  const left = Math.max(0, Math.round((box.x - mx) * r.width));
+  const top = Math.max(0, Math.round((box.y - my) * r.height));
+  const right = Math.min(r.width, Math.round((box.x + box.w + mx) * r.width));
+  const bottom = Math.min(r.height, Math.round((box.y + box.h + my) * r.height));
+  if (right - left < 24 || bottom - top < 24) return null;
+  return { left, top, width: right - left, height: bottom - top };
+}
+
+/**
+ * Photo de profil SANS IA : plus grand disque non-fond du haut de la capture
+ * (desktop : à gauche du pseudo ; mobile : en haut à gauche). Travaille sur
+ * une copie réduite, renvoie une boîte relative (0..1) ou null. `strict` :
+ * exige un fond d'interface uni dominant (classer une image inconnue sans
+ * prendre une enseigne ronde sur une photo pour un avatar).
+ */
+async function searchAvatar(full: Raster, strict = false): Promise<Box | null> {
+  const scale = Math.min(1, AVATAR_SEARCH_WIDTH / full.width);
+  const small: Raster =
+    scale < 1
+      ? await (async () => {
+          const { data, info } = await sharp(full.data, rawInput(full))
+            .resize(Math.round(full.width * scale), Math.round(full.height * scale), { kernel: "linear" })
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+          return { data, width: info.width, height: info.height };
+        })()
+      : full;
+  const region: Region = {
+    left: 0,
+    top: 0,
+    width: small.width,
+    height: Math.max(32, Math.round(small.height * AVATAR_SEARCH_HEIGHT)),
+  };
+  // Avatar : au moins ~5 % de la largeur sur desktop, bien plus sur mobile.
+  const minSide = Math.max(24, Math.round(Math.min(small.width, small.height) * 0.06));
+  const disc = findDisc(small, region, { minSide, preferCenter: false, minBackgroundShare: strict ? 0.35 : 0 });
+  if (!disc) return null;
+  const d = disc.radius * 2;
+  return {
+    x: (disc.cx - disc.radius) / small.width,
+    y: (disc.cy - disc.radius) / small.height,
+    w: d / small.width,
+    h: d / small.height,
+  };
+}
+
+/**
+ * Rayon du disque intérieur (l'avatar lui-même) : on retire l'anneau de story
+ * (coloré, ou gris s'il est vu) et le liseré clair qui le sépare de l'avatar.
+ * Le long de 90 rayons, depuis le bord : un anneau fin (≤ 8 % du rayon), puis
+ * du « fond », puis l'avatar. Profondeur retenue = 15e centile (les angles où
+ * l'avatar a un bord clair, de la couleur du fond, donnent une valeur trop
+ * grande) ; plafonnée, avec repli géométrique pour un avatar à fond blanc.
+ */
+function innerRadiusOf(r: Raster, disc: Disc, bg: Rgb): number {
+  const { cx, cy, radius } = disc;
+  const ANGLES = 90;
+  const step = 0.5;
+  const maxDepth = radius * 0.35;
+  const ringRuns: number[] = [];
+  const depths: number[] = [];
+  let ringAngles = 0;
+  const isBg = (x: number, y: number) => {
+    const xi = Math.round(x);
+    const yi = Math.round(y);
+    if (xi < 0 || yi < 0 || xi >= r.width || yi >= r.height) return true;
+    return !differs(r, xi, yi, bg);
+  };
+  for (let a = 0; a < ANGLES; a++) {
+    const t = (a / ANGLES) * Math.PI * 2;
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    let runStart = -1;
+    let runEnd = -1;
+    let inner = -1;
+    for (let d = 0; d <= maxDepth; d += step) {
+      const rad = radius + 0.5 - d;
+      const bgHere = isBg(cx + rad * c, cy + rad * s);
+      if (runStart < 0) {
+        if (!bgHere) runStart = d;
+        else if (d > radius * 0.06) break; // le bord du disque n'est pas ici
+      } else if (runEnd < 0) {
+        if (bgHere) runEnd = d;
+      } else if (!bgHere) {
+        inner = d;
+        break;
+      }
+    }
+    if (runStart < 0 || runEnd < 0) continue;
+    const run = runEnd - runStart;
+    if (run > 0 && run <= radius * 0.08) {
+      ringAngles++;
+      ringRuns.push(runEnd);
+      if (inner > 0) depths.push(inner);
+    }
+  }
+  // Pas d'anneau (pas de story, ou avatar plein jusqu'au bord) : disque entier.
+  if (ringAngles < ANGLES * 0.65) return radius - 1;
+  const quantile = (list: number[], q: number) => {
+    const sorted = [...list].sort((x, y) => x - y);
+    return sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(q * (sorted.length - 1))))];
+  };
+  const ringEnd = quantile(ringRuns, 0.5);
+  let depth: number;
+  if (depths.length >= ANGLES * 0.3 && quantile(depths, 0.15) <= radius * 0.22) {
+    depth = quantile(depths, 0.15);
+  } else {
+    // Avatar à fond clair (de la couleur du fond) : anneau + liseré ≈ 2,2 × l'anneau.
+    depth = Math.min(radius * 0.14, ringEnd * 2.2);
+  }
+  return radius - depth - 1.5;
+}
+
+/**
+ * Photo de profil ronde d'une capture Instagram / Facebook → badge propre,
+ * sans un pixel de l'interface autour :
+ *  1. zone de l'IA agrandie de 25 % (souvent décalée) — ou, sans IA, recherche
+ *     du plus grand disque dans le haut de la capture ;
+ *  2. disque isolé par les pixels « non-fond » (fond de l'interface mesuré
+ *     sur le pourtour : mode clair ET sombre) ;
+ *  3. anneau de story et liseré retirés (disque intérieur) ;
+ *  4. masque rond parfaitement centré (précision sous-pixel), 512 px, léger
+ *     renforcement de netteté (l'avatar fait souvent ~150 px) ;
+ *  5. badge = le disque rond détouré (coins transparents).
+ * `box` null : détection sans IA. null si aucun disque n'est trouvé.
+ */
+export async function logoFromAvatar(
+  image: Buffer,
+  box: { x: number; y: number; w: number; h: number } | null,
+): Promise<PreparedLogo | null> {
+  try {
+    const validBox =
+      box && [box.x, box.y, box.w, box.h].every((v) => Number.isFinite(v)) && box.w > 0 && box.h > 0 ? box : null;
+    const decoded = await decodeImage(image, 2400);
+    if (!decoded) return null;
+    const full = decoded.raster;
+
+    // 1-2. Disque complet (anneau compris).
+    let disc: Disc | null = null;
+    let region: Region | null = null;
+    if (validBox) {
+      region = grownRegion(full, validBox, AI_BOX_GROW);
+      if (region) {
+        const minSide = Math.max(16, Math.round(Math.min(region.width, region.height) * 0.3));
+        disc = findDisc(full, region, { minSide, preferCenter: true });
+      }
+    }
+    if (!disc) {
+      const found = await searchAvatar(full);
+      if (found) {
+        region = grownRegion(full, found, 0.15);
+        if (region) {
+          const minSide = Math.max(16, Math.round(Math.min(region.width, region.height) * 0.5));
+          disc = findDisc(full, region, { minSide, preferCenter: true });
+        }
+      }
+    }
+    if (!disc && validBox) {
+      // Dernier recours : le cercle inscrit dans la zone de l'IA.
+      const px = { x: validBox.x * full.width, y: validBox.y * full.height, w: validBox.w * full.width, h: validBox.h * full.height };
+      disc = { cx: px.x + px.w / 2, cy: px.y + px.h / 2, radius: (Math.min(px.w, px.h) / 2) * 0.92 };
+    }
+    if (!disc || disc.radius < 12) return null;
+
+    // 3. Disque intérieur (sans anneau de story ni liseré).
+    const bg = region ? regionBackground(full, region) : pixel(full, 0, 0);
+    const inner = innerRadiusOf(full, disc, bg);
+    if (inner < 10) return null;
+
+    // 4. Recadrage sous-pixel : zone entière autour du centre, mise à
+    //    l'échelle, puis extraction du carré exactement centré.
+    const half = Math.ceil(inner) + 2;
+    const left = Math.max(0, Math.floor(disc.cx) - half);
+    const top = Math.max(0, Math.floor(disc.cy) - half);
+    const right = Math.min(full.width, Math.floor(disc.cx) + half + 1);
+    const bottom = Math.min(full.height, Math.floor(disc.cy) + half + 1);
+    const scale = SIZE / (2 * inner);
+    const scaledW = Math.max(SIZE, Math.round((right - left) * scale));
+    const scaledH = Math.max(SIZE, Math.round((bottom - top) * scale));
+    const offX = Math.max(0, Math.min(scaledW - SIZE, Math.round((disc.cx - inner - left) * scale)));
+    const offY = Math.max(0, Math.min(scaledH - SIZE, Math.round((disc.cy - inner - top) * scale)));
+    let pipeline = sharp(full.data, rawInput(full))
+      .extract({ left, top, width: right - left, height: bottom - top })
+      .resize(scaledW, scaledH, { fit: "fill", kernel: "lanczos3" });
+    // Avatar agrandi (souvent ×3) : léger renforcement des contours.
+    if (scale > 1.5) pipeline = pipeline.sharpen({ sigma: Math.min(1.2, 0.5 + scale * 0.15) });
+    const disc512 = await sharp(await pipeline.png().toBuffer())
+      .extract({ left: offX, top: offY, width: SIZE, height: SIZE })
       .png()
       .toBuffer();
     const circleMask = Buffer.from(
       `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}"><circle cx="${SIZE / 2}" cy="${SIZE / 2}" r="${SIZE / 2}" fill="#fff"/></svg>`,
     );
-    const source = await sharp(disc).composite([{ input: circleMask, blend: "dest-in" }]).png().toBuffer();
+    const source = await sharp(disc512).composite([{ input: circleMask, blend: "dest-in" }]).png().toBuffer();
 
-    let png: Buffer;
-    if (fill) {
-      // Logo sur fond uni : disque sur une tuile de la même couleur.
-      png = await sharp(roundedRectSvg(fill))
-        .composite([{ input: source, left: 0, top: 0 }])
-        .png({ compressionLevel: 9, adaptiveFiltering: true })
-        .toBuffer();
-    } else {
-      // Avatar photo : carré inscrit (74 % du diamètre), coins arrondis.
-      const cut = Math.round(SIZE * (0.74 / innerFactor));
-      const off = Math.round((SIZE - cut) / 2);
-      png = await sharp(disc)
-        .extract({ left: off, top: off, width: cut, height: cut })
-        .resize(SIZE, SIZE, { kernel: "lanczos3" })
-        .composite([{ input: roundedRectSvg("#ffffff"), blend: "dest-in" }])
-        .png({ compressionLevel: 9, adaptiveFiltering: true })
-        .toBuffer();
-    }
+    // 5. Badge final : le disque lui-même, coins transparents (rendu identique
+    //    à l'avatar ; Google Wallet affiche de toute façon le logo en rond). Une
+    //    tuile de la couleur du bord laissait voir un liseré au raccord.
+    const png = await sharp(source).png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
     return { logo: { png, width: SIZE, height: SIZE, kind: "real" }, source };
   } catch (err) {
     console.warn("[essai/logo] photo de profil inexploitable:", err instanceof Error ? err.message : err);
     return null;
+  }
+}
+
+/**
+ * La capture contient-elle une photo de profil ronde (recherche sans IA) ?
+ * Sert à classer une image « auto » quand l'IA n'a pas répondu.
+ */
+export async function hasProfileAvatar(image: Buffer): Promise<boolean> {
+  try {
+    const decoded = await decodeImage(image, 1600);
+    return decoded ? (await searchAvatar(decoded.raster, true)) !== null : false;
+  } catch {
+    return false;
   }
 }
 

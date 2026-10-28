@@ -7,13 +7,14 @@
  *
  * Sources, par priorité (choisie par index.ts) :
  *   1. photo déposée (`photoFromUpload`) ;
- *   2. zone « photo » d'une capture Instagram / Facebook (`photoFromBox`, si
- *      la zone fait au moins 500 px de large) ;
+ *   2. photos Google Places (`placesPhoto`, si GOOGLE_PLACES_API_KEY) de la
+ *      fiche trouvée (lien Maps, ou recherche par nom : maps.ts `findPlace`) ;
  *   3. photos du site (`pickWebsitePhoto` : og:image paysage, grandes images
  *      du haut de page, image JSON-LD) ;
- *   4. photos Google Places (`placesPhoto`, si GOOGLE_PLACES_API_KEY) ;
- *   5. photo du métier (`stockPhoto`, jamais en échec : au pire un fond
- *      dégradé aux couleurs de la marque).
+ *   4. zone « photo » d'une capture Instagram / Facebook (`photoFromBox`, si
+ *      la zone fait au moins 500 px de large) ;
+ *   5. photo du métier (`stockPhoto`, dernier recours, jamais en échec : au
+ *      pire un fond dégradé aux couleurs de la marque).
  *
  * Server-only (sharp, safeFetch, process.env).
  */

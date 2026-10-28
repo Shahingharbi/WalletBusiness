@@ -65,6 +65,8 @@ const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
 export const ESSAI_NAME_MAX = 40;
 export const ESSAI_REWARD_MAX = 60;
 export const ESSAI_FIRST_NAME_MAX = 30;
+/** « Nom — adresse » de la fiche Google liée aux avis. */
+export const ESSAI_REVIEW_LABEL_MAX = 160;
 const LABEL_MAX = 14;
 const PROMO_MAX = 120;
 
@@ -169,6 +171,7 @@ function normalizeProfile(profile: BrandProfile) {
       `🔥 ${name} : une offre spéciale vous attend aujourd'hui !`,
     palette: (profile.palette ?? []).filter((c) => HEX_RE.test(c)).slice(0, 8),
     reviewUrl: httpsUrlOrNull(profile.reviewUrl),
+    reviewLabel: cleanText(profile.reviewLabel, ESSAI_REVIEW_LABEL_MAX) || null,
     sourceUrl: httpUrlOrNull(profile.sourceUrl),
     website: httpUrlOrNull(profile.website),
     address: cleanText(profile.address, 200) || null,
@@ -316,6 +319,8 @@ export async function createEssaiCard(profile: BrandProfile): Promise<CreatedEss
       palette: p.palette,
       logo_kind: profile.logo?.kind === "real" ? "real" : "typographic",
       review_url: p.reviewUrl,
+      // Fiche liée (« Nom — adresse ») : sans lien d'avis, elle ne veut rien dire.
+      review_label: p.reviewUrl ? p.reviewLabel : null,
       promo_message: p.promoMessage,
       address: p.address,
       location: p.location,

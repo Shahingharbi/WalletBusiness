@@ -52,7 +52,12 @@ import { burstConfetti } from "@/components/essai/confetti";
 import { looksLikeImage } from "@/components/essai/compress-image";
 import { prefersReducedMotion, useDevicePlatform } from "@/components/essai/motion";
 import { WalletPreviewStage, type WalletPlatform } from "@/components/essai/wallet-stage";
-import { hasCounter, type StampPop, type WalletPassData } from "@/components/essai/wallet-pass-preview";
+import {
+  counterLabel,
+  hasCounter,
+  type StampPop,
+  type WalletPassData,
+} from "@/components/essai/wallet-pass-preview";
 import styles from "@/components/essai/essai-wallet.module.css";
 import { whatsappHref } from "@/lib/contact";
 import { cn, pickContrast } from "@/lib/utils";
@@ -157,6 +162,15 @@ export function EssaiResult({ boot }: { boot: EssaiResultBoot }) {
   const [tab, setTab] = useState<RetouchTab>("type");
   const [dismissed, setDismissed] = useState<EssaiSuggestion[]>([]);
   const [celebrate, setCelebrate] = useState(false);
+  // Changement de type : aucun « pop » de tampon ni « carte complète » de
+  // l'ancien type ne doit rejouer sur le nouveau (mise à jour d'état dérivée
+  // pendant le rendu, motif React documenté).
+  const [shownType, setShownType] = useState(view.cardType);
+  if (shownType !== view.cardType) {
+    setShownType(view.cardType);
+    setPop(null);
+    setCelebrate(false);
+  }
   const [lastMessage, setLastMessage] = useState<string | null>(null);
   const [locked, setLocked] = useState<string | null>(
     boot.view.expired
@@ -242,6 +256,8 @@ export function EssaiResult({ boot }: { boot: EssaiResultBoot }) {
               setCelebrate(true);
               burstConfetti({ colors: brandColors });
             } else if (body.stamps > 0) {
+              // Tampons : « pop » du tampon dans la bande + compteur.
+              // Points : seul le compteur saute (pas de tampon dans la bande).
               setPop({ key: Date.now(), index: body.stamps - 1 });
             }
           },
@@ -306,7 +322,7 @@ export function EssaiResult({ boot }: { boot: EssaiResultBoot }) {
   };
   const ariaLabel = [
     `Aperçu de votre carte ${platform === "apple" ? "Apple Wallet" : "Google Wallet"} : ${view.name}.`,
-    counter ? `${view.labelStamps} : ${view.stamps} sur ${view.stampCount}.` : "",
+    counter ? `${counterLabel(view.cardType, view.labelStamps)} : ${view.stamps} sur ${view.stampCount}.` : "",
     view.firstName ? `Bonjour ${view.firstName}.` : "",
     `Notre offre : ${view.rewardText}.`,
   ]
@@ -337,7 +353,8 @@ export function EssaiResult({ boot }: { boot: EssaiResultBoot }) {
       ? [
           {
             type: "stamp" as const,
-            title: view.cardType === "cashback" ? "Créditer des points" : "Ajouter un tampon",
+            // Même action « stamp » côté API : un passage = des points en plus.
+            title: view.cardType === "cashback" ? "Ajouter des points" : "Ajouter un tampon",
             hint: "Comme si votre client passait en caisse.",
             sentLabel: "C'est fait ! Regardez votre téléphone.",
             Icon: Plus,
@@ -428,6 +445,7 @@ export function EssaiResult({ boot }: { boot: EssaiResultBoot }) {
                 <Suggestions
                   suggestions={suggestions}
                   sourceUrl={boot.sourceUrl}
+                  stampCard={view.cardType === "stamp"}
                   onPick={openPicker}
                 />
               )}
@@ -440,10 +458,18 @@ export function EssaiResult({ boot }: { boot: EssaiResultBoot }) {
                 saveState={essai.saveState}
                 rewriting={essai.rewriting}
                 mediaBusy={essai.mediaBusy}
+                reviewBusy={essai.reviewBusy}
                 onUpdate={essai.update}
                 onFlush={() => void essai.flush()}
                 onRewrite={essai.rewriteOffer}
                 onPick={openPicker}
+                onLinkGoogleMaps={async (url) => {
+                  const failure = await essai.linkGoogleMaps(url);
+                  if (!failure) {
+                    toast.success("Votre fiche Google est liée : les demandes d'avis y mènent directement.");
+                  }
+                  return failure;
+                }}
               />
             </>
           ) : (
@@ -800,10 +826,13 @@ function RetouchLockedNote({ reason }: { reason: "claimed" | "expired" | "viewer
 function Suggestions({
   suggestions,
   sourceUrl,
+  stampCard,
   onPick,
 }: {
   suggestions: EssaiSuggestion[];
   sourceUrl: string | null;
+  /** Carte à tampons : la photo est « derrière les tampons ». */
+  stampCard: boolean;
   onPick: (kind: MediaKind) => void;
 }) {
   const items: Array<{
@@ -861,7 +890,9 @@ function Suggestions({
       key: "add_photo",
       icon: <Store size={18} aria-hidden />,
       title: "Ajoutez une photo de votre devanture",
-      text: "Elle remplit la bande de votre carte, derrière les tampons.",
+      text: stampCard
+        ? "Elle remplit la bande de votre carte, derrière les tampons."
+        : "Elle remplit la bande de votre carte.",
       action: (
         <button type="button" onClick={() => onPick("photo")} className={btn} style={FONT_UI}>
           <Plus size={16} aria-hidden />

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeCardKind, walletBannerPath } from "@/lib/apple-wallet";
 import { findEssaiBusinessId } from "@/lib/essai/business";
+import { isValidReviewUrl } from "@/lib/google-review";
 import {
   ESSAI_CARD_TYPES,
   ESSAI_CATEGORIES,
@@ -189,6 +190,7 @@ export function parseEssaiMeta(raw: unknown): EssaiMeta | null {
       : [],
     logo_kind: o.logo_kind === "real" ? "real" : "typographic",
     review_url: str(o.review_url),
+    review_label: str(o.review_label)?.trim() ?? null,
     promo_message: typeof o.promo_message === "string" ? o.promo_message : "",
     address: str(o.address),
     location,
@@ -375,7 +377,19 @@ export function buildEssaiCardView(loaded: LoadedEssai): EssaiCardView {
     suggestions: meta.suggestions,
     expired: loaded.expired,
     expiresAt: loaded.expiresAt,
+    review: essaiReviewView(meta),
   };
+}
+
+/**
+ * Fiche Google utilisée par la demande d'avis. `url` n'est renseignée que si
+ * le lien est réellement utilisé (https, ≤ 150 car. : cf. `essaiReviewUrl`) ;
+ * sinon la démo retombe sur une recherche Google et l'interface propose de
+ * coller le lien de la fiche.
+ */
+export function essaiReviewView(meta: EssaiMeta): { url: string | null; label: string | null } {
+  const url = meta.review_url && isValidReviewUrl(meta.review_url) ? meta.review_url : null;
+  return { url, label: url ? meta.review_label ?? null : null };
 }
 
 /**

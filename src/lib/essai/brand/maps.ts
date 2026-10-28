@@ -15,6 +15,11 @@
  *  2. SI `GOOGLE_PLACES_API_KEY` est défini : Places API (New) pour le nom
  *     officiel, l'adresse, les types, le site web et un VRAI lien d'avis
  *     (`writereview?placeid=…`). Sans clé, on se contente du niveau 1.
+ *
+ * `findPlace({ name, city?, website?, location? })` : retrouve la fiche d'un
+ * commerce SANS lien Maps (Instagram, nom saisi, capture, site) par la
+ * recherche texte Places, avec un choix prudent (nom, domaine du site, ville,
+ * distance) — sans IA.
  */
 
 import { clampName } from "@/lib/essai/brand/category";
@@ -456,7 +461,366 @@ async function lookupPlace(parsed: ParsedMapsUrl, key: string): Promise<PlacesPl
   }
 }
 
+// ─── Recherche d'une fiche par nom (findPlace) ────────────────────────────
+
+/** France métropolitaine (+ Corse) : écarte les homonymes à l'étranger. */
+const FRANCE_RECT = {
+  rectangle: { low: { latitude: 41.3, longitude: -5.3 }, high: { latitude: 51.2, longitude: 9.7 } },
+};
+
+/** Suffixes publics à deux niveaux (le nom de domaine « utile » est avant). */
+const SECOND_LEVEL_TLDS = new Set(["co.uk", "org.uk", "com.fr", "asso.fr", "gouv.fr", "com.au", "co.nz", "com.br", "co.za", "com.tr", "com.es", "co.jp"]);
+
+/**
+ * Hébergeurs / plateformes partagés par des milliers de commerces : deux sites
+ * sur le même domaine ne prouvent rien (on compare alors l'hôte complet).
+ */
+const SHARED_HOSTS = new Set([
+  "wixsite.com", "business.site", "eatbu.com", "myshopify.com", "webnode.fr", "webnode.com", "jimdofree.com",
+  "jimdosite.com", "wordpress.com", "squarespace.com", "blogspot.com", "over-blog.com", "e-monsite.com",
+  "site123.me", "godaddysites.com", "webflow.io", "carrd.co", "ueniweb.com", "simplesite.com", "zenchef.com",
+  "sumupstore.com", "google.com", "facebook.com", "instagram.com", "linktr.ee", "ubereats.com", "deliveroo.fr",
+  "just-eat.fr", "planity.com", "treatwell.fr", "pagesjaunes.fr", "tripadvisor.fr", "thefork.fr", "github.io",
+]);
+
+/** Mots trop génériques pour chercher une fiche sur ce seul nom. */
+const GENERIC_QUERY_WORDS = new Set([
+  "restaurant", "boulangerie", "patisserie", "pizzeria", "pizza", "kebab", "burger", "tacos", "sushi", "cafe",
+  "bar", "coiffeur", "coiffure", "barbier", "barber", "fleuriste", "epicerie", "boucherie", "pressing",
+  "glacier", "onglerie", "institut", "beaute", "snack", "traiteur", "mon commerce", "commerce", "shop", "store",
+]);
+
+export interface FindPlaceQuery {
+  /** Nom du commerce (saisi, IA, pseudo nettoyé…). */
+  name: string;
+  city?: string | null;
+  /** Site connu (bio, site saisi) : un domaine identique désigne la bonne fiche. */
+  website?: string | null;
+  location?: { lat: number; lng: number } | null;
+}
+
+export interface FoundPlace {
+  placeId: string;
+  /** Nom de la fiche tel quel (« Chicken Spot Alfortville »). */
+  name: string;
+  /** Nom sans le suffixe d'établissement (« Chicken Spot »). */
+  brandName: string;
+  address: string | null;
+  location: { lat: number; lng: number } | null;
+  website: string | null;
+  /**
+   * Sites des fiches de la même enseigne (domaines distincts, le plus fréquent
+   * d'abord) : si le premier redirige ailleurs, l'appelant essaie le suivant.
+   */
+  websites: string[];
+  /** Formulaire d'avis Google : writereview?placeid=… */
+  reviewUrl: string;
+  mapsUrl: string | null;
+  /** Photos Places (ressources « places/…/photos/… »), meilleure d'abord. */
+  photoNames: string[];
+  types: string[];
+  /**
+   * « sure » : même nom (hors suffixe d'établissement) ou même site ;
+   * « likely » : nom proche (contient le nom cherché) — bon pour un lien
+   * d'avis à vérifier, pas pour renommer la carte.
+   */
+  confidence: "sure" | "likely";
+}
+
+function compact(s: string): string {
+  return normalizeName(s).replace(/ /g, "");
+}
+
+function hostOf(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    return new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+/** « restaurants.mcdonalds.fr » → « mcdonalds.fr » ; « x.co.uk » → « x.co.uk ». */
+function registrableDomain(host: string): string {
+  const labels = host.split(".").filter(Boolean);
+  if (labels.length <= 2) return labels.join(".");
+  const lastTwo = labels.slice(-2).join(".");
+  return (SECOND_LEVEL_TLDS.has(lastTwo) ? labels.slice(-3) : labels.slice(-2)).join(".");
+}
+
+/**
+ * Deux sites désignent-ils le même commerce ? 2 = même domaine,
+ * 1 = même nom de domaine sous une autre extension (chickenspot.fr / .com),
+ * 0 = non. Les hébergeurs partagés exigent l'hôte complet.
+ */
+function domainMatch(a: string | null | undefined, b: string | null | undefined): 0 | 1 | 2 {
+  const ha = hostOf(a);
+  const hb = hostOf(b);
+  if (!ha || !hb) return 0;
+  const ra = registrableDomain(ha);
+  const rb = registrableDomain(hb);
+  if (SHARED_HOSTS.has(ra) || SHARED_HOSTS.has(rb)) return ha === hb ? 2 : 0;
+  if (ra === rb) return 2;
+  const la = ra.split(".")[0];
+  const lb = rb.split(".")[0];
+  return la.length >= 4 && la === lb ? 1 : 0;
+}
+
+/** Ville d'une adresse française (« …, 94140 Alfortville, France » → « alfortville »). */
+function cityOfAddress(address: string | null | undefined): string {
+  if (!address) return "";
+  const m = /\b\d{4,5}\s+([^,]+)/.exec(address);
+  if (m) return normalizeName(m[1]);
+  const parts = address.split(",").map((p) => p.trim()).filter((p) => p && !/^france$/i.test(p));
+  return parts.length ? normalizeName(parts[parts.length - 1]) : "";
+}
+
+/**
+ * Nom d'enseigne sans le suffixe d'établissement : « Chicken Spot - Grand
+ * Oran », « Chicken Spot (Bastille) », « Chicken spot Ivry-Sur-Seine » (ville
+ * de l'adresse) → « Chicken Spot ». Seule la VILLE est retirée (jamais une
+ * partie de la rue : « Boulangerie de la Gare » reste entier).
+ */
+export function stripBranchSuffix(display: string, address: string | null | undefined): string {
+  let s = display.replace(/\s+/g, " ").trim();
+  s = s.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  const dash = /^(.{3,}?)\s+[-–—|·•]\s+.+$/.exec(s);
+  if (dash) s = dash[1].trim();
+  const city = cityOfAddress(address);
+  if (city) {
+    const words = s.split(" ");
+    for (let k = Math.min(4, words.length - 1); k >= 1; k--) {
+      if (normalizeName(words.slice(-k).join(" ")) === city) {
+        // La ville fait partie du nom (« Café de Paris », « Le Marseille »).
+        const rest = words.slice(0, -k);
+        if (/^(?:de|du|des|d|la|le|les|l|a|au|aux|en|sur|the|of|chez)$/.test(normalizeName(rest[rest.length - 1] ?? ""))) break;
+        s = rest.join(" ");
+        break;
+      }
+    }
+  }
+  return s.replace(/[\s,;:–—-]+$/, "").trim() || display.trim();
+}
+
+interface ScoredPlace {
+  place: PlacesPlace;
+  score: number;
+  confidence: "sure" | "likely" | null;
+  brandName: string;
+}
+
+function scorePlace(p: PlacesPlace, index: number, q: FindPlaceQuery): ScoredPlace {
+  const display = p.displayName?.text?.trim() ?? "";
+  const wanted = compact(q.name);
+  const full = compact(display);
+  // Fiche au nom exact de la recherche : rien à retirer (« Le Marseille »).
+  const brandName = full === wanted ? display : stripBranchSuffix(display, p.formattedAddress);
+  const brand = compact(brandName);
+  const wantedTokens = normalizeName(q.name).split(" ").filter((t) => t.length >= 2);
+  const displayTokens = new Set(normalizeName(display).split(" "));
+
+  // Nom : identique (hors suffixe) > contient le nom cherché > mots communs.
+  let nameScore = 0;
+  if (wanted && (brand === wanted || full === wanted)) nameScore = 30;
+  else if (wanted.length >= 4 && (brand.startsWith(wanted) || full.startsWith(wanted))) nameScore = 20;
+  else if (wanted.length >= 5 && full.includes(wanted)) nameScore = 16;
+  else if (brand.length >= 5 && wanted.includes(brand)) nameScore = 14;
+  else if (wantedTokens.length >= 2) {
+    const common = wantedTokens.filter((t) => displayTokens.has(t)).length;
+    if (common / wantedTokens.length >= 0.67) nameScore = 8;
+  }
+
+  // Nom saisi « Boulangerie Paul Lyon » ↔ fiche « PAUL » à Lyon : sans le
+  // mot de métier ni les mots de l'adresse (la ville), le cœur du nom doit
+  // être exactement l'enseigne. Une ville tapée dans le nom vaut ville connue.
+  const addressTokens = new Set(normalizeName(p.formattedAddress ?? "").split(" "));
+  const cityInName = wantedTokens.some(
+    (t) => t.length >= 3 && !GENERIC_QUERY_WORDS.has(t) && addressTokens.has(t) && !displayTokens.has(t)
+  );
+  const core = wantedTokens.filter((t) => !GENERIC_QUERY_WORDS.has(t) && !addressTokens.has(t)).join("");
+  if (nameScore < 26 && core.length >= 3 && core !== wanted && (core === brand || core === full)) {
+    nameScore = 26;
+  }
+
+  const domain = q.website ? domainMatch(q.website, p.websiteUri) : 0;
+  const city = q.city ? normalizeName(q.city) : "";
+  const cityOk = (!!city && normalizeName(p.formattedAddress ?? "").includes(city)) || cityInName;
+
+  let distanceScore = 0;
+  const lat = p.location?.latitude;
+  const lng = p.location?.longitude;
+  if (q.location && typeof lat === "number" && typeof lng === "number") {
+    const d = distanceMeters(q.location, { lat, lng });
+    distanceScore = d < 300 ? 15 : d < 2_000 ? 8 : d > 50_000 ? -15 : 0;
+  }
+
+  const score = nameScore + (domain === 2 ? 25 : domain === 1 ? 15 : 0) + (cityOk ? 10 : 0) + distanceScore - index;
+
+  let confidence: ScoredPlace["confidence"] = null;
+  if (nameScore >= 30 || (domain > 0 && nameScore >= 8) || (nameScore >= 14 && (cityOk || distanceScore >= 8))) {
+    confidence = "sure";
+  } else if (nameScore >= 14 || domain === 2) {
+    confidence = "likely";
+  }
+  // Loin des coordonnées connues : jamais « sûr ».
+  if (distanceScore < 0 && confidence === "sure") confidence = "likely";
+  return { place: p, score, confidence, brandName };
+}
+
+async function searchText(
+  key: string,
+  textQuery: string,
+  extra: Record<string, unknown>,
+): Promise<PlacesPlace[]> {
+  const result = (await placesRequest(
+    "https://places.googleapis.com/v1/places:searchText",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-FieldMask": PLACES_FIELDS.map((f) => `places.${f}`).join(","),
+      },
+      body: JSON.stringify({ textQuery, languageCode: "fr", regionCode: "fr", pageSize: 6, ...extra }),
+    },
+    key,
+  )) as { places?: PlacesPlace[] } | null;
+  return result?.places ?? [];
+}
+
+/**
+ * Trouve la fiche Google d'un commerce à partir de son nom (+ ville, site,
+ * coordonnées si connus) via Places API (New) `searchText`. Sans ville ni
+ * coordonnées, la recherche est d'abord limitée à la France métropolitaine
+ * (« Chicken Spot » ramènerait sinon un homonyme à Oran), puis élargie.
+ *
+ * Le meilleur résultat est choisi par similarité de nom, domaine du site,
+ * ville et distance. null : pas de clé, nom trop générique, aucun résultat
+ * assez proche, ou API en erreur (jamais d'exception).
+ */
+export async function findPlace(query: FindPlaceQuery): Promise<FoundPlace | null> {
+  const key = placesKey();
+  const name = (query.name ?? "").replace(/\s+/g, " ").trim();
+  if (!key || name.length < 2 || name.length > 80) return null;
+  const norm = normalizeName(name);
+  if (!norm || compact(name).length < 3 || GENERIC_QUERY_WORDS.has(norm)) return null;
+
+  const city = query.city?.replace(/\s+/g, " ").trim() || null;
+  const attempts: { text: string; extra: Record<string, unknown>; world?: boolean }[] = [];
+  if (query.location) {
+    attempts.push({
+      text: city ? `${name} ${city}` : name,
+      extra: {
+        locationBias: {
+          circle: { center: { latitude: query.location.lat, longitude: query.location.lng }, radius: 3_000 },
+        },
+      },
+    });
+  } else if (city) {
+    attempts.push({ text: `${name} ${city}`, extra: {} });
+  } else {
+    attempts.push({ text: name, extra: { locationRestriction: FRANCE_RECT } });
+  }
+  // Repli : nom seul, sans restriction (DOM-TOM, Belgique, ville mal lue…).
+  // Après une recherche limitée à la France, un résultat étranger ne remplace
+  // jamais un candidat français et n'est jamais « sûr » sans le même site.
+  attempts.push({ text: name, extra: {}, world: !query.location && !city });
+
+  const rank = (s: ScoredPlace) => (s.confidence === "sure" ? 1_000 : 0) + s.score;
+  try {
+    let best: ScoredPlace | null = null;
+    let matches: ScoredPlace[] = [];
+    for (const attempt of attempts) {
+      if (attempt.world && best) break;
+      const places = await searchText(key, attempt.text, attempt.extra);
+      matches = [];
+      for (const [i, p] of places.entries()) {
+        if (!p.id) continue;
+        const scored = scorePlace(p, i, { ...query, name, city });
+        if (!scored.confidence) continue;
+        if (attempt.world && scored.confidence === "sure" && domainMatch(query.website, p.websiteUri) === 0) {
+          scored.confidence = "likely";
+        }
+        matches.push(scored);
+        if (!best || rank(scored) > rank(best)) best = scored;
+      }
+      if (best?.confidence === "sure") break;
+    }
+    if (!best?.place.id) return null;
+
+    // Homonymes : sans ville, coordonnées ni site pour trancher, une autre
+    // fiche « sûre » ailleurs avec le site d'une AUTRE enseigne (La Fabrique
+    // Paris ≠ La Fabrique Bordeaux) → on ne sait pas laquelle : « probable ».
+    // Une chaîne (mêmes sites chickenspot.fr / .com) reste « sûre ».
+    if (best.confidence === "sure" && !city && !query.location && domainMatch(query.website, best.place.websiteUri) === 0) {
+      const brandOf = (u: string | undefined) => {
+        const h = hostOf(httpUrlOrNull(u));
+        return h ? registrableDomain(h).split(".")[0] : null;
+      };
+      const bestCity = cityOfAddress(best.place.formattedAddress);
+      const bestBrand = brandOf(best.place.websiteUri);
+      const homonym = matches.some(
+        (m) =>
+          m !== best &&
+          m.confidence === "sure" &&
+          cityOfAddress(m.place.formattedAddress) !== bestCity &&
+          // Fiche sans site : aucune preuve (agence d'une chaîne sans site).
+          bestBrand !== null &&
+          brandOf(m.place.websiteUri) !== null &&
+          brandOf(m.place.websiteUri) !== bestBrand
+      );
+      if (homonym) best.confidence = "likely";
+    }
+
+    // Sites des fiches de même confiance, regroupés par domaine (le plus
+    // fréquent d'abord : « chickenspot.com » ×3 avant « chickenspot.fr » ×1).
+    const byDomain = new Map<string, { url: string; count: number; rank: number }>();
+    for (const m of [best, ...matches.filter((m) => m.confidence === best.confidence)]) {
+      const site = httpUrlOrNull(m.place.websiteUri);
+      const host = hostOf(site);
+      if (!site || !host) continue;
+      const domain = registrableDomain(host);
+      if (SHARED_HOSTS.has(domain)) continue;
+      const entry = byDomain.get(domain);
+      if (entry) entry.count++;
+      else byDomain.set(domain, { url: site, count: m === best ? 1.5 : 1, rank: rank(m) });
+    }
+    const websites = [...byDomain.values()].sort((a, b) => b.count - a.count || b.rank - a.rank).map((e) => e.url);
+
+    const p = best.place;
+    const placeId = p.id as string;
+    const lat = p.location?.latitude;
+    const lng = p.location?.longitude;
+    const display = clampName(p.displayName?.text?.trim() || best.brandName);
+    return {
+      placeId,
+      name: display,
+      brandName: clampName(best.brandName),
+      address: p.formattedAddress?.trim() || null,
+      location: typeof lat === "number" && typeof lng === "number" ? { lat, lng } : null,
+      website: httpUrlOrNull(p.websiteUri),
+      websites,
+      reviewUrl: reviewUrlFor(placeId),
+      mapsUrl: httpUrlOrNull(p.googleMapsUri),
+      photoNames: rankPlacesPhotoNames(p.photos, best.brandName),
+      types: [p.primaryType, ...(p.types ?? [])].filter(
+        (t, i, all): t is string => typeof t === "string" && t.length > 0 && all.indexOf(t) === i,
+      ),
+      confidence: best.confidence ?? "likely",
+    };
+  } catch (err) {
+    console.warn(`[essai/maps] recherche de fiche impossible (${err instanceof Error ? err.name : "erreur"})`);
+    return null;
+  }
+}
+
 // ─── API publique ─────────────────────────────────────────────────────────
+
+/** Types Places d'un lieu qui n'est pas un établissement (adresse, ville…). */
+const NOT_A_BUSINESS_TYPES = new Set([
+  "street_address", "premise", "subpremise", "route", "intersection", "locality", "sublocality",
+  "neighborhood", "postal_code", "political", "administrative_area_level_1", "administrative_area_level_2",
+  "administrative_area_level_3", "country", "plus_code", "geocode",
+]);
 
 function reviewUrlFor(placeId: string): string {
   return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
@@ -495,8 +859,12 @@ export async function extractMapsSignals(url: string): Promise<MapsSignals> {
       ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(parsed.placeId)}`
       : parsed.cleanUrl;
 
+  // Simple recherche (« /maps/search/boulangerie ») : ce n'est pas UNE fiche,
+  // la deviner donnerait le lien d'avis d'un concurrent.
+  const searchOnly = /\/maps\/search\//i.test(longUrl.pathname) && !parsed.cid && !parsed.placeId;
+
   const key = placesKey();
-  const place = key ? await lookupPlace(parsed, key) : null;
+  const place = key && !searchOnly ? await lookupPlace(parsed, key) : null;
 
   if (place) {
     const lat = place.location?.latitude;
@@ -505,13 +873,15 @@ export async function extractMapsSignals(url: string): Promise<MapsSignals> {
       (t, i, all): t is string => typeof t === "string" && t.length > 0 && all.indexOf(t) === i,
     );
     const placeName = place.displayName?.text?.trim();
+    // Adresse, rue, ville, code postal… : pas un établissement → pas d'avis.
+    const notBusiness = types.some((t) => NOT_A_BUSINESS_TYPES.has(t));
     return {
       name: placeName ? clampName(placeName) : parsed.name ? clampName(parsed.name) : null,
       location: typeof lat === "number" && typeof lng === "number" ? { lat, lng } : parsed.location,
       address: place.formattedAddress?.trim() || parsed.address,
       types,
       website: httpUrlOrNull(place.websiteUri),
-      reviewUrl: place.id ? reviewUrlFor(place.id) : mapsUrl,
+      reviewUrl: place.id && !notBusiness ? reviewUrlFor(place.id) : null,
       mapsUrl: httpUrlOrNull(place.googleMapsUri) ?? mapsUrl,
       placesApiUsed: true,
       placeId: place.id ?? parsed.placeId,
@@ -529,9 +899,11 @@ export async function extractMapsSignals(url: string): Promise<MapsSignals> {
     // sinon la fiche elle-même (le bouton « Donner un avis » y est visible) —
     // à condition que le lien désigne bien un établissement (pas une liste
     // enregistrée, une simple vue de carte ou une adresse).
+    // Une page d'adresse a un CID (ftid) mais pas de nom (looksLikeAddress) :
+    // seul un lien « ?cid= » classique désigne à coup sûr un établissement.
     reviewUrl: parsed.placeId
       ? reviewUrlFor(parsed.placeId)
-      : parsed.cid || parsed.name
+      : (parsed.name && !searchOnly) || (parsed.cid && longUrl.searchParams.has("cid"))
         ? mapsUrl
         : null,
     mapsUrl,

@@ -2,91 +2,40 @@ import { ImageResponse } from "next/og";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_CARD_DESIGN } from "@/lib/constants";
 import {
-  getIconPath,
-  getShapePath,
-  normalizeIconKey,
-  normalizeShape,
-  type StampShape,
-} from "@/lib/stamp-render";
-import { pickContrast as pickContrastSync } from "@/lib/utils";
+  BANNER_HEIGHT,
+  BANNER_WIDTH,
+  buildBannerInput,
+  preparePhoto,
+  renderBanner,
+  resolveBannerKind,
+} from "@/lib/banner-render";
 
 export const runtime = "nodejs";
 
-// Image utilisée à la fois pour Apple Wallet (strip image) et Google Wallet
-// (heroImage).
-//
-// Apple Wallet — storeCard avec QR : strip.png attendu en 375×123 (1x), 750×246 (2x),
-// 1125×369 (3x). On génère le @3x et iOS scale les autres. Ratio ~3:1.
-// Apple **rejette silencieusement** une strip dont les dimensions ne respectent
-// pas ce format (résultat: bannière invisible côté pass).
-//
-// Google Wallet — heroImage accepte n'importe quel ratio mais 1125×369 marche aussi.
-//
-// On NE rend QUE la grille de tampons, centrée, sur fond accent_color OU photo
-// du merchant si banner_url. Aucun texte sur le strip — Apple/Google posent
-// leurs propres champs autour.
-const WIDTH = 1125;
-const HEIGHT = 369;
-
-function pickGrid(total: number): { cols: number; rows: number } {
-  const map: Record<number, [number, number]> = {
-    5: [5, 1],
-    6: [3, 2],
-    7: [4, 2],
-    8: [4, 2],
-    9: [3, 3],
-    10: [5, 2],
-    11: [4, 3],
-    12: [6, 2],
-    13: [5, 3],
-    14: [5, 3],
-    15: [5, 3],
-    16: [4, 4],
-    18: [6, 3],
-    20: [5, 4],
-  };
-  if (map[total]) return { cols: map[total][0], rows: map[total][1] };
-  if (total <= 4) return { cols: total, rows: 1 };
-  const cols = total > 12 ? 5 : 4;
-  return { cols, rows: Math.ceil(total / cols) };
-}
+// Bande des cartes Wallet : strip Apple, heroImage Google et aperçu du site.
+// 1125×369 = strip Apple @3x (375×123 pt) ; Apple rejette silencieusement une
+// strip hors format. Un visuel par type de carte (cf. src/lib/banner-render.tsx) :
+//  - stamp      : grille de tampons sur la photo du commerce ;
+//  - cashback   : jauge de points « verre dépoli » ;
+//  - discount   : sceau promotionnel avec la remise lue dans reward_text ;
+//  - membership : plaque premium noir & or « MEMBRE VIP ».
+// Sans photo, le fond reste TRANSPARENT : Apple/Google posent la couleur de la
+// carte derrière. Aucun champ texte du pass n'est dupliqué ici.
 
 /**
- * Pré-fetch une image distante, la **normalise via sharp**, et la renvoie en
- * data URI prête à être consommée par Satori.
- *
- * Pourquoi cette approche bourine :
- *
- *  1. Satori (le moteur de next/og ImageResponse) plante silencieusement sur
- *     beaucoup de formats : HEIC, AVIF, WebP animé, SVG complexes, JPEG
- *     CMYK, PNG entrelacés, fichiers > 4 Mo, profils colorimétriques exotiques.
- *  2. Satori a aussi un timeout fetch court (~4s) sans retry — sur Supabase
- *     Storage en cold start ou avec un gros fichier, la photo arrive trop tard.
- *  3. Le merchant uploade ce qu'il veut depuis son tel : photo iPhone HEIC,
- *     PNG géant, screenshot 4K, GIF animé… On ne peut pas lui demander de
- *     "respecter un format", il faut que TOUT marche.
- *
- * La parade :
- *
- *  - Fetch côté Node avec un timeout généreux (15 s) + retry 1 fois.
- *  - sharp décode quasi tout (HEIC inclus si libheif dispo, sinon il crashe
- *    proprement et on retombe sur null).
- *  - Resize à la taille EXACTE du strip (1125 x 369), `cover` pour préserver
- *    le sujet sans déformer.
- *  - Reconvertit en JPEG sRGB qualité 88 — Satori adore ça.
- *  - Cap dur à 4 Mo en sortie (Satori plante au-delà).
- *
- * Renvoie null si vraiment impossible — le rendu tombe sur le gradient
- * accent_color sans casser le pass.
+ * Télécharge la photo du commerce (timeout 15 s, 1 retry : utile en cold
+ * start Supabase), puis la normalise via `preparePhoto` (sharp → JPEG sRGB
+ * 1125×369 que Satori avale toujours, + version floutée pour le verre
+ * dépoli). Le commerçant uploade ce qu'il veut (HEIC, PNG géant, CMYK…) : en
+ * cas d'échec on renvoie null et la bande retombe sur le fond transparent
+ * sans casser le pass.
  */
-async function prefetchAsDataUri(
+async function fetchPhoto(
   url: string | null,
-  targetWidth: number,
-  targetHeight: number,
-): Promise<string | null> {
+  blurred: boolean,
+): Promise<Awaited<ReturnType<typeof preparePhoto>>> {
   if (!url) return null;
 
-  // 1. Fetch avec retry x1 (utile en cold start Supabase).
   let buf: Buffer | null = null;
   for (let attempt = 0; attempt < 2 && !buf; attempt++) {
     try {
@@ -95,53 +44,20 @@ async function prefetchAsDataUri(
       const res = await fetch(url, { signal: ctrl.signal, redirect: "follow" });
       clearTimeout(timer);
       if (!res.ok) {
-        console.warn(
-          `[wallet-banner] fetch attempt ${attempt + 1} for ${url}: HTTP ${res.status}`,
-        );
+        console.warn(`[wallet-banner] fetch attempt ${attempt + 1} for ${url}: HTTP ${res.status}`);
         continue;
       }
       const arr = await res.arrayBuffer();
       if (arr.byteLength === 0) continue;
       buf = Buffer.from(arr);
     } catch (err) {
-      console.warn(
-        `[wallet-banner] fetch attempt ${attempt + 1} for ${url} threw:`,
-        err,
-      );
+      console.warn(`[wallet-banner] fetch attempt ${attempt + 1} for ${url} threw:`, err);
     }
   }
   if (!buf) return null;
 
-  // 2. Si SVG, on l'embed tel quel (sharp peut rasteriser mais c'est risqué
-  //    sur les SVG avec polices externes — Satori gère le SVG en data URI).
-  const head = buf.subarray(0, Math.min(buf.length, 64)).toString("utf8");
-  if (head.trim().startsWith("<?xml") || head.includes("<svg")) {
-    return `data:image/svg+xml;base64,${buf.toString("base64")}`;
-  }
-
-  // 3. Normalisation sharp : décode + flatten alpha sur fond blanc + resize
-  //    cover + sortie JPEG sRGB.
   try {
-    const { default: sharp } = await import("sharp");
-    const out = await sharp(buf, { failOn: "none" })
-      .rotate() // applique l'EXIF orientation
-      .flatten({ background: { r: 255, g: 255, b: 255 } }) // alpha -> blanc
-      .resize(targetWidth, targetHeight, {
-        fit: "cover",
-        position: "center",
-      })
-      .toColorspace("srgb")
-      .jpeg({ quality: 88, progressive: false, mozjpeg: true })
-      .toBuffer();
-    if (out.length > 4_000_000) {
-      // Cap dur à 4 Mo (Satori plante au-delà). Re-compresse plus aggressif.
-      const smaller = await sharp(out)
-        .jpeg({ quality: 70, progressive: false, mozjpeg: true })
-        .toBuffer();
-      if (smaller.length > 4_000_000) return null;
-      return `data:image/jpeg;base64,${smaller.toString("base64")}`;
-    }
-    return `data:image/jpeg;base64,${out.toString("base64")}`;
+    return await preparePhoto(buf, { blurred });
   } catch (err) {
     console.warn(
       `[wallet-banner] sharp normalize failed for ${url}:`,
@@ -171,8 +87,8 @@ function errorImage(message: string) {
       </div>
     ),
     {
-      width: WIDTH,
-      height: HEIGHT,
+      width: BANNER_WIDTH,
+      height: BANNER_HEIGHT,
       status: 200,
       headers: {
         "Cache-Control": "public, max-age=60, s-maxage=60",
@@ -188,29 +104,18 @@ export async function GET(
 ) {
   try {
     const { instanceToken } = await params;
-    // Le `?kind=` du query param détermine si on rend la grille de tampons
-    // (stamp/cashback) ou juste la bannière+icône (discount/membership).
-    // Apple/Google passent ce param via apple-wallet.ts::fetchStrip et
-    // google-wallet.ts::bannerUri.
-    //
+    // `?kind=` (posé par apple-wallet.ts / google-wallet.ts / l'essai) reste
+    // accepté et prime s'il est valide ; sinon on lit `cards.card_type`.
     // `?v=` (version du design, cf. bannerVersionOf) est volontairement
-    // ignoré ici : il ne sert qu'à changer l'URL (cache Apple / Google / CDN)
-    // quand la photo, les couleurs ou les tampons changent.
+    // ignoré : il ne sert qu'à changer l'URL (cache Apple / Google / CDN).
     const kindParam = new URL(request.url).searchParams.get("kind");
-    const cardKind: "stamp" | "cashback" | "discount" | "membership" =
-      kindParam === "cashback" ||
-      kindParam === "discount" ||
-      kindParam === "membership"
-        ? kindParam
-        : "stamp";
-    const showStampsGrid = cardKind === "stamp" || cardKind === "cashback";
     const supabase = createAdminClient();
 
     const { data: instance, error } = await supabase
       .from("card_instances")
       .select(
         `stamps_collected,
-         cards(name, stamp_count, reward_text, design, businesses(name))`,
+         cards(name, card_type, stamp_count, reward_text, design, businesses(name))`,
       )
       .eq("token", instanceToken)
       .single();
@@ -219,6 +124,7 @@ export async function GET(
 
     const card = instance.cards as unknown as {
       name: string;
+      card_type: string | null;
       stamp_count: number;
       reward_text: string | null;
       design: Record<string, unknown> | null;
@@ -229,350 +135,38 @@ export async function GET(
       ...DEFAULT_CARD_DESIGN,
       ...(card.design ?? {}),
     };
+    const kind = resolveBannerKind(kindParam, card.card_type);
 
-    // Visual config — accept multiple field naming conventions for forward compat.
-    const accent = (design.accent_color as string) || "#10b981";
-    // PAS de `background` solide ici. Quand il n'y a pas de banner_url, on
-    // laisse le strip TRANSPARENT et c'est Apple/Google qui posent le
-    // backgroundColor du pass derrière → cohérence parfaite entre la zone
-    // strip et le reste de la carte (Apple respecte design.background_color,
-    // Google auto-flippe vers sombre via googleEffectiveBgColor — chacune
-    // sa logique, mais le strip suit la même couleur que le reste).
     const bannerSourceUrl = (design.banner_url as string | null) || null;
-    // Normalise la photo (HEIC / AVIF / PNG géant / etc.) → JPEG 1125x369 sRGB
-    // que Satori avale toujours. Voir prefetchAsDataUri pour la stratégie.
-    const bannerUrl = await prefetchAsDataUri(bannerSourceUrl, WIDTH, HEIGHT);
-    const stampActiveUrl =
-      (design.stamp_active_url as string | null) ||
-      (design.activeImageUrl as string | null) ||
-      null;
-    const stampInactiveUrl =
-      (design.stamp_inactive_url as string | null) ||
-      (design.inactiveImageUrl as string | null) ||
-      null;
-    const shape = normalizeShape(design.stamp_shape);
-    // SEULE source de vérité = `design.stamp_icon` (celle que le designer
-    // met à jour au clic). Avant ce code lisait `stamp_active_icon` qui
-    // était toujours "check" par défaut → fallback chain || court-circuitait
-    // le vrai choix merchant. Conséquence : le stamp_icon choisi (kebab,
-    // coffee, etc.) n'apparaissait JAMAIS sur le wallet réel ni dans la
-    // preview. Bug confirmé par le merchant.
-    const filledIconKey = normalizeIconKey(
-      (design.stamp_icon as string | undefined) ?? null,
-      "check",
-    );
-    // Tampons vides : même icône à opacité réduite (cohérence visuelle).
-    const emptyIconKey = filledIconKey;
+    // Version floutée seulement pour la jauge de points (verre dépoli).
+    const photo = await fetchPhoto(bannerSourceUrl, kind === "cashback");
 
-    const stampsTotal = Math.max(1, Math.min(20, card.stamp_count));
-    const stampsCollected = Math.max(
-      0,
-      Math.min(instance.stamps_collected, stampsTotal),
+    const element = renderBanner(
+      buildBannerInput({
+        kind,
+        design,
+        stampCount: card.stamp_count,
+        stampsCollected: instance.stamps_collected,
+        rewardText: card.reward_text,
+        photo: photo?.photo ?? null,
+        photoBlurred: photo?.photoBlurred ?? null,
+        photoLuma: photo?.photoLuma ?? null,
+      }),
     );
 
-    const { cols, rows } = pickGrid(stampsTotal);
-
-    // La grille occupe maintenant la TOTALITÉ de l'image. Pas de panneau gauche.
-    // On laisse une marge confortable pour respirer (Apple/Google rajoutent
-    // ensuite leurs propres champs autour).
-    // Tampons gros et blancs comme Boomerangme : on accepte d'aller jusqu'à
-    // 200px pour qu'ils dominent le strip, comme dans la capture KFC/Boomerang.
-    // Padding adaptatif : on respire plus quand on a peu de tampons (gros stamps),
-    // mais on resserre la marge horizontale quand on en a 12+ (sinon les bords
-    // de l'iPhone collent les tampons et c'est moche). On limite aussi la
-    // taille max d'un tampon à 110px en grille dense pour éviter les "boutons"
-    // géants qui mangent toute l'image.
-    // Cap intelligent basé sur le NOMBRE DE LIGNES, pas juste le total. Apple
-    // Wallet rend le strip à largeur fixe ~375px sur l'iPhone — si on autorise
-    // des stamps de 200px en source, ils sont scalés à ~67px à l'écran ce qui
-    // est OK. Mais sur 1 ligne avec peu de tampons, on les laissait monter à
-    // 200px verticalement → ils dépassaient du strip côté Apple (le ratio ~3:1
-    // imposé par PassKit était cassé visuellement). Solution : caper la
-    // hauteur max d'un stamp en fonction de la hauteur DISPONIBLE.
-    const dense = stampsTotal >= 12;
-    const padding = dense ? 64 : 36;
-    const gap = dense ? 14 : 22;
-    const maxByW = (WIDTH - padding * 2 - gap * (cols - 1)) / cols;
-    const maxByH = (HEIGHT - padding * 2 - gap * (rows - 1)) / rows;
-    // Hard cap par nb de lignes pour respecter le ratio strip Apple :
-    // 1 ligne (≤5 stamps) -> 130px max  (avant: 200px → débordait)
-    // 2 lignes (6-12)     -> 120px max
-    // 3+ lignes           -> 100px max
-    const upperCap = rows === 1 ? 130 : rows === 2 ? 120 : 100;
-    const stampSize = Math.max(
-      48,
-      Math.min(upperCap, Math.floor(Math.min(maxByW, maxByH))),
-    );
-
-    const stamps: Array<{ filled: boolean; idx: number }> = [];
-    for (let i = 0; i < stampsTotal; i++) {
-      stamps.push({ filled: i < stampsCollected, idx: i });
-    }
-    const rowsArr: typeof stamps[] = [];
-    for (let r = 0; r < rows; r++) {
-      rowsArr.push(stamps.slice(r * cols, (r + 1) * cols));
-    }
-
-    return new ImageResponse(
-      (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            // Banner photo si le merchant l'a uploadée — sinon TRANSPARENT
-            // pour laisser le card backgroundColor d'Apple/Google s'afficher
-            // derrière (cohérence parfaite de la couleur du strip avec le
-            // reste de la carte sur chaque plateforme).
-            // Clés absentes plutôt que `undefined` : le Satori de next 16
-            // plante (« reading 'trim' ») sur une propriété CSS `undefined`,
-            // ce qui cassait la bannière de toute carte sans photo.
-            ...(bannerUrl
-              ? {
-                  backgroundImage: `url(${bannerUrl})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }
-              : {}),
-            backgroundColor: "transparent",
-            fontFamily: "system-ui, -apple-system, sans-serif",
-            color: "white",
-            padding: `${padding}px`,
-            position: "relative",
-          }}
-        >
-          {/* Voile sur la photo : assez sombre sous la grille pour que les
-              tampons ressortent, très léger sans grille (remise / VIP) pour
-              laisser la photo plein cadre respirer. */}
-          {bannerUrl && (
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                display: "flex",
-                backgroundImage: showStampsGrid
-                  ? "linear-gradient(135deg, rgba(0,0,0,0.26) 0%, rgba(0,0,0,0.42) 100%)"
-                  : "linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.22) 100%)",
-              }}
-            />
-          )}
-
-          {/* Grille de tampons UNIQUEMENT pour stamp/cashback. Pour
-              discount/membership, on rend juste la bannière (Apple/Google
-              superposent leurs propres champs avec l'offre par-dessus). */}
-          {showStampsGrid && (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: `${gap}px`,
-                alignItems: "center",
-                justifyContent: "center",
-                position: "relative",
-                zIndex: 1,
-              }}
-            >
-              {rowsArr.map((row, rIdx) => (
-                <div
-                  key={rIdx}
-                  style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    gap: `${gap}px`,
-                    justifyContent: "center",
-                  }}
-                >
-                  {row.map((s) =>
-                    renderStamp({
-                      filled: s.filled,
-                      size: stampSize,
-                      shape,
-                      accent,
-                      activeUrl: stampActiveUrl,
-                      inactiveUrl: stampInactiveUrl,
-                      iconKey: s.filled ? filledIconKey : emptyIconKey,
-                      key: s.idx,
-                    }),
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ),
-      {
-        width: WIDTH,
-        height: HEIGHT,
-        headers: {
-          // No cache long terme : quand le merchant met à jour son design
-          // (banner, logo, accent), la nouvelle image doit s'afficher au prochain
-          // refetch sans attendre que le CDN expire. Apple/Google fetch quand
-          // l'URL change (count varie après chaque scan), donc s-maxage long
-          // était redondant et masquait les bugs.
-          "Cache-Control": "public, max-age=10, s-maxage=10, must-revalidate",
-          "Content-Type": "image/png",
-        },
+    return new ImageResponse(element, {
+      width: BANNER_WIDTH,
+      height: BANNER_HEIGHT,
+      headers: {
+        // Pas de cache long : après une retouche du design, la nouvelle image
+        // doit s'afficher au prochain fetch. Apple/Google re-fetchent quand
+        // l'URL change (count après chaque scan, v après chaque retouche).
+        "Cache-Control": "public, max-age=10, s-maxage=10, must-revalidate",
+        "Content-Type": "image/png",
       },
-    );
+    });
   } catch (err) {
     console.error("[wallet-banner] error:", err);
     return errorImage("Erreur de rendu");
   }
 }
-
-interface StampProps {
-  filled: boolean;
-  size: number;
-  shape: StampShape;
-  accent: string;
-  activeUrl: string | null;
-  inactiveUrl: string | null;
-  iconKey: string;
-  key: number;
-}
-
-function renderStamp(p: StampProps) {
-  // Si le merchant n'a uploadé QUE le tampon actif, on le réutilise pour
-  // les vides à opacité réduite (sinon mélange image/SVG-fallback moche).
-  const url = p.filled ? p.activeUrl : (p.inactiveUrl ?? p.activeUrl);
-  if (url) {
-    // Image custom uploadée par le merchant — on garde le ratio sans masquage,
-    // mais on respecte la shape via border-radius (compromis pratique).
-    // Tampon vide : on garde la même image mais à opacité 35 % pour signaler
-    // visuellement qu'il n'est pas encore validé.
-    const radiusForImg =
-      p.shape === "circle" ? "50%" : p.shape === "squircle" ? "30%" : "12%";
-    return (
-      <div
-        key={p.key}
-        style={{
-          width: `${p.size}px`,
-          height: `${p.size}px`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: p.filled ? 1 : 0.5,
-          borderRadius: radiusForImg,
-          overflow: "hidden",
-          backgroundColor: "#ffffff",
-          // Bord accent + ombre marquée même à vide pour rester visible sur photo.
-          border: p.filled ? "none" : `2px solid ${p.accent}`,
-          boxShadow: p.filled
-            ? "0 8px 18px rgba(0,0,0,0.32)"
-            : "0 3px 8px rgba(0,0,0,0.20)",
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={url}
-          alt=""
-          width={p.size}
-          height={p.size}
-          style={{ width: `${p.size}px`, height: `${p.size}px`, objectFit: "cover" }}
-        />
-      </div>
-    );
-  }
-
-  // Style Boomerangme avec VRAIE forme SVG (star, shield, hex, etc.) ET icône
-  // intérieure rendue dans le MÊME SVG (path enfant). Pas de SVG nested
-  // (incompatible Satori). La forme + l'icône suivent toujours le choix
-  // merchant (stamp_shape + stamp_active_icon dans design).
-  //
-  // Contraste FORT validé / non validé (cf. brief merchant) :
-  //  - REMPLI  : fond accent_color plein, icône blanche, ombre prononcée
-  //  - VIDE    : fond blanc semi-transparent, bord accent_color 30 %,
-  //              icône grise opacity 25 %
-  //
-  // C'est le contraste qu'utilisent Stocard / Boomerangme : un client doit voir
-  // immédiatement où il en est, sans avoir à compter.
-  const shapePath = getShapePath(p.shape);
-  const iconPath = getIconPath(p.iconKey);
-
-  if (p.filled) {
-    // Couleur de l'icône AUTO-CONTRAST par rapport au fond accent.
-    // Avant: hardcoded "#ffffff" → invisible quand l'accent est clair (or
-    // doré, jaune, beige, blanc...). Maintenant on calcule la luminance
-    // de l'accent : sombre → icône blanche, clair → icône noire.
-    const iconColor = pickContrastSync(p.accent);
-    return (
-      <div
-        key={p.key}
-        style={{
-          width: `${p.size}px`,
-          height: `${p.size}px`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <svg
-          width={p.size}
-          height={p.size}
-          viewBox="0 0 24 24"
-          style={{ display: "flex" }}
-        >
-          {/* Ombre portée DANS le SVG (forme décalée) : un `filter:
-              drop-shadow` CSS sur le conteneur était rendu par Satori comme
-              un carré sombre autour du tampon, très visible sur photo. */}
-          <path d={shapePath} fill="#000000" fillOpacity={0.3} transform="translate(0 0.75)" />
-          <path
-            d={shapePath}
-            fill={p.accent}
-            stroke={p.accent}
-            strokeWidth={0.5}
-            strokeLinejoin="round"
-          />
-          <path d={iconPath} fill={iconColor} />
-        </svg>
-      </div>
-    );
-  }
-
-  // Vide : fond BLANC + bord accent + icône ACCENT pleine au centre.
-  // Cohérent avec <StampSvg /> côté preview client. Le contraste vide ↔
-  // rempli se joue sur l'INVERSION fond/icône (vide = blanc dominant +
-  // icône accent ; rempli = accent dominant + icône blanc/noir).
-  return (
-    <div
-      key={p.key}
-      style={{
-        width: `${p.size}px`,
-        height: `${p.size}px`,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <svg
-        width={p.size}
-        height={p.size}
-        viewBox="0 0 24 24"
-        style={{ display: "flex" }}
-      >
-        <path d={shapePath} fill="#000000" fillOpacity={0.2} transform="translate(0 0.5)" />
-        <path
-          d={shapePath}
-          fill="#ffffff"
-          stroke={p.accent}
-          strokeWidth={2}
-          strokeLinejoin="round"
-        />
-        <path
-          d={iconPath}
-          fill={p.accent}
-          stroke={p.accent}
-          strokeWidth={0.6}
-          strokeLinejoin="round"
-        />
-      </svg>
-    </div>
-  );
-}
-
-

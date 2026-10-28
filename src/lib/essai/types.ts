@@ -141,6 +141,8 @@ export interface BrandProfile {
   firstName: string | null;
   /** Suggestions douces pour l'interface (pas de message d'erreur). */
   suggestions: EssaiSuggestion[];
+  /** Fiche Google liée (avis) : « Nom — adresse », pour l'afficher au commerçant. */
+  reviewLabel?: string | null;
 }
 
 export interface BrandInput {
@@ -244,6 +246,10 @@ export interface AiBrandResult {
   photoBox?: { x: number; y: number; w: number; h: number } | null;
   /** Enseigne connue (ex. McDonald's) : couleurs officielles fiables. */
   knownBrand?: boolean;
+  /** Site web affiché dans la bio / le profil (capture Instagram, Facebook). */
+  website?: string | null;
+  /** Ville visible (bio, enseigne, adresse) — aide à trouver la bonne fiche Google. */
+  city?: string | null;
 }
 
 // ─── Métadonnées stockées dans cards.design.essai ─────────────────────────
@@ -267,6 +273,8 @@ export interface EssaiMeta {
   first_name: string | null;
   /** Incrémenté à chaque retouche : sert à casser le cache des images (bannière). */
   design_version: number;
+  /** Fiche Google liée aux avis : « Nom — adresse » (affichage). */
+  review_label?: string | null;
   created_at: string;
   actions: { stamp: number; promo: number; review: number };
   claimed: { business_id: string; card_id: string; at: string } | null;
@@ -331,6 +339,8 @@ export interface EssaiCardView extends EssaiSummaryResponse {
   suggestions: EssaiSuggestion[];
   expired: boolean;
   expiresAt: string;
+  /** Fiche Google utilisée pour la demande d'avis (url null = aucune trouvée). */
+  review?: { url: string | null; label: string | null };
 }
 
 /** PATCH /api/essai/[token] (JSON) → EssaiCardView. Tous les champs facultatifs. */
@@ -341,6 +351,8 @@ export interface EssaiUpdateRequest {
   firstName?: string | null;
   name?: string;
   colors?: Partial<BrandColors>;
+  /** Lien Google Maps de la fiche du commerce → vrai lien d'avis (writereview). */
+  googleMapsUrl?: string | null;
 }
 
 export type EssaiActionType = "stamp" | "promo" | "review";

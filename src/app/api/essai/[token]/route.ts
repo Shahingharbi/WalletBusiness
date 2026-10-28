@@ -26,6 +26,9 @@ import {
  * PATCH /api/essai/[token] (JSON `EssaiUpdateRequest`) → `EssaiCardView`.
  *   Retouches en direct : type, offre, prénom, nom, couleurs. Les wallets
  *   déjà installés sont mis à jour après la réponse (sans notification).
+ *   `googleMapsUrl` : lien Google Maps de la fiche du commerce → vrai lien
+ *   d'avis (`view.review`) ; 422 avec un message doux si ce n'est pas une
+ *   fiche. `null` retire la fiche liée.
  *   Réservé au créateur : cookie httpOnly `essai_k_<token>` exigé (403 sinon).
  */
 
@@ -77,6 +80,21 @@ export async function PATCH(
     body = await request.json();
   } catch {
     return essaiJsonError("Requête invalide. Rechargez la page et réessayez.", 400);
+  }
+
+  // Lien Google Maps : résolution réseau (liens courts, Places API payante)
+  // → plafond dédié, bien plus bas que les retouches ordinaires.
+  if (
+    body &&
+    typeof body === "object" &&
+    typeof (body as { googleMapsUrl?: unknown }).googleMapsUrl === "string"
+  ) {
+    const mapsLimited = await rateLimit(request, {
+      key: "essai:update-maps",
+      limit: 12,
+      windowMs: 10 * 60_000,
+    });
+    if (mapsLimited) return mapsLimited;
   }
 
   try {

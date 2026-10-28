@@ -97,7 +97,9 @@ export function getIconPath(key: StampIconKey | string | null | undefined): stri
     case "gift":
       return "M2 8 H22 V12 H2 Z M4 13 H20 V21 H4 Z M11 8 V21 H13 V8 Z M11 7 H13 C13 4 15 3 16.5 3 A2.5 2.5 0 1 1 16.5 8 H13 V7 Z M11 7 H7.5 A2.5 2.5 0 1 1 7.5 3 C9 3 11 4 11 7 Z";
     case "baguette":
-      return "M18 3 C20 3 21 4 21 6 C21 6.8 20.7 7.5 20 8.2 L8 20.2 C7.4 20.8 6.6 21 6 21 C4 21 3 20 3 18 C3 17.2 3.3 16.5 4 15.8 L16 3.8 C16.6 3.2 17.4 3 18 3 Z M7 17 L9 19 M10 14 L12 16 M13 11 L15 13 M16 8 L18 10";
+      // Pain inclinée à −28° (pas en diagonale pleine : lu comme un « sens
+      // interdit ») + 3 entailles en creux (sens inverse → trous en nonzero).
+      return "M3.74 13.15 L17.16 6.02 A3.3 3.3 0 0 1 20.26 11.85 L6.84 18.98 A3.3 3.3 0 0 1 3.74 13.15 Z M8.51 12.35 A0.85 2.25 10 1 0 7.72 16.78 A0.85 2.25 10 1 0 8.51 12.35 Z M12.39 10.28 A0.85 2.25 10 1 0 11.61 14.72 A0.85 2.25 10 1 0 12.39 10.28 Z M16.28 8.22 A0.85 2.25 10 1 0 15.49 12.65 A0.85 2.25 10 1 0 16.28 8.22 Z";
     case "kebab":
       // Brochette horizontale + cubes.
       return "M3 11 H21 V14 H3 Z M5 7.5 a2.5 2.5 0 1 1 0.01 0 Z M11 6.5 a3 3 0 1 1 0.01 0 Z M17.5 7.5 a2.5 2.5 0 1 1 0.01 0 Z M6 17 a2 2 0 1 1 0.01 0 Z M11.5 18 a2 2 0 1 1 0.01 0 Z M17.5 17 a2 2 0 1 1 0.01 0 Z";

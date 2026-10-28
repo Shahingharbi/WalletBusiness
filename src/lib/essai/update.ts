@@ -10,14 +10,18 @@ import {
   syncLoyaltyObject,
   type PassParams,
 } from "@/lib/google-wallet";
+import { isValidReviewUrl } from "@/lib/google-review";
 import { offerFor } from "@/lib/essai/brand/category";
 import { initialsOf, logoFromUpload, typographicLogo } from "@/lib/essai/brand/logo";
+import { extractMapsSignals, isGoogleMapsUrl } from "@/lib/essai/brand/maps";
 import { photoFromUpload } from "@/lib/essai/brand/photo";
+import { SafeFetchError } from "@/lib/essai/brand/safe-fetch";
 import {
   ESSAI_ASSETS_BUCKET,
   ESSAI_FIRST_NAME_MAX,
   ESSAI_INITIAL_STAMPS,
   ESSAI_NAME_MAX,
+  ESSAI_REVIEW_LABEL_MAX,
   ESSAI_REWARD_MAX,
   cleanText,
   ensureJpeg,
@@ -43,14 +47,19 @@ import {
   type EssaiMeta,
   type EssaiSuggestion,
   type EssaiUpdateRequest,
+  type MapsSignals,
   type UploadedImage,
 } from "@/lib/essai/types";
 
 /**
  * Retouches en direct de la carte d'essai (page /essai/<token>) :
  *
- *  - PATCH  (updateEssaiCard)  : type, offre, prénom, nom, couleurs ;
+ *  - PATCH  (updateEssaiCard)  : type, offre, prénom, nom, couleurs, et
+ *    fiche Google des avis (lien Google Maps collé par le commerçant) ;
  *  - média  (updateEssaiMedia) : nouveau logo ou nouvelle photo de bande.
+ *
+ * La fiche Google ne change pas l'apparence du pass : la lier ne touche ni
+ * `design_version`, ni la carte client, ni les wallets installés.
  *
  * Chaque retouche :
  *   0. est réservée au créateur de la carte : la clé d'édition (cookie
@@ -231,7 +240,155 @@ export function parseEssaiUpdateRequest(raw: unknown): EssaiUpdateRequest {
     if (Object.keys(colors).length > 0) req.colors = colors;
   }
 
+  if (o.googleMapsUrl !== undefined) {
+    if (o.googleMapsUrl === null) {
+      req.googleMapsUrl = null;
+    } else {
+      const url = typeof o.googleMapsUrl === "string" ? pastedUrl(o.googleMapsUrl) : "";
+      if (!url || url.length > GOOGLE_MAPS_URL_MAX || !isGoogleMapsUrl(url)) {
+        throw new EssaiError(MAPS_NOT_A_LINK_ERROR, 422);
+      }
+      req.googleMapsUrl = url;
+    }
+  }
+
   return req;
+}
+
+// ─── Fiche Google des avis (lien Google Maps) ────────────────────────────
+
+const GOOGLE_MAPS_URL_MAX = 2048;
+/** Résolution du lien (liens courts + Places API) : borne globale. */
+const MAPS_RESOLVE_TIMEOUT_MS = 15_000;
+
+export const MAPS_NOT_A_LINK_ERROR =
+  "Collez le lien Google Maps de votre fiche : dans Google Maps, ouvrez votre commerce, touchez « Partager » puis « Copier le lien ».";
+const MAPS_NOT_A_PLACE_ERROR =
+  "Ce lien ne mène pas à la fiche d'un commerce. Dans Google Maps, ouvrez votre commerce, touchez « Partager » puis « Copier le lien ».";
+const MAPS_UNREACHABLE_ERROR =
+  "Google Maps ne répond pas pour le moment. Réessayez dans un instant.";
+
+/**
+ * Le partage Google Maps copie souvent « Nom du commerce\nhttps://maps.app.goo.gl/… » :
+ * on garde la première URL du texte collé (sinon le texte tel quel, ex. un
+ * lien sans « https:// »).
+ */
+function pastedUrl(text: string): string {
+  const trimmed = text.trim();
+  const found = /https?:\/\/[^\s<>"']+/i.exec(trimmed);
+  return (found ? found[0] : trimmed).replace(/[),.;»]+$/, "");
+}
+
+/** Fiche Google liée aux avis, prête à être écrite dans la meta. */
+export interface ResolvedReviewLink {
+  /** `null` = retirer la fiche liée (la démo retombe sur une recherche Google). */
+  url: string | null;
+  label: string | null;
+  /** `null` = inchangé. */
+  address: string | null;
+  location: { lat: number; lng: number } | null;
+}
+
+/** « Nom — adresse » (ou l'un des deux) ; `null` si la fiche n'en dit rien. */
+export function reviewLabelOf(signals: Pick<MapsSignals, "name" | "address">): string | null {
+  const parts = [signals.name, signals.address]
+    .map((s) => cleanText(s, ESSAI_REVIEW_LABEL_MAX))
+    .filter((s, i, all) => s && all.indexOf(s) === i);
+  return cleanText(parts.join(" — "), ESSAI_REVIEW_LABEL_MAX) || null;
+}
+
+/**
+ * Lien d'avis à enregistrer : le premier lien exploitable (https, assez court
+ * pour la notification et les réglages d'avis : `isValidReviewUrl`) parmi
+ * writereview / fiche (CID, place_id) / fiche nommée près de l'épingle /
+ * recherche Maps. `null` si le lien Google Maps ne désigne pas un commerce.
+ */
+export function pickReviewUrl(signals: MapsSignals): string | null {
+  // maps.ts ne renvoie pas de lien d'avis pour une liste enregistrée, une
+  // simple vue de carte ou une adresse : ce n'est pas une fiche.
+  if (!signals.reviewUrl) return null;
+  const candidates: (string | null)[] = [signals.reviewUrl, signals.mapsUrl];
+  const name = signals.name?.trim();
+  if (name) {
+    const loc = signals.location;
+    if (loc) {
+      candidates.push(
+        `https://www.google.com/maps/place/${encodeURIComponent(name)}/@${loc.lat.toFixed(6)},${loc.lng.toFixed(6)},17z`
+      );
+    }
+    for (const q of [[name, signals.address].filter(Boolean).join(", "), name]) {
+      candidates.push(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`);
+    }
+  }
+  return candidates.find((c): c is string => Boolean(c) && isValidReviewUrl(c as string)) ?? null;
+}
+
+/**
+ * Lien Google Maps collé par le commerçant → fiche liée aux avis.
+ * EssaiError 422 (message doux) si le lien est inutilisable ou ne désigne
+ * pas un commerce.
+ */
+export async function resolveReviewLink(mapsUrl: string): Promise<ResolvedReviewLink> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let signals: MapsSignals;
+  try {
+    signals = await Promise.race([
+      extractMapsSignals(mapsUrl),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new SafeFetchError("timeout", MAPS_UNREACHABLE_ERROR)),
+          MAPS_RESOLVE_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } catch (err) {
+    if (err instanceof SafeFetchError) {
+      console.warn(`[essai/update] lien Google Maps inutilisable (${err.code})`);
+      // Lien invalide / lien court mort : messages déjà rédigés pour le commerçant.
+      const friendly =
+        err.code === "invalid_url" || err.code === "http_error" || err.code === "too_many_redirects";
+      throw new EssaiError(friendly ? err.message : MAPS_UNREACHABLE_ERROR, 422);
+    }
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+
+  const url = pickReviewUrl(signals);
+  if (!url) throw new EssaiError(MAPS_NOT_A_PLACE_ERROR, 422);
+  return {
+    url,
+    label: reviewLabelOf(signals),
+    address: cleanText(signals.address, 200) || null,
+    location: signals.location,
+  };
+}
+
+/** Champs de la meta touchés par la fiche liée (vide si rien à lier). */
+function reviewMetaPatch(
+  meta: EssaiMeta,
+  review: ResolvedReviewLink | undefined
+): Pick<EssaiMeta, "review_url" | "review_label" | "address" | "location"> | null {
+  if (!review) return null;
+  return {
+    review_url: review.url,
+    review_label: review.url ? review.label : null,
+    address: review.address ?? meta.address,
+    location: review.location ?? meta.location,
+  };
+}
+
+function sameReviewMeta(
+  meta: EssaiMeta,
+  patch: NonNullable<ReturnType<typeof reviewMetaPatch>>
+): boolean {
+  return (
+    patch.review_url === meta.review_url &&
+    patch.review_label === (meta.review_label ?? null) &&
+    patch.address === meta.address &&
+    patch.location?.lat === meta.location?.lat &&
+    patch.location?.lng === meta.location?.lng
+  );
 }
 
 // ─── Écriture concurrente sûre ───────────────────────────────────────────
@@ -579,6 +736,11 @@ interface UpdatePlan {
   stampCount: number;
   firstName: string | null;
   firstNameChanged: boolean;
+  /**
+   * L'apparence du pass change (tout sauf la fiche Google) : nouvelle
+   * version de bande, carte client touchée, wallets resynchronisés.
+   */
+  visualChanged: boolean;
   /** Patch de la carte (hors logo typographique régénéré). */
   patch: CardPatch;
   /** Logo typographique à régénérer (initiales / couleurs changées). */
@@ -592,7 +754,8 @@ interface UpdatePlan {
 function planUpdate(
   req: EssaiUpdateRequest,
   cur: CardSnapshot,
-  currentFirstName: string | null
+  currentFirstName: string | null,
+  review?: ResolvedReviewLink
 ): UpdatePlan | null {
   const design = cur.design;
   const meta = cur.meta;
@@ -634,7 +797,7 @@ function planUpdate(
     req.colors?.text ?? normalizeHexColor(design.text_color)
   );
 
-  const changed =
+  const visualChanged =
     typeChanged ||
     name !== cur.name ||
     rewardText !== cur.reward_text ||
@@ -644,7 +807,9 @@ function planUpdate(
     background !== design.background_color ||
     accent !== design.accent_color ||
     text !== design.text_color;
-  if (!changed) return null;
+  const reviewPatch = reviewMetaPatch(meta, review);
+  const reviewChanged = reviewPatch !== null && !sameReviewMeta(meta, reviewPatch);
+  if (!visualChanged && !reviewChanged) return null;
 
   // Logo typographique = initiales du nom sur un badge aux couleurs de la
   // carte : à refaire si les initiales, le fond ou l'accent changent.
@@ -659,10 +824,12 @@ function planUpdate(
 
   const nextMeta: EssaiMeta = {
     ...meta,
+    ...(reviewChanged ? reviewPatch : {}),
     card_type: type,
     promo_message: promo,
     first_name: firstName,
-    design_version: meta.design_version + 1,
+    // La fiche Google seule ne change pas la bande : même version (cache).
+    design_version: visualChanged ? meta.design_version + 1 : meta.design_version,
   };
   return {
     type,
@@ -670,6 +837,7 @@ function planUpdate(
     stampCount,
     firstName,
     firstNameChanged,
+    visualChanged,
     logo,
     patch: {
       name,
@@ -710,9 +878,18 @@ export async function updateEssaiCard(
   options?: EssaiUpdateOptions
 ): Promise<EssaiCardView> {
   const req = parseEssaiUpdateRequest(rawRequest);
+  // Clé d'édition vérifiée AVANT toute requête sortante (Google Maps).
   const loaded = await loadEditable(token, options?.editKey);
   const admin = createAdminClient();
   const cardId = loaded.card.id;
+
+  // Fiche Google : résolue une fois (réseau), avant le compare-and-swap.
+  const review: ResolvedReviewLink | undefined =
+    req.googleMapsUrl === undefined
+      ? undefined
+      : req.googleMapsUrl === null
+        ? { url: null, label: null, address: null, location: null }
+        : await resolveReviewLink(req.googleMapsUrl);
 
   // Logo typographique préparé AVANT l'écriture (rendu + upload asynchrones,
   // le compare-and-swap reste synchrone), d'après l'état qu'on vient de lire.
@@ -728,7 +905,7 @@ export async function updateEssaiCard(
       return null;
     }
   };
-  const initialPlan = planUpdate(req, snapshotOf(loaded), loaded.firstName);
+  const initialPlan = planUpdate(req, snapshotOf(loaded), loaded.firstName, review);
   let logo: UploadedTypographicLogo | null = initialPlan?.logo
     ? await prepareLogo(initialPlan.logo)
     : null;
@@ -756,7 +933,7 @@ export async function updateEssaiCard(
         st.applied = null;
         st.missingLogo = null;
         st.logoUsed = false;
-        const plan = planUpdate(req, cur, loaded.firstName);
+        const plan = planUpdate(req, cur, loaded.firstName, review);
         if (!plan) return null;
         let patch = plan.patch;
         if (plan.logo && !logoUnavailable) {
@@ -801,6 +978,8 @@ export async function updateEssaiCard(
   // Rien n'a changé : on renvoie la carte telle quelle.
   const applied = outcome.applied;
   if (!applied) return buildEssaiCardView(loaded);
+  // Seule la fiche Google a changé : rien à pousser aux wallets.
+  if (!applied.visualChanged) return reloadView(token);
 
   if (applied.firstNameChanged) {
     const { error } = await admin

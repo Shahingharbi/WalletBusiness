@@ -126,6 +126,7 @@ export function useEssaiView(initial: EssaiCardView, notify: Notifier) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [rewriting, setRewriting] = useState(false);
   const [mediaBusy, setMediaBusy] = useState<MediaKind | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const confirmedRef = useRef(initial);
   const pendingRef = useRef<EssaiUpdateRequest>({});
@@ -248,6 +249,45 @@ export function useEssaiView(initial: EssaiCardView, notify: Notifier) {
     });
   }
 
+  /**
+   * Lie la fiche Google du commerce (lien Google Maps collé) : les demandes
+   * d'avis mèneront à SA fiche. Pas d'aperçu optimiste (le serveur résout le
+   * lien). Renvoie `null` si c'est fait, sinon un message doux à afficher
+   * sous le champ.
+   */
+  async function linkGoogleMaps(url: string): Promise<string | null> {
+    setReviewBusy(true);
+    try {
+      // Les retouches en attente partent d'abord (même file, même ordre).
+      await flush();
+      return await enqueue(async () => {
+        try {
+          const res = await fetch(base, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ googleMapsUrl: url } satisfies EssaiUpdateRequest),
+          });
+          const data: unknown = await res.json().catch(() => null);
+          if (!res.ok || !isCardView(data)) {
+            if (isStateConflict(res.status)) void refresh();
+            return softError(
+              res.status,
+              data,
+              "Ce lien n'a pas pu être utilisé. Copiez-le à nouveau depuis Google Maps (bouton « Partager »).",
+              "Beaucoup d'essais d'un coup : patientez quelques minutes."
+            );
+          }
+          applyServer(data);
+          return null;
+        } catch {
+          return "Connexion impossible : votre fiche n'a pas été liée. Réessayez.";
+        }
+      });
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
   /** Remplace le logo ou la photo (image compressée dans le navigateur). */
   async function uploadMedia(kind: MediaKind, file: File): Promise<boolean> {
     setMediaBusy(kind);
@@ -295,5 +335,17 @@ export function useEssaiView(initial: EssaiCardView, notify: Notifier) {
     }
   }
 
-  return { view, saveState, rewriting, mediaBusy, update, flush, rewriteOffer, refresh, uploadMedia };
+  return {
+    view,
+    saveState,
+    rewriting,
+    mediaBusy,
+    reviewBusy,
+    update,
+    flush,
+    rewriteOffer,
+    refresh,
+    uploadMedia,
+    linkGoogleMaps,
+  };
 }
